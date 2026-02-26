@@ -1,0 +1,460 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Packaging Format — Town OS">
+  <section class="section">
+    <div class="container">
+      <h1>Packaging Format</h1>
+      <p class="page-lead">
+        Town OS packages are YAML definitions that describe how to run a containerized service,
+        including its image, networking, storage, and user-facing configuration prompts.
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#repository-structure">Repository Structure</a></li>
+          <li><a href="#package-definition">Package Definition</a></li>
+          <li><a href="#top-level-fields">Top-Level Fields</a></li>
+          <li><a href="#supplies-tags">Supplies Tags</a></li>
+          <li><a href="#network-configuration">Network Configuration</a></li>
+          <li><a href="#volumes">Volumes</a></li>
+          <li><a href="#archives">Archives</a></li>
+          <li><a href="#questions">Questions</a></li>
+          <li><a href="#notes">Notes</a></li>
+          <li><a href="#template-system">Template System</a></li>
+          <li><a href="#featured-packages">Featured Packages</a></li>
+          <li><a href="#importing-repositories">Importing Repositories</a></li>
+          <li><a href="#style-guidelines">Style Guidelines</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="repository-structure">Repository Structure</h2>
+      <p class="doc-text">
+        A package repository is any git repository containing a <code>packages/</code> directory.
+        Anyone can create one — host your own packages for family, friends, or custom deployments.
+        The structure is simple:
+      </p>
+      <pre><code>packages/
+  &lt;package-name&gt;/
+    &lt;version&gt;.yaml
+
+# Example:
+packages/
+  nginx/
+    1.0.yaml
+    2.0.yaml
+  postgres/
+    1.0.yaml</code></pre>
+      <p class="doc-text">
+        Each package directory under <code>packages/</code> contains one or more versioned YAML files.
+        The storage system supports upgrading between versions and temporary uninstallation with
+        later restoration. Town OS ships with a
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default repository</a>
+        of 140+ packages, but you can add as many additional repositories as you need.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="package-definition">Package Definition</h2>
+      <p class="doc-text">A complete package definition with all available fields:</p>
+      <pre><code>image: nginx:1.26-alpine
+description: Lightweight high-performance web server and reverse proxy
+supplies: ["http"]
+command: ["optional", "command", "override"]
+environment:
+  NGINX_HOST: "@hostname@"
+network:
+  external:
+    "@port@": "80"
+  internal:
+    "5432": "5432"
+volumes:
+  html:
+    mountpoint: /usr/share/nginx/html
+    quota: 2gb
+    uid: 1000
+    gid: 1000
+  data:
+    mountpoint: /data
+    archive: seed-data.tar.gz
+questions:
+  hostname:
+    query: "What hostname should nginx serve?"
+    type: hostname
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"
+archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html
+notes:
+  URL:
+    value: "http://@hostname@:@port@"
+    type: url
+  Support:
+    value: "+1 (555) 123-4567"
+    type: phone</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="top-level-fields">Top-Level Fields</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Required.</strong> Container image reference (e.g. <code>nginx:1.26-alpine</code>). Short names are normalized to <code>docker.io/library/&lt;name&gt;:latest</code>.</td></tr>
+            <tr><td><code>description</code></td><td>Short human-readable summary of the package.</td></tr>
+            <tr><td><code>supplies</code></td><td>List of semantic capability tags this package provides (e.g. <code>["database"]</code>, <code>["http"]</code>).</td></tr>
+            <tr><td><code>command</code></td><td>Optional command override for the container.</td></tr>
+            <tr><td><code>environment</code></td><td>Environment variables passed to the container. Values may contain <code>@variable@</code> template markers.</td></tr>
+            <tr><td><code>network</code></td><td>Port mapping configuration (external and internal).</td></tr>
+            <tr><td><code>volumes</code></td><td>Named volumes with mount configuration.</td></tr>
+            <tr><td><code>questions</code></td><td>Interactive prompts shown during installation.</td></tr>
+            <tr><td><code>archives</code></td><td>Archive extraction specs to pre-populate volumes from container images.</td></tr>
+            <tr><td><code>notes</code></td><td>Key-value metadata displayed after installation. Supports template substitution.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="supplies-tags">Supplies Tags</h2>
+      <p class="doc-text">
+        The <code>supplies</code> field declares what capabilities a package provides,
+        enabling dependency resolution and filtering.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Tag</th><th>Used For</th><th>Examples</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>http</code></td><td>Web servers, CMS platforms, web applications</td><td>nginx, wordpress, gitea</td></tr>
+            <tr><td><code>database</code></td><td>Relational and NoSQL databases</td><td>postgres, mysql, mongo</td></tr>
+            <tr><td><code>cache</code></td><td>Caching and key-value stores</td><td>redis, memcached, valkey</td></tr>
+            <tr><td><code>search</code></td><td>Search and analytics engines</td><td>elasticsearch, opensearch, solr</td></tr>
+            <tr><td><code>messaging</code></td><td>Message brokers and queues</td><td>rabbitmq, nats, kafka</td></tr>
+            <tr><td><code>monitoring</code></td><td>Metrics, alerting, and visualization</td><td>prometheus, grafana, telegraf</td></tr>
+            <tr><td><code>storage</code></td><td>Object storage and file hosting</td><td>minio, registry, nextcloud</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="network-configuration">Network Configuration</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>network.external</code></td><td>Port mappings exposed to the host. Keys and values are <code>"port"</code> strings. Both may contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>network.internal</code></td><td>Port mappings available only between containers on the internal network.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">Omit <code>external</code> or <code>internal</code> entirely if unused — do not use empty maps.</p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="volumes">Volumes</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mountpoint</code></td><td><strong>Required.</strong> Absolute path inside the container where the volume is mounted.</td></tr>
+            <tr><td><code>quota</code></td><td>Optional size limit (e.g. <code>512mb</code>, <code>2gb</code>). Supports <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>archive</code></td><td>Optional archive filename to pre-populate the volume with.</td></tr>
+            <tr><td><code>uid</code></td><td>Optional numeric user ID for volume ownership.</td></tr>
+            <tr><td><code>gid</code></td><td>Optional numeric group ID for volume ownership.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">Omit <code>volumes</code> entirely if the package has none.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="archives">Archives</h2>
+      <p class="doc-text">
+        The <code>archives</code> field extracts files from container images into volumes at install time:
+      </p>
+      <pre><code>archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Required.</strong> Container image to extract files from.</td></tr>
+            <tr><td><code>directory</code></td><td><strong>Required.</strong> Absolute path in the container image to extract.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Required.</strong> Name of a volume defined in this package to extract into.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        If the target volume is empty during install or reconcile, Podman pulls the image,
+        creates a temporary container, and copies the specified directory into the volume.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="questions">Questions</h2>
+      <p class="doc-text">
+        Questions define interactive prompts shown during package installation. User responses
+        replace <code>@name@</code> template markers throughout the definition.
+      </p>
+      <pre><code>questions:
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>query</code></td><td><strong>Required.</strong> The prompt text shown to the user.</td></tr>
+            <tr><td><code>type</code></td><td>Optional validation type. Omit for free-form text.</td></tr>
+            <tr><td><code>default</code></td><td>Optional default value suggested to the user.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Question Types</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Type</th><th>Validates</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hostname</code></td><td>Lowercase alphanumeric with hyphens (no dots)</td></tr>
+            <tr><td><code>port</code></td><td>Integer 1–65535</td></tr>
+            <tr><td><code>bytes</code></td><td>Human-readable size (e.g. <code>512mb</code>, <code>2gb</code>, <code>1tb</code>)</td></tr>
+            <tr><td><code>volume</code></td><td>Alphanumeric with hyphens and underscores</td></tr>
+            <tr><td><code>archive</code></td><td>Any non-empty string</td></tr>
+            <tr><td><code>duration</code></td><td>Human-readable duration (e.g. <code>30s</code>, <code>5m</code>, <code>2h</code>, <code>1d</code>)</td></tr>
+            <tr><td><em>(omitted)</em></td><td>Any string — no validation</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="notes">Notes</h2>
+      <p class="doc-text">
+        Notes provide key-value metadata displayed after installation.
+      </p>
+      <pre><code>notes:
+  URL:
+    value: "http://localhost:@port@"
+    type: url
+  Info:
+    value: "Default admin credentials are admin/admin"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>value</code></td><td><strong>Required.</strong> The note text. Supports <code>@variable@</code> template substitution.</td></tr>
+            <tr><td><code>type</code></td><td>Optional validation type: <code>url</code>, <code>phone</code>, or <code>email</code>. Omit for plain text.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="template-system">Template System</h2>
+      <p class="doc-text">
+        Template variables use the <code>@variable@</code> syntax and are substituted during
+        package compilation. They can appear in environment variable values, network port mappings,
+        volume mountpoints, quotas, archive fields, and note values.
+      </p>
+      <h3>Built-in Variables</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>The external hostname of the Town OS host</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>The internal hostname of the Town OS host</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="featured-packages">Featured Packages</h2>
+      <p class="doc-text">
+        A package repository can include a <code>featured.json</code> file at its root
+        (alongside the <code>packages/</code> directory) to highlight selected packages in the UI.
+      </p>
+      <p class="doc-text">
+        The file contains a JSON array of package name strings — no version or repository prefix:
+      </p>
+      <pre><code>["wordpress", "nextcloud", "postgres"]</code></pre>
+      <p class="doc-text">
+        Packages listed in <code>featured.json</code> appear with <code>featured: true</code> in
+        the API's package list response, allowing the UI to highlight them. The file is optional
+        — if absent, no packages are featured.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="importing-repositories">Importing Repositories</h2>
+      <p class="doc-text">
+        Once you've created a package repository, add it to your Town OS instance using either the
+        web UI or direct filesystem configuration.
+      </p>
+
+      <h3>Via the UI</h3>
+      <p class="doc-text">
+        Log in to the Town OS dashboard, navigate to <strong>Packages</strong>, select the
+        <strong>Repositories</strong> tab, and click <strong>Add Repository</strong>. Provide a
+        name, the git URL, and optional credentials. Click <strong>Refresh</strong> to pull
+        package metadata immediately.
+      </p>
+
+      <h3>Via the Filesystem</h3>
+      <p class="doc-text">
+        Edit <code>repositories.json</code> in the btrfs package data directory. The file is a
+        JSON array of <code>[name, url]</code> pairs:
+      </p>
+      <pre><code>[
+  ["default", "https://github.com/town-os/default-packages"],
+  ["my-packages", "https://github.com/myuser/my-packages"]
+]</code></pre>
+      <p class="doc-text">
+        Order matters — later entries override earlier ones when package names collide.
+        For private repositories, embed credentials in the URL or set the
+        <code>TOWN_OS_REPO_USERNAME</code> and <code>TOWN_OS_REPO_PASSWORD</code> environment
+        variables. Restart the service or hit <strong>Refresh</strong> in the UI for changes to
+        take effect.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="style-guidelines">Style Guidelines</h2>
+      <ul class="guidelines-list">
+        <li>Omit empty maps (<code>environment: {}</code>, <code>internal: {}</code>, <code>volumes: {}</code>) — leave them out entirely.</li>
+        <li>Omit <code>type</code> on questions that accept free-form text — do not write <code>type:</code> with no value.</li>
+        <li>Include <code>description</code> with a short summary of what the package is.</li>
+        <li>Include <code>supplies</code> with relevant capability tags when the package provides a well-known service.</li>
+        <li>Include <code>notes</code> with connection URLs and any important post-install information.</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .guidelines-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .guidelines-list li {
+    margin-bottom: 0.6rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-list code {
+    font-size: 0.85em;
+  }
+</style>

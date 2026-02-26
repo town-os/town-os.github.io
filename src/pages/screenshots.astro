@@ -1,0 +1,118 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+
+const screenshots = [
+  { file: '01.png', title: 'Welcome & Registration', desc: 'The first time you visit Town OS, you can create an account and get started right away.' },
+  { file: '02.png', title: 'Dashboard', desc: 'System overview with at-a-glance cards for filesystems, accounts, services, packages, repositories, and audit status.' },
+  { file: '03.png', title: 'Package Browser', desc: 'Browse and search the package repository to find services to install.' },
+  { file: '04.png', title: 'Package Installation', desc: 'Interactive question-and-answer prompts guide you through configuring each package before installation.' },
+  { file: '05.png', title: 'Storage Management', desc: 'Manage btrfs subvolumes, quotas, and installed package volumes.' },
+  { file: '06.png', title: 'System Logs', desc: 'Live journal output with filtering, following, and collapsible entries for running services.' },
+  { file: '07.png', title: 'Audit Log', desc: 'Track every API action — installs, logins, account changes — with timestamps and user attribution.' },
+  { file: '08.png', title: 'Package Information', desc: 'View installed package configuration, responses to setup questions, and connection URLs.' },
+  { file: '09.png', title: 'Package Uninstall', desc: 'Uninstall packages with the option to purge associated data volumes.' },
+  { file: '10.png', title: 'Existing Data Recovery', desc: 'Reinstall a package from scratch or reuse previous data volumes — no work lost.' },
+  { file: '11.png', title: 'Audit Log Detail', desc: 'Inspect individual audit entries with full error details and request context.' },
+];
+---
+
+<BaseLayout title="Screenshots — Town OS">
+  <section class="section">
+    <div class="container">
+      <h1>Screenshots</h1>
+      <p class="page-lead">
+        See Town OS in action. These screenshots show the current development build —
+        a fully working dashboard for managing packages, services, storage, and users.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="gallery">
+        {screenshots.map((shot) => (
+          <div class="gallery-item">
+            <a href={`${base}images/screenshots/${shot.file}`} target="_blank" rel="noopener" class="gallery-link">
+              <img
+                src={`${base}images/screenshots/${shot.file}`}
+                alt={shot.title}
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="gallery-caption">
+              <h3>{shot.title}</h3>
+              <p>{shot.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+
+  .gallery-item {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .gallery-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .gallery-link {
+    display: block;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .gallery-link img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .gallery-item:hover .gallery-link img {
+    transform: scale(1.02);
+  }
+
+  .gallery-caption {
+    padding: 1rem 1.25rem;
+  }
+
+  .gallery-caption h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .gallery-caption p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

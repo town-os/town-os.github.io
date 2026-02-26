@@ -1,0 +1,463 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="Town OS — Your Cloud in Your Closet">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <img src={`${base}images/banner.png`} alt="" aria-hidden="true" />
+    </div>
+    <div class="container hero-content">
+      <img src={`${base}images/logos/logo-256.png`} alt="Town OS logo" width="120" height="120" class="hero-logo" />
+      <h1>Your Cloud in Your Closet</h1>
+      <p class="hero-subtitle">
+        Town OS is a self-hosted platform that runs entirely from a USB drive.
+        No installation. No cloud subscriptions. Just plug in and own your digital life.
+      </p>
+      <div class="hero-actions">
+        <a href="https://gitea.com/town-os/town-os" class="btn btn-primary" target="_blank" rel="noopener">
+          View on Gitea
+        </a>
+        <a href={`${base}screenshots/`} class="btn btn-outline">
+          See It in Action
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- What is Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">What is Town OS?</h2>
+      <div class="intro-grid">
+        <div class="intro-text">
+          <p>
+            Town OS is a self-service platform that anyone can run at home, built for
+            premier ease of use and reliability. It lives on a USB drive, runs entirely
+            in memory, and dedicates all of your computer's storage to <strong>your stuff</strong>.
+          </p>
+          <p>
+            Upgrade by swapping a USB drive. Reset to a clean state by rebooting.
+            No complicated installation procedures, no dependency on third-party cloud
+            providers, and no monthly fees. Town OS puts you back in control.
+          </p>
+          <p>
+            Under the hood, Town OS manages its own storage with btrfs, runs services in
+            containers pulled from the internet, and orchestrates networking automatically
+            — including UPnP port forwarding, tunnel establishment, and per-package network
+            control. It's a complete home server operating system built for real people.
+          </p>
+        </div>
+        <div class="intro-highlights">
+          <div class="highlight-card">
+            <h3>Zero Installation</h3>
+            <p>Boot from a USB drive. Town OS runs in RAM and uses your disks for data, not the OS.</p>
+          </div>
+          <div class="highlight-card">
+            <h3>Instant Recovery</h3>
+            <p>Made a mistake? Reboot to return to a known-good state. Upgrade by replacing the USB drive.</p>
+          </div>
+          <div class="highlight-card">
+            <h3>Full Container Platform</h3>
+            <p>Built for home and small office environments. Install services from package repositories with a clean UI — networking and storage are managed automatically.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Getting Started -->
+  <section class="section getting-started-section">
+    <div class="container">
+      <h2 class="section-title">Getting Started</h2>
+      <p class="getting-started-lead">
+        Town OS is under active development — the bootable USB drive and many other planned
+        features are still on the way. In the meantime, you can try a fully functional
+        development demo:
+      </p>
+      <div class="code-block">
+        <pre><code>git clone https://gitea.com/town-os/town-os.git
+make dev</code></pre>
+      </div>
+      <p class="getting-started-note">
+        Requires Linux with Podman, Go 1.25+, Bun, and btrfs-progs. See the
+        <a href="https://gitea.com/town-os/town-os#prerequisites" target="_blank" rel="noopener">getting started instructions</a> for full prerequisites.
+      </p>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section features-section">
+    <div class="container">
+      <h2 class="section-title">Built for Everyone</h2>
+      <div class="features-grid">
+        <div class="card feature-card">
+          <h3>Smart Storage</h3>
+          <p>
+            btrfs-backed storage with per-package partitioning, quotas, and
+            atomic snapshots. Supports DR strategies prioritized by cost and
+            availability. Your data is organized and protected.
+          </p>
+        </div>
+        <div class="card feature-card">
+          <h3>Integrated Networking</h3>
+          <p>
+            Manage your entire local network with built-in DNS and DHCP —
+            block advertisements and malware for every device in your home.
+            Packages handle their own network resources automatically,
+            opening ports on your router or attaching to a WireGuard or VPN.
+          </p>
+        </div>
+        <div class="card feature-card">
+          <h3>Package Ecosystem</h3>
+          <p>
+            Install databases, web servers, media platforms, and collaboration
+            tools with a click — configure through guided prompts. Anyone can
+            <a href={`${base}packaging/`}>create their own package repository</a>
+            and use it alongside the defaults.
+          </p>
+        </div>
+        <div class="card feature-card">
+          <h3>Friendly UI</h3>
+          <p>
+            A clean, modern dashboard for managing services, storage, users,
+            and packages. Designed to be safe and intuitive for non-technical
+            users while powerful enough for admins.
+          </p>
+        </div>
+        <div class="card feature-card">
+          <h3>Fast and Flexible</h3>
+          <p>
+            The OS runs entirely in RAM, so the system itself never touches
+            your disks. Administrators get audit logging, live service logs,
+            per-volume quota management, and full API access.
+          </p>
+        </div>
+        <div class="card feature-card">
+          <h3>Open Source</h3>
+          <p>
+            Licensed under GNU AGPL 3.0. The code is always available for
+            examination, and must be released if it is packaged or changed
+            by anyone else. Nobody can take advantage of Town OS users
+            without someone knowing about it.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Default Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Default Package Repository</h2>
+      <div class="repo-highlight">
+        <div class="repo-info">
+          <p>
+            Every Town OS installation ships with the
+            <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default-packages</a>
+            repository, which covers a broad range of self-hosted services:
+          </p>
+          <div class="tag-grid">
+            <span class="tag">Databases</span>
+            <span class="tag">Web Servers</span>
+            <span class="tag">Media</span>
+            <span class="tag">Collaboration</span>
+            <span class="tag">Monitoring</span>
+            <span class="tag">Caching</span>
+            <span class="tag">Search</span>
+            <span class="tag">Messaging</span>
+            <span class="tag">Storage</span>
+            <span class="tag">Git Hosting</span>
+          </div>
+          <p>
+            Packages like Gitea, Nginx, Plex, and most of the databases work today.
+            The default repository also contains many experimental packages — pull
+            requests to resolve issues with them are encouraged. You can also create
+            your own private repositories — perfect for family, friends, or custom
+            deployments.
+          </p>
+          <a href="https://github.com/town-os/default-packages" class="btn btn-primary" target="_blank" rel="noopener">
+            Browse Packages on GitHub
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documentation quick links -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Documentation</h2>
+      <div class="docs-grid">
+        <a href={`${base}packaging/`} class="card doc-link">
+          <h3>Packaging Format</h3>
+          <p>Learn how packages are defined, how the template system works, and how to contribute your own packages.</p>
+        </a>
+        <a href={`${base}api/`} class="card doc-link">
+          <h3>API Reference</h3>
+          <p>The complete API for controlling Town OS — manage packages, storage, accounts, services, and settings.</p>
+        </a>
+        <a href={`${base}screenshots/`} class="card doc-link">
+          <h3>Screenshots</h3>
+          <p>See Town OS in action — the dashboard, package management, storage, and service supervision.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- More Info -->
+  <section class="section cta-section">
+    <div class="container cta-inner">
+      <h2>Social Media</h2>
+      <p>
+        Follow
+        <a href="https://bsky.app/profile/free-nerd-ideas.bsky.social" target="_blank" rel="noopener">@free-nerd-ideas.bsky.social</a>
+        on Bluesky for updates, discussion, and strange things you could try to do with Claude, yourself.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* Hero */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 6rem 0 5rem;
+    text-align: center;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .hero-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.18;
+  }
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-logo {
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 4px 20px rgba(91, 76, 158, 0.4));
+  }
+
+  .hero h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-subtitle {
+    font-size: 1.2rem;
+    color: var(--color-text-muted);
+    max-width: 640px;
+    margin: 0 auto 2rem;
+    line-height: 1.8;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Intro */
+  .intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .intro-text p {
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    font-size: 1.05rem;
+  }
+
+  .intro-text strong {
+    color: var(--color-text);
+  }
+
+  .intro-highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .highlight-card {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .highlight-card h3 {
+    margin-bottom: 0.4rem;
+    font-size: 1.1rem;
+  }
+
+  .highlight-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* Features */
+  .features-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .feature-card h3 {
+    margin-bottom: 0.6rem;
+    color: var(--color-accent);
+  }
+
+  .feature-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* Repo highlight */
+  .repo-highlight {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 2.5rem;
+  }
+
+  .repo-info p {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .repo-info strong {
+    color: var(--color-text);
+  }
+
+  .tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tag {
+    background: var(--color-primary-dim);
+    color: var(--color-text);
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  /* Docs grid */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .doc-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .doc-link h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-link p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* CTA */
+  .cta-section {
+    text-align: center;
+  }
+
+  .cta-inner {
+    max-width: 600px;
+  }
+
+  .cta-inner h2 {
+    margin-bottom: 1rem;
+  }
+
+  .cta-inner p {
+    color: var(--color-text-muted);
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+  }
+
+  /* Getting Started */
+  .getting-started-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .getting-started-lead {
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .code-block {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .code-block pre {
+    margin: 0;
+  }
+
+  .code-block code {
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  .getting-started-note {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  .getting-started-note a {
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 768px) {
+    .hero { padding: 4rem 0 3rem; }
+    .hero h1 { font-size: 2rem; }
+    .hero-subtitle { font-size: 1rem; }
+    .intro-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .docs-grid { grid-template-columns: 1fr; }
+    .repo-highlight { padding: 1.5rem; }
+  }
+</style>

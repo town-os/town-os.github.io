@@ -1,0 +1,218 @@
+---
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = 'Town OS — Your Cloud in Your Closet. A self-hosted platform that runs entirely from a USB drive.' } = Astro.props;
+const base = import.meta.env.BASE_URL;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content={description} />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={`${base}images/banner.png`} />
+  <link rel="icon" type="image/png" href={`${base}favicon.png`} />
+  <title>{title}</title>
+</head>
+<body>
+  <header class="site-header">
+    <nav class="container nav">
+      <a href={`${base}`} class="nav-brand">
+        <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="32" height="32" />
+        <span>Town OS</span>
+      </a>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links">
+        <li><a href={`${base}`}>Home</a></li>
+        <li><a href={`${base}packaging/`}>Packaging</a></li>
+        <li><a href={`${base}api/`}>API</a></li>
+        <li><a href={`${base}screenshots/`}>Screenshots</a></li>
+        <li><a href="https://gitea.com/town-os/town-os" class="btn btn-outline btn-sm" target="_blank" rel="noopener">Source Code</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <slot />
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="24" height="24" />
+        <span>Town OS</span>
+      </div>
+      <p class="footer-tagline">Your Cloud in Your Closet</p>
+      <div class="footer-links">
+        <a href="https://gitea.com/town-os/town-os" target="_blank" rel="noopener">Gitea</a>
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">Packages</a>
+        <a href="https://github.com/town-os" target="_blank" rel="noopener">GitHub</a>
+      </div>
+      <p class="footer-license">Licensed under GNU Affero GPL 3.0</p>
+    </div>
+  </footer>
+
+  <script>
+    const toggle = document.querySelector('.nav-toggle');
+    const links = document.querySelector('.nav-links');
+    if (toggle && links) {
+      toggle.addEventListener('click', () => {
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', String(!expanded));
+        links.classList.toggle('open');
+      });
+    }
+  </script>
+</body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(15, 15, 26, 0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--color-border);
+    height: var(--header-height);
+    display: flex;
+    align-items: center;
+  }
+
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: var(--color-text);
+  }
+
+  .nav-brand:hover {
+    color: var(--color-accent);
+  }
+
+  .nav-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .nav-toggle span {
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--color-text);
+    transition: transform 0.2s;
+  }
+
+  .nav-links {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    list-style: none;
+  }
+
+  .nav-links a {
+    color: var(--color-text-muted);
+    font-weight: 500;
+    font-size: 0.95rem;
+  }
+
+  .nav-links a:hover {
+    color: var(--color-accent);
+  }
+
+  .btn-sm {
+    padding: 0.4rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 768px) {
+    .nav-toggle {
+      display: flex;
+    }
+
+    .nav-links {
+      display: none;
+      position: absolute;
+      top: var(--header-height);
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      background: var(--color-bg-elevated);
+      border-bottom: 1px solid var(--color-border);
+      padding: 1rem 1.5rem;
+      gap: 1rem;
+    }
+
+    .nav-links.open {
+      display: flex;
+    }
+  }
+
+  .site-footer {
+    border-top: 1px solid var(--color-border);
+    padding: 2.5rem 0;
+    margin-top: 4rem;
+  }
+
+  .footer-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: center;
+  }
+
+  .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+
+  .footer-tagline {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  .footer-links {
+    display: flex;
+    gap: 1.5rem;
+  }
+
+  .footer-links a {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  .footer-license {
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    margin-top: 0.5rem;
+  }
+</style>

@@ -1,0 +1,1175 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="API Documentation — Town OS">
+  <section class="section">
+    <div class="container">
+      <h1>API Documentation</h1>
+      <p class="page-lead">
+        Complete reference for the Town OS systemcontroller API — 51 endpoints across
+        accounts, storage, repositories, packages, systemd, settings, audit, and status.
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#authentication">Authentication</a></li>
+          <li><a href="#pagination">Pagination</a></li>
+          <li><a href="#status">Status</a></li>
+          <li><a href="#accounts">Accounts</a></li>
+          <li><a href="#storage">Storage</a></li>
+          <li><a href="#repositories">Repositories</a></li>
+          <li><a href="#packages">Packages</a></li>
+          <li><a href="#systemd">Systemd</a></li>
+          <li><a href="#settings">Settings</a></li>
+          <li><a href="#audit">Audit Log</a></li>
+          <li><a href="#go-client">Go Client</a></li>
+          <li><a href="#js-client">JavaScript Client</a></li>
+          <li><a href="#development">Development Reference</a></li>
+          <li><a href="#prerequisites">Prerequisites</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Overview -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="overview">Overview</h2>
+      <p class="doc-text">
+        The systemcontroller is the central backend service for Town OS. It is built on
+        <strong>Echo v5</strong> and listens on port <strong>5309</strong> (TCP) or a Unix domain
+        socket in production. All request and response bodies use JSON. Errors follow
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        (<code>application/problem+json</code>).
+      </p>
+      <p class="doc-text">
+        CORS is enabled for development. In production the API is served behind the same
+        origin as the UI.
+      </p>
+    </div>
+  </section>
+
+  <!-- Authentication -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="authentication">Authentication</h2>
+      <p class="doc-text">
+        Authenticate by calling <code>POST /account/authenticate</code> with a username and
+        password. The response contains a Bearer token. Include it in subsequent requests:
+      </p>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+      <p class="doc-text">
+        Sessions expire after 7 days of inactivity. There are three auth levels:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Level</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="auth-badge auth-public">Public</span></td><td>No token required.</td></tr>
+            <tr><td><span class="auth-badge auth-authenticated">Authenticated</span></td><td>Any valid session token.</td></tr>
+            <tr><td><span class="auth-badge auth-admin">Admin</span></td><td>Session token belonging to an admin account.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pagination -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pagination">Pagination</h2>
+      <p class="doc-text">
+        All list endpoints accept the following query parameters and return a common envelope:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Parameter</th><th>Type</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sort_by</code></td><td>string</td><td>Field name to sort on.</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> or <code>desc</code>.</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>Page size (default 20).</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>Pagination offset.</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>Case-insensitive substring match across all string fields.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Response Envelope</h3>
+      <pre><code set:html={'{\n  "entries":     [...],\n  "has_more":    true,\n  "total_pages": 5,\n  "total_count": 97\n}'} /></pre>
+    </div>
+  </section>
+
+  <!-- Status -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="status">Status</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/status/ping</code>
+          <span class="auth-badge auth-public">Public</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Health check and system overview. Unauthenticated callers receive a minimal response
+        with <code>status</code> and <code>needs_setup</code>. Authenticated callers receive
+        the full dashboard payload including filesystem count, package counts, unit status
+        summary, disk usage, external/internal IP, and upgrade availability.
+      </p>
+    </div>
+  </section>
+
+  <!-- Accounts -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="accounts">Accounts</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/authenticate</code>
+          <span class="auth-badge auth-public">Public</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Authenticate with username and password. Returns a session token and the account object.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>Required.</strong> Account username.</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>Required.</strong> Account password.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/create</code>
+          <span class="auth-badge auth-public">Public</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Create a new account. The first account created becomes the administrator. Password
+        must be at least 8 characters. Email, phone, and real name are required.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>Required.</strong></td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>Required.</strong> Minimum 8 characters.</td></tr>
+            <tr><td><code>email</code></td><td>string</td><td><strong>Required.</strong></td></tr>
+            <tr><td><code>phone</code></td><td>string</td><td><strong>Required.</strong></td></tr>
+            <tr><td><code>real_name</code></td><td>string</td><td><strong>Required.</strong></td></tr>
+            <tr><td><code>admin</code></td><td>boolean</td><td>Whether the account has admin privileges.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get a single account by username. Request body: <code>&lbrace;"username": "alice"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all accounts. Supports pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/update</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Update account fields. Send <code>username</code> to identify the account and a
+        <code>fields</code> object with any combination of <code>password</code>,
+        <code>email</code>, <code>phone</code>, <code>real_name</code>, and <code>admin</code>.
+        Only provided fields are changed.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/me</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Returns the username associated with the token in the Authorization header.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/sessions</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all active sessions for the authenticated user. Each session includes its ID,
+        username, creation time, and last-used time.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/session/revoke</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Revoke a session by ID. Request body: <code>&lbrace;"session_id": "..."&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/disable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Disable an account. Request body: <code>&lbrace;"username": "bob"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/enable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Re-enable a disabled account. Request body: <code>&lbrace;"username": "bob"&rbrace;</code>.
+      </p>
+    </div>
+  </section>
+
+  <!-- Storage -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="storage">Storage</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List filesystems. Accepts pagination parameters plus optional <code>name</code>
+        (prefix filter) and <code>state</code> (<code>user</code>, <code>installed</code>,
+        or <code>uninstalled</code>) in the request body.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/create</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Create a new btrfs subvolume. Send <code>name</code> and optional <code>quota</code>
+        (bytes). If quota is 0 or omitted, the system default (50 GB) is used. Reserved names
+        (<code>installed</code>, <code>uninstalled</code>, <code>archives</code>) are rejected.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/modify</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Modify an existing filesystem. Send <code>name</code> to identify it and a
+        <code>filesystem</code> object with the updated <code>name</code> and/or <code>quota</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a filesystem. Request body: <code>&lbrace;"name": "mydata"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/upload-archive</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Upload and unpack an archive into a target subvolume. Accepts <code>multipart/form-data</code>
+        with a <code>subvolume</code> field and an <code>archive</code> file. Supports
+        <code>.tar.gz</code>, <code>.tgz</code>, <code>.tar.bz2</code>, <code>.tbz2</code>,
+        <code>.tar.xz</code>, <code>.txz</code>, <code>.tar</code>, <code>.zip</code>, and
+        <code>.7z</code>.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>max_archive_size</code></td><td>20 MB</td><td>Maximum upload size.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>120 seconds</td><td>Maximum time for unpacking.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/download-archive</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Download a 7z archive of subvolume contents. Send <code>subvolume</code> (required),
+        optional <code>paths</code> (string array for specific files), and optional
+        <code>stop_service</code> (systemd unit to stop during archiving). Returns a binary
+        stream.
+      </p>
+    </div>
+  </section>
+
+  <!-- Repositories -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="repositories">Repositories</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/repository</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all configured package repositories with name, URL, and any error status. Supports
+        pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/add</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Add a new package repository. Triggers an immediate refresh.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code></td><td>string</td><td><strong>Required.</strong> Display name for the repository.</td></tr>
+            <tr><td><code>url</code></td><td>string</td><td><strong>Required.</strong> Git URL of the repository.</td></tr>
+            <tr><td><code>username</code></td><td>string</td><td>Optional. Auth username for private repos.</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td>Optional. Auth password for private repos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/remove</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a repository by name. Triggers an immediate refresh.
+        Request body: <code>&lbrace;"name": "my-repo"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/move</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Reorder a repository to a new zero-based position. Later repositories override earlier
+        ones when package names collide.
+        Request body: <code>&lbrace;"name": "my-repo", "position": 0&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/refresh</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Force an immediate refresh of all repository metadata. Returns an empty body on
+        success, or a JSON object mapping repository names to error strings if any fail.
+      </p>
+    </div>
+  </section>
+
+  <!-- Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="packages">Packages</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all available packages across all repositories. Each entry includes repo, name,
+        version, description, supplies tags, installation status, and whether an upgrade is
+        available. Supports pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/by-repo</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List packages grouped by repository. Accepts an optional <code>search</code> query
+        parameter. Returns an array of <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code> groups.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/timezones</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all available IANA timezone names for use in package configuration.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/installed</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List installed package identifiers. Supports pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/installed/info</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get detailed info for an installed package. Send <code>repo</code>, <code>name</code>,
+        and <code>version</code>. Returns questions, user responses, notes, and note types.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/responses</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get the saved question responses for an installed package. Send <code>repo</code>,
+        <code>name</code>, and <code>version</code>. Returns a key-value map of responses.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/versions</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List available versions for a package. Request body: <code>&lbrace;"name": "nginx"&rbrace;</code>.
+        Returns a string array of version identifiers.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/children</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List child packages. Send <code>repo</code> and <code>name</code>. Returns a string array.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get the installation questions for a package. Request body: <code>&lbrace;"name": "nginx"&rbrace;</code>.
+        Returns a map of question key to <code>&lbrace;"query": "...", "type": "..."&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions/identity</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get questions for a specific package version. Send <code>repo</code>, <code>name</code>,
+        and <code>version</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install-preview</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Preview what an installation will do before committing. Send <code>repo</code>,
+        <code>name</code>, and <code>version</code>. Returns volume details, port mappings,
+        disk usage, quota information, upgrade source version, and a human-readable summary.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Install a package.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>repo</code></td><td>string</td><td><strong>Required.</strong> Repository name.</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td><strong>Required.</strong> Package name.</td></tr>
+            <tr><td><code>version</code></td><td>string</td><td><strong>Required.</strong> Version to install.</td></tr>
+            <tr><td><code>responses</code></td><td>object</td><td><strong>Required.</strong> Key-value answers to installation questions.</td></tr>
+            <tr><td><code>reuse_volumes</code></td><td>boolean</td><td>Reuse existing data volumes from a previous installation.</td></tr>
+            <tr><td><code>import_from_version</code></td><td>string</td><td>Version to import volumes from during upgrade.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstall</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Uninstall a package. Send <code>repo</code>, <code>name</code>, <code>version</code>,
+        and optional <code>purge_volumes</code> (boolean) to delete associated data.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/disable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Disable an installed package (stop its service). Send <code>repo</code> and <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/enable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Re-enable a disabled package (start its service). Send <code>repo</code> and <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-volumes</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete all data volumes for an installed package. Send <code>repo</code> and <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Check whether a package has leftover volumes from a previous installation. Send
+        <code>repo</code> and <code>name</code>. Returns <code>has_uninstalled_volumes</code>,
+        <code>uninstalled_versions</code>, and <code>installed_versions</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete leftover volumes from previously uninstalled versions. Send <code>repo</code>
+        and <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/upgrades</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List available upgrades for installed packages. Each entry includes
+        <code>installed_version</code>, <code>latest_version</code>, and whether the package
+        definition has <code>changed</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/upgrades/dismiss</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Dismiss the current upgrade notifications. Send an empty JSON object.
+      </p>
+    </div>
+  </section>
+
+  <!-- Systemd -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="systemd">Systemd</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List systemd units managed by Town OS. Each entry includes unit name, description,
+        load/active/sub states, the associated package identifier and description, and a
+        failure flag. Supports pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Control a systemd unit. Send <code>name</code> (unit name) and <code>action</code>
+        (<code>start</code>, <code>stop</code>, or <code>restart</code>).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Stream journal entries for a unit in real time via Server-Sent Events. Pass the
+        <code>unit</code> query parameter. Each SSE event contains a JSON-encoded journal entry
+        with fields like <code>Message</code>, <code>Priority</code>,
+        <code>RealtimeTimestamp</code>, and <code>SystemdUnit</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tail</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Fetch a page of journal entries with cursor-based pagination and filtering.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>unit</code></td><td>string</td><td><strong>Required.</strong> Systemd unit name.</td></tr>
+            <tr><td><code>lines</code></td><td>int</td><td><strong>Required.</strong> Number of entries to return.</td></tr>
+            <tr><td><code>before</code></td><td>string</td><td>Cursor — return entries before this position.</td></tr>
+            <tr><td><code>after</code></td><td>string</td><td>Cursor — return entries after this position.</td></tr>
+            <tr><td><code>grep</code></td><td>string</td><td>Case-insensitive substring filter on message text.</td></tr>
+            <tr><td><code>since</code></td><td>int</td><td>Unix timestamp — return entries from this time forward.</td></tr>
+            <tr><td><code>until</code></td><td>int</td><td>Unix timestamp — stop collecting at this time.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Returns <code>entries</code>, <code>cursor</code> (first entry), and
+        <code>end_cursor</code> (last entry) for subsequent pagination.
+      </p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="settings">Settings</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/settings</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get all settings as a key-value object.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/get</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get a single setting. Request body: <code>&lbrace;"key": "default_quota"&rbrace;</code>.
+        Returns <code>key</code> and <code>value</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/set</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Set a setting value. Request body: <code>&lbrace;"key": "default_quota", "value": "107374182400"&rbrace;</code>.
+      </p>
+
+      <h3>Default Settings</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Key</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>default_quota</code></td><td>53687091200 (50 GB)</td><td>Default quota for new filesystems.</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>20971520 (20 MB)</td><td>Maximum archive upload size.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>120 (seconds)</td><td>Maximum time for archive unpacking.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="audit">Audit Log</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/audit/log</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List audit log entries. All fields in the request body are optional.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>before_id</code></td><td>int</td><td>Keyset pagination — return entries with ID less than this.</td></tr>
+            <tr><td><code>account</code></td><td>string</td><td>Filter by account username.</td></tr>
+            <tr><td><code>sort_by</code></td><td>string</td><td>Field to sort on.</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> or <code>desc</code>.</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>Page size.</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>Pagination offset.</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>Search filter.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Each audit entry contains <code>id</code>, <code>account</code>, <code>action</code>,
+        <code>path</code>, <code>detail</code>, <code>success</code>, <code>error</code>,
+        and <code>created_at</code>. Audited actions include: authenticate, create/update/disable
+        account, revoke session, install/uninstall/disable/enable package, create/modify/remove
+        filesystem, add/remove/move/refresh repository, upload/download archive, update setting,
+        dismiss upgrades, and purge volumes.
+      </p>
+    </div>
+  </section>
+
+  <!-- Go Client -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="go-client">Go Client</h2>
+      <p class="doc-text">
+        The Go client lives in <code>src/svc/systemcontroller/client.go</code> and implements
+        the full <code>Client</code> interface. It supports both Unix socket and HTTP connections.
+      </p>
+
+      <h3>Initialization</h3>
+      <pre><code>// Connect via Unix domain socket (production)
+client := systemcontroller.InitClient("/run/town-os/systemcontroller.sock")
+
+// Connect via HTTP (development / testing)
+client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309")</code></pre>
+
+      <h3>Authentication</h3>
+      <pre><code>resp, err := client.Authenticate("admin", "password")
+// resp.Token — use for subsequent requests
+// resp.Account — the authenticated account</code></pre>
+
+      <h3>Listing Packages</h3>
+      <pre><code set:html={'result, err := client.ListPackages(systemcontroller.ListParams{\n    Limit:  20,\n    Offset: 0,\n    Search: "nginx",\n})'} /></pre>
+
+      <h3>Installing a Package</h3>
+      <pre><code set:html={'err := client.InstallPackage(\n    "official",            // repo\n    "nginx",               // name\n    "1.0",                 // version\n    map[string]string{     // responses\n        "port": "8080",\n    },\n    false,                 // reuseVolumes\n    "",                    // importFromVersion\n    false,                 // skipResponseReuse\n)'} /></pre>
+
+      <h3>Tailing Logs</h3>
+      <pre><code>result, err := client.LogTail(
+    "town-os-package--official-nginx-1.0.service", // unit
+    50,    // lines
+    "",    // before cursor
+    "",    // after cursor
+    "",    // grep filter
+    0,     // since (unix timestamp)
+    0,     // until (unix timestamp)
+)</code></pre>
+    </div>
+  </section>
+
+  <!-- JavaScript Client -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="js-client">JavaScript Client</h2>
+      <p class="doc-text">
+        The JavaScript client lives in <code>ui/src/api/client.js</code> and is used by the
+        Town OS dashboard UI.
+      </p>
+
+      <h3>Initialization</h3>
+      <pre><code>import SystemControllerClient from './api/client.js';
+
+const client = new SystemControllerClient('http://localhost:5309');
+
+// After authentication
+const result = await client.authenticate('admin', 'password');
+client.setToken(result.token);</code></pre>
+
+      <h3>Listing Packages</h3>
+      <pre><code set:html={"const result = await client.listPackages({\n  limit: 20,\n  offset: 0,\n  search: 'nginx',\n});"} /></pre>
+
+      <h3>Installing a Package</h3>
+      <pre><code set:html={"await client.installPackage(\n  'official',          // repo\n  'nginx',             // name\n  '1.0',               // version\n  { port: '8080' },   // responses\n  false,               // reuseVolumes\n  '',                  // importFromVersion\n);"} /></pre>
+
+      <h3>Tailing Logs</h3>
+      <pre><code>const result = await client.logTail(
+  'town-os-package--official-nginx-1.0.service', // unit
+  50,        // lines
+  null,      // before cursor
+  null,      // after cursor
+  null,      // grep filter
+  null,      // since
+  null,      // until
+);</code></pre>
+
+      <h3>Streaming Logs (SSE)</h3>
+      <pre><code set:html={"const generator = client.logReplay(unitName);\n\nfor await (const entry of generator) {\n  console.log(entry.Message);\n}"} /></pre>
+    </div>
+  </section>
+
+  <!-- Dev Targets -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="development">Development Reference</h2>
+      <p class="doc-text">
+        The Town OS backend runs on port 5309 with a Vite dev server on port 5173.
+        Use <code>make dev</code> to start the full development environment.
+      </p>
+
+      <h3>Core Targets</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>Start the full dev environment (backend + Vite dev server).</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>Stop and remove the dev backend container.</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>Tail journalctl inside the running dev container.</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>Stop the container and tear down the dev btrfs volume.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Testing Targets</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>Run lint, Go unit tests, and JS unit tests.</td></tr>
+            <tr><td><code>make test-integration</code></td><td>Run Go integration tests in a privileged Podman container.</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>Run Bun UI integration tests against a backend container.</td></tr>
+            <tr><td><code>make test-full</code></td><td>Run all test suites in sequence.</td></tr>
+            <tr><td><code>make auto-test</code></td><td>Watch for file changes and re-run tests automatically.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Build Targets</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Target</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make production-image</code></td><td>Build the production container image.</td></tr>
+            <tr><td><code>make test-image</code></td><td>Build the test container image.</td></tr>
+            <tr><td><code>make pull-images</code></td><td>Pull base container images from Docker Hub.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prerequisites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="prerequisites">Prerequisites</h2>
+      <ul class="prereq-list">
+        <li><strong>Go 1.25+</strong></li>
+        <li><strong>Bun</strong> — JavaScript runtime</li>
+        <li><strong>Podman</strong> — rootful, with <code>sudo</code></li>
+        <li><strong>btrfs-progs</strong> — <code>mkfs.btrfs</code></li>
+        <li><strong>golangci-lint</strong></li>
+      </ul>
+      <p class="doc-text">
+        Create a <code>.env</code> file with repository credentials:
+      </p>
+      <pre><code>TOWN_OS_REPO_USERNAME=&lt;username&gt;
+TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
+      <p class="doc-text">
+        After installing prerequisites, run <code>make pull-images</code> before any other targets.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .endpoint {
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+  }
+
+  .endpoint:first-child {
+    margin-top: 0;
+  }
+
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .method {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .method.post {
+    background: #2d6a4f;
+    color: #95d5b2;
+  }
+
+  .method.get {
+    background: #1b4965;
+    color: #a8dadc;
+  }
+
+  .endpoint-path {
+    font-size: 1.1rem;
+    background: var(--color-code-bg);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+  }
+
+  .auth-badge {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .auth-public {
+    background: #264653;
+    color: #a8dadc;
+  }
+
+  .auth-authenticated {
+    background: var(--color-primary-dim);
+    color: var(--color-text-muted);
+  }
+
+  .auth-admin {
+    background: #6b2737;
+    color: #f4a5b8;
+  }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1.5rem;
+  }
+
+  .format-tags code {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .prereq-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+</style>
