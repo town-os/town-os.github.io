@@ -1,0 +1,133 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Community — Town OS">
+  <section class="section">
+    <div class="container community-container">
+      <h1>Community</h1>
+      <p class="page-lead">
+        Connect with the Town OS community. Join us to ask questions, share ideas, and stay up to date.
+      </p>
+
+      <div class="community-links">
+        <a href="https://signal.group/#CjQKIDrhco6Pg9niS3jl3kroBG-_kSfKiX2P38uZtZRbXbFUEhCPLCXbhih0-F5F6QJO-PpY" class="community-card" target="_blank" rel="noopener">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 1.72.44 3.34 1.21 4.75L2 22l5.25-1.21C8.66 21.56 10.28 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.57 0-3.05-.46-4.3-1.25l-.3-.18-3.12.72.72-3.12-.18-.3A7.963 7.963 0 014 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Signal</h2>
+            <p>Join our Signal group for real-time discussion.</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://discord.gg/45gmgTEc" class="community-card" target="_blank" rel="noopener">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Discord</h2>
+            <p>Join our Discord server to chat with the community.</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://web.libera.chat/#town-os" class="community-card" target="_blank" rel="noopener">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12zM7 9h2v2H7zm4 0h2v2h-2zm4 0h2v2h-2z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>IRC</h2>
+            <p>#town-os on irc.libera.chat — join via the web client or your favorite IRC client.</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .community-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .community-links {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .community-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    color: var(--color-text);
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .community-card:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .card-icon {
+    flex-shrink: 0;
+    color: var(--color-accent);
+  }
+
+  .card-content {
+    flex: 1;
+    text-align: left;
+  }
+
+  .card-content h2 {
+    font-size: 1.15rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .card-content p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  .card-arrow {
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+    transition: color 0.2s, transform 0.2s;
+  }
+
+  .community-card:hover .card-arrow {
+    color: var(--color-accent);
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 768px) {
+    .community-card {
+      padding: 1.25rem;
+    }
+  }
+</style>
