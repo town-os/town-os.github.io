@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="Concepts — Town OS">
+  <section class="section">
+    <div class="container concepts-container">
+      <h1>Concepts</h1>
+      <p class="page-lead">
+        Town OS is built around a handful of core ideas. Understanding these concepts will help
+        you make sense of how everything fits together — from installing a service to managing
+        your network.
+      </p>
+
+      <div class="concepts-grid">
+        <div class="card concept-card">
+          <h3>Packages</h3>
+          <p>
+            A package is a self-contained definition of a containerized service, written in YAML
+            and pulled from a git repository. Each package specifies its container image, networking
+            rules, storage volumes, and configuration — everything needed to run the service.
+            The default repository ships with 140+ pre-built packages covering databases, web
+            servers, media platforms, and more.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Questions</h3>
+          <p>
+            When you install a package, Town OS may present interactive prompts called questions.
+            Your responses fill <code>@variable@</code> template placeholders throughout the package
+            definition — setting hostnames, ports, credentials, and other options. Each question
+            has typed validation (hostname, port, bytes, and more) so configuration errors are
+            caught before the service ever starts.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Services</h3>
+          <p>
+            Once a package is installed, it becomes a service — a running container managed by
+            a systemd unit. Town OS gives you start, stop, and restart control, live log streaming,
+            and full journal access for every service. Services are isolated from each other and
+            from the host system.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Networking</h3>
+          <p>
+            Town OS includes built-in DNS and DHCP for your local network, providing ad and
+            malware blocking for every connected device. Each package declares its own port
+            mappings — external ports for outside access and internal ports for inter-service
+            communication. Port forwarding, tunnels, and VPN attachments are handled automatically.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Storage</h3>
+          <p>
+            All data is stored on btrfs-backed volumes with per-package isolation. Each service
+            gets its own volume with configurable quotas, atomic snapshots, and disaster recovery
+            support. Data persists across package reinstalls and upgrades — your files are never
+            lost when you update a service.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Repositories</h3>
+          <p>
+            Packages are organized into repositories — git repos containing versioned package
+            definitions. Every Town OS installation includes the default repository, but anyone
+            can create and share custom repositories. This makes it easy to distribute private
+            packages for your family, team, or organization.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .concepts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .concepts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .concept-card {
+    text-align: left;
+  }
+
+  .concept-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
