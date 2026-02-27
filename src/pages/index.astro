@@ -44,10 +44,10 @@ const base = import.meta.env.BASE_URL;
             providers, and no monthly fees. Town OS puts you back in control.
           </p>
           <p>
-            Under the hood, Town OS manages its own storage with btrfs, runs services in
-            containers pulled from the internet, and orchestrates networking automatically
-            — including UPnP port forwarding, tunnel establishment, and per-package network
-            control. It's a complete home server operating system built for real people.
+            Under the hood, Town OS manages storage with btrfs subvolumes, runs services in
+            containers managed by systemd, and orchestrates networking automatically
+            — including UPnP port forwarding, tunnel establishment, and per-package port
+            mappings. It's a complete home server operating system built for real people.
           </p>
         </div>
         <div class="intro-highlights">
@@ -61,7 +61,7 @@ const base = import.meta.env.BASE_URL;
           </div>
           <div class="highlight-card">
             <h3>Full Container Platform</h3>
-            <p>Built for home and small office environments. Install services from package repositories with a clean UI — networking and storage are managed automatically.</p>
+            <p>Built for home and small office environments. Install services from package repositories with a clean UI — guided prompts configure each service, and networking and storage are managed automatically.</p>
           </div>
         </div>
       </div>
@@ -96,9 +96,9 @@ make dev</code></pre>
         <div class="card feature-card">
           <h3>Smart Storage</h3>
           <p>
-            btrfs-backed storage with per-package partitioning, quotas, and
-            atomic snapshots. Supports DR strategies prioritized by cost and
-            availability. Your data is organized and protected.
+            btrfs-backed storage with per-package subvolumes, configurable
+            quotas, and archive support. Volumes persist across reinstalls
+            and upgrades — your data is organized and protected.
           </p>
         </div>
         <div class="card feature-card">
@@ -106,8 +106,9 @@ make dev</code></pre>
           <p>
             Manage your entire local network with built-in DNS and DHCP —
             block advertisements and malware for every device in your home.
-            Packages handle their own network resources automatically,
-            opening ports on your router or attaching to a WireGuard or VPN.
+            Packages declare their own port mappings (external and internal),
+            and Town OS handles UPnP forwarding, tunnels, and VPN attachments
+            automatically.
           </p>
         </div>
         <div class="card feature-card">
@@ -132,7 +133,8 @@ make dev</code></pre>
           <p>
             The OS runs entirely in RAM, so the system itself never touches
             your disks. Administrators get audit logging, live service logs,
-            per-volume quota management, and full API access.
+            per-volume quota management, and a complete REST API with 51
+            endpoints.
           </p>
         </div>
         <div class="card feature-card">
@@ -191,13 +193,17 @@ make dev</code></pre>
     <div class="container">
       <h2 class="section-title">Documentation</h2>
       <div class="docs-grid">
+        <a href={`${base}concepts/`} class="card doc-link">
+          <h3>Concepts</h3>
+          <p>Understand the core ideas behind Town OS — packages, questions, services, networking, storage, and repositories.</p>
+        </a>
         <a href={`${base}packaging/`} class="card doc-link">
           <h3>Packaging Format</h3>
           <p>Learn how packages are defined, how the template system works, and how to contribute your own packages.</p>
         </a>
         <a href={`${base}api/`} class="card doc-link">
           <h3>API Reference</h3>
-          <p>The complete API for controlling Town OS — manage packages, storage, accounts, services, and settings.</p>
+          <p>The complete API for controlling Town OS — 51 endpoints across accounts, storage, repositories, packages, systemd, settings, and audit.</p>
         </a>
         <a href={`${base}screenshots/`} class="card doc-link">
           <h3>Screenshots</h3>
@@ -362,7 +368,7 @@ make dev</code></pre>
   /* Docs grid */
   .docs-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
 
