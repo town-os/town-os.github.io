@@ -15,11 +15,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <h3>Go Client</h3>
           <p><code>src/svc/systemcontroller/client.go</code></p>
           <p>Full <code>Client</code> interface with Unix socket and HTTP support.</p>
+          <p class="forthcoming">Packaging forthcoming</p>
         </a>
         <a href="#js-client" class="card client-lib-card">
           <h3>JavaScript Client</h3>
           <p><code>ui/src/api/</code></p>
           <p>Modular mixin-based client used by the Town OS dashboard UI.</p>
+          <p class="forthcoming">Packaging forthcoming</p>
         </a>
       </div>
 
@@ -1410,6 +1412,13 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
     color: var(--color-text-muted);
     font-size: 0.9rem;
     margin-bottom: 0.25rem;
+  }
+
+  .client-lib-card .forthcoming {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--color-primary-light);
+    margin-top: 0.4rem;
   }
 
   @media (max-width: 768px) {
