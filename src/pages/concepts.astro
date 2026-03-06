@@ -52,8 +52,11 @@ const base = import.meta.env.BASE_URL;
         <div class="card concept-card">
           <h3>Networking</h3>
           <p>
-            Town OS includes built-in DNS and DHCP for your local network, providing ad and
-            malware blocking for every connected device. Each package declares its own port
+            Town OS includes
+            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+            a standards-compliant DNS server with full DNSSEC validation and DANE support,
+            providing ad and malware blocking for every connected device. Rolodex can also
+            serve as a personal trust root for your network. Each package declares its own port
             mappings — <code>external</code> ports exposed to the host and <code>internal</code>
             ports available only between containers. Port values support <code>@variable@</code>
             templates so users can choose ports at install time. UPnP forwarding, tunnels, and
