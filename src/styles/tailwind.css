@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  --color-town-bg: #0f0f1a;
+  --color-town-elevated: #1a1a2e;
+  --color-town-card: #16213e;
+  --color-town-surface: #1e2a4a;
+  --color-town-primary: #5b4c9e;
+  --color-town-primary-light: #7c6bbf;
+  --color-town-primary-dim: #3d3270;
+  --color-town-accent: #a1efe4;
+  --color-town-text: #f0f0f5;
+  --color-town-muted: #a0a0b8;
+  --color-town-border: #2a2a4a;
+  --color-town-code: #12121f;
+}

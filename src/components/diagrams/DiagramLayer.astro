@@ -1,0 +1,17 @@
+---
+interface Props {
+  variant?: 'purple' | 'teal' | 'neutral' | 'top';
+  badge?: string;
+}
+const { variant = 'neutral', badge } = Astro.props;
+const colors = {
+  purple: 'border-town-primary bg-town-primary/10 text-town-text',
+  teal: 'border-town-accent/40 bg-town-accent/10 text-town-accent',
+  neutral: 'border-town-border bg-town-card text-town-text',
+  top: 'border-town-primary-light bg-town-primary/20 text-town-text',
+};
+---
+<div class={`border px-5 py-3 text-center text-sm first:rounded-t-xl last:rounded-b-xl -mt-px first:mt-0 ${colors[variant]}`}>
+  <slot />
+  {badge && <span class="ml-2 text-xs text-town-muted bg-town-bg/50 px-2 py-0.5 rounded-full">{badge}</span>}
+</div>

@@ -1,0 +1,855 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DiagramFlow from '../components/diagrams/DiagramFlow.astro';
+import DiagramBox from '../components/diagrams/DiagramBox.astro';
+import DiagramArrow from '../components/diagrams/DiagramArrow.astro';
+import DiagramStack from '../components/diagrams/DiagramStack.astro';
+import DiagramLayer from '../components/diagrams/DiagramLayer.astro';
+import DiagramTag from '../components/diagrams/DiagramTag.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="User Guide — Town OS">
+  <section class="section">
+    <div class="container">
+      <h1>User Guide</h1>
+      <p class="page-lead">
+        A practical walkthrough of Town OS — from writing a USB drive to reporting bugs.
+        Whether you're a first-time user or a developer building packages, this guide
+        covers everything you need to get started.
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
+          <li><a href="#building-vms">Building VMs from USB Images</a></li>
+          <li><a href="#raid-and-zfs">RAID Installation and ZFS</a></li>
+          <li><a href="#using-the-ui">Using the User Interface</a></li>
+          <li><a href="#building-a-package">Building a Package</a></li>
+          <li><a href="#self-hosting-ideas">Things You Can Self-Host</a></li>
+          <li><a href="#dev-environment">Development Environment and Test Suite</a></li>
+          <li><a href="#reporting-bugs">Reporting Bugs</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Creating the USB Drive -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="creating-the-usb-drive">Creating the USB Drive</h2>
+      <p class="doc-text">
+        The Town OS USB image is built from the
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        repository. The build process produces a bootable image with a squashfs root filesystem
+        and a GPT partition layout.
+      </p>
+
+      <h3>Prerequisites</h3>
+      <p class="doc-text">
+        You'll need a Linux system with the following tools installed:
+      </p>
+      <ul class="doc-list">
+        <li><code>make</code> — the build is driven entirely by Makefiles</li>
+        <li><code>squashfs-tools</code> — for creating the compressed root filesystem</li>
+        <li><code>parted</code> and <code>gdisk</code> — for GPT partitioning</li>
+        <li>A USB drive (8 GB or larger recommended)</li>
+      </ul>
+
+      <h3>Cloning and Building</h3>
+      <pre><code>git clone https://gitea.com/town-os/install.git
+cd install
+make image</code></pre>
+      <p class="doc-text">
+        Running <code>make</code> or <code>make image</code> builds the complete USB image.
+        The process downloads the base system, installs Town OS components, compresses
+        everything into a squashfs filesystem, and assembles the final disk image with
+        a GPT partition table.
+      </p>
+
+      <h3>Partitioning and Squashfs</h3>
+      <p class="doc-text">
+        The resulting image uses a GPT layout with:
+      </p>
+      <ul class="doc-list">
+        <li>An EFI system partition for booting</li>
+        <li>A squashfs partition containing the compressed root filesystem</li>
+      </ul>
+      <p class="doc-text">
+        At boot time, Town OS mounts the squashfs as a read-only lower layer, with a
+        tmpfs overlay on top. This means the OS runs entirely in RAM — the USB drive
+        itself is only read at boot. All runtime changes happen in memory and are
+        discarded on reboot, giving you a clean slate every time.
+      </p>
+
+      <h3>Writing the Image</h3>
+      <p class="doc-text">
+        Once the image is built, write it to your USB drive using <code>dd</code>:
+      </p>
+      <pre><code># Find your USB device (e.g. /dev/sdb)
+lsblk
+
+# Write the image (replace /dev/sdX with your device)
+sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+      <p class="doc-text callout">
+        Double-check the target device — <code>dd</code> will overwrite whatever you point it at
+        without confirmation.
+      </p>
+
+      <DiagramFlow title="Boot Process">
+        <DiagramBox label="USB Drive" sub="GPT Partition Table" variant="purple">
+          <DiagramTag variant="purple">EFI System</DiagramTag>
+          <DiagramTag variant="purple">squashfs Root</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="boot" />
+        <DiagramStack>
+          <DiagramLayer variant="top">Running System</DiagramLayer>
+          <DiagramLayer variant="teal" badge="read-write">tmpfs overlay</DiagramLayer>
+          <DiagramLayer variant="purple" badge="read-only">squashfs</DiagramLayer>
+        </DiagramStack>
+        <DiagramArrow />
+        <DiagramBox label="RAM" sub="OS runs entirely in memory" variant="teal" />
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Building VMs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="building-vms">Building VMs from USB Images</h2>
+      <p class="doc-text">
+        The install repository includes scripts for launching Town OS in virtual machines,
+        which is useful for testing and development without a physical USB drive.
+      </p>
+
+      <h3>QEMU</h3>
+      <pre><code>make qemu</code></pre>
+      <p class="doc-text">
+        Launches a QEMU VM with KVM acceleration, 4 IDE drives for storage testing,
+        and bridge networking. The VM boots from the USB image and behaves identically
+        to a physical installation.
+      </p>
+
+      <h3>VirtualBox</h3>
+      <pre><code>make virtualbox</code></pre>
+      <p class="doc-text">
+        Creates a VirtualBox VM with bridged networking and converts the raw disk image
+        to VDI format. Bridged mode lets the VM appear as a regular device on your network.
+      </p>
+
+      <h3>Auto-Detection</h3>
+      <pre><code>make run</code></pre>
+      <p class="doc-text">
+        Automatically detects your hypervisor — prefers QEMU if available, falls back
+        to VirtualBox.
+      </p>
+
+      <h3>Environment Variables</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>IMAGE_SIZE</code></td><td>8G</td><td>Size of the USB image</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>20G</td><td>Size of each virtual disk</td></tr>
+            <tr><td><code>VM_MEMORY</code></td><td>4096</td><td>VM memory in MB</td></tr>
+            <tr><td><code>VM_BRIDGE</code></td><td>br0</td><td>Host bridge interface for networking</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Serial Console</h3>
+      <pre><code># Attach to the VM serial console
+make serial
+
+# Or manually via socat
+socat -,rawer,escape=0x1d unix-connect:/tmp/town-os-serial.sock
+
+# Detach with Ctrl-]</code></pre>
+
+      <h3>Finding the VM</h3>
+      <pre><code># Get the VM's IP address
+make vm-ip
+
+# Or connect via mDNS
+ssh root@town-os.local</code></pre>
+
+      <DiagramFlow title="VM Networking">
+        <DiagramBox label="Host Machine" sub="br0 bridge interface" variant="neutral">
+          <DiagramTag>QEMU / VirtualBox</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="bridge" />
+        <DiagramBox label="Town OS VM" sub="Full Town OS stack" variant="purple">
+          <DiagramTag variant="teal">eth0</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="network" />
+        <DiagramBox label="Local Network" sub="LAN devices can reach VM" variant="teal">
+          <DiagramTag variant="teal">mDNS: town-os.local</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- RAID and ZFS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="raid-and-zfs">RAID Installation and ZFS</h2>
+      <p class="doc-text">
+        Town OS supports multiple storage backends for redundancy and performance.
+        Configuration is driven by <code>town-os.yaml</code>, which can be placed on
+        the USB drive or provided at boot.
+      </p>
+
+      <h3>Configuration</h3>
+      <pre><code># town-os.yaml
+storage_backend: btrfs       # btrfs, btrfs-mdadm, or zfs
+btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
+
+      <h3>Btrfs Native RAID</h3>
+      <p class="doc-text">
+        With <code>storage_backend: btrfs</code>, Town OS uses btrfs's built-in RAID
+        capabilities. In <code>auto</code> mode, the RAID level is selected based on
+        disk count:
+      </p>
+      <ul class="doc-list">
+        <li><strong>1 disk</strong> — single mode (no redundancy)</li>
+        <li><strong>2 disks</strong> — RAID 1 (mirroring)</li>
+        <li><strong>3+ disks</strong> — RAID 5 (striping with parity)</li>
+      </ul>
+
+      <h3>Btrfs with mdadm</h3>
+      <p class="doc-text">
+        With <code>storage_backend: btrfs-mdadm</code>, Town OS creates an md-raid array
+        first, then formats it with btrfs. This approach uses Linux's mature md-raid
+        implementation underneath btrfs, which some administrators prefer for its
+        proven reliability.
+      </p>
+
+      <h3>ZFS</h3>
+      <p class="doc-text">
+        With <code>storage_backend: zfs</code>, Town OS creates a ZFS pool with
+        automatic topology selection:
+      </p>
+      <ul class="doc-list">
+        <li><strong>2 disks</strong> — mirror (equivalent to RAID 1)</li>
+        <li><strong>3+ disks</strong> — RAID-Z (equivalent to RAID 5)</li>
+      </ul>
+      <p class="doc-text">
+        ZFS datasets are created for each package's volumes, and ZFS block volumes
+        (zvols) are available for packages that need raw block devices.
+      </p>
+
+      <h3>Disk Detection</h3>
+      <p class="doc-text">
+        Town OS automatically detects available storage devices. It identifies NVMe drives,
+        SATA/SAS drives, and SD cards, while excluding the boot USB device and any
+        removable media. The detection logic ensures that Town OS never touches the
+        drive it booted from.
+      </p>
+
+      <h3>Overlay Filesystem</h3>
+      <p class="doc-text">
+        Regardless of storage backend, Town OS uses overlay mounts for
+        <code>/var</code> and <code>/etc</code> persistence. The lower layer comes from
+        the squashfs root, while the upper layer lives on the RAID/ZFS storage.
+        This means system configuration and service data survive reboots while the
+        base OS remains immutable.
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">Storage Architecture</div>
+        <div class="flex flex-col gap-3">
+          <!-- Disk types -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="NVMe" sub="Fast SSD" variant="neutral" />
+            <DiagramBox label="SATA / SAS" sub="HDD or SSD" variant="neutral" />
+            <DiagramBox label="SD Card" sub="Removable" variant="neutral" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr; <span class="text-town-muted text-xs">detection</span></span></div>
+          <!-- RAID layer -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="btrfs native" sub="Built-in RAID" variant="purple" />
+            <DiagramBox label="btrfs + mdadm" sub="md-raid under btrfs" variant="purple" />
+            <DiagramBox label="ZFS" sub="Pools and datasets" variant="purple" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr;</span></div>
+          <!-- Output -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="Subvolumes / Datasets" sub="Per-package storage" variant="teal">
+              <DiagramTag variant="teal">pkg-a</DiagramTag>
+              <DiagramTag variant="teal">pkg-b</DiagramTag>
+            </DiagramBox>
+            <DiagramBox label="Overlay Mounts" sub="Persistent system dirs" variant="teal">
+              <DiagramTag variant="teal">/var</DiagramTag>
+              <DiagramTag variant="teal">/etc</DiagramTag>
+            </DiagramBox>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Using the UI -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="using-the-ui">Using the User Interface</h2>
+      <p class="doc-text">
+        Town OS provides a clean web-based dashboard for managing your server. After booting,
+        open a browser and navigate to your Town OS machine's IP address or
+        <code>http://town-os.local</code>.
+      </p>
+
+      <h3>First Boot: Creating Your Account</h3>
+      <p class="doc-text">
+        On first boot, you'll be prompted to create an administrator account. Choose a
+        username and password — this account has full control over the system.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/create-account.png`} alt="Create account screen" loading="lazy" />
+      </div>
+
+      <h3>Dashboard</h3>
+      <p class="doc-text">
+        The dashboard shows an overview of your system — installed packages displayed as
+        service cards with status indicators, quick actions, and system health at a glance.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard.png`} alt="Dashboard overview" loading="lazy" />
+      </div>
+
+      <h3>Browsing and Installing Packages</h3>
+      <p class="doc-text">
+        The Packages view lets you search available packages, view details, and install
+        them with guided prompts. Each package's questions are presented as a form —
+        fill in hostnames, ports, and other configuration, then click install.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/packages.png`} alt="Package browser" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/installation.png`} alt="Package installation prompts" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/install-details.png`} alt="Installation details" loading="lazy" />
+      </div>
+
+      <h3>Managing Services</h3>
+      <p class="doc-text">
+        Installed services can be started, stopped, and restarted from the Services view.
+        Status indicators show whether each service is running, stopped, or in an error state.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/services.png`} alt="Service management" loading="lazy" />
+      </div>
+
+      <h3>Viewing Logs</h3>
+      <p class="doc-text">
+        The Logs view provides live journal output with filtering and grep capabilities.
+        You can filter by service, priority level, and search for specific text.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/logs.png`} alt="Log viewer" loading="lazy" />
+      </div>
+
+      <h3>Storage Management</h3>
+      <p class="doc-text">
+        View and manage btrfs subvolumes, configure per-package quotas, and monitor
+        disk usage across your storage pool.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/storage.png`} alt="Storage management" loading="lazy" />
+      </div>
+
+      <h3>Monitoring</h3>
+      <p class="doc-text">
+        Town OS includes built-in monitoring with Grafana and Prometheus dashboards
+        for tracking system metrics, service health, and resource usage over time.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/monitoring.png`} alt="Monitoring dashboards" loading="lazy" />
+      </div>
+
+      <h3>Settings and Audit Log</h3>
+      <p class="doc-text">
+        The Settings page lets you configure system-wide options. The Audit Log tracks
+        every administrative action — installs, uninstalls, service state changes, and
+        configuration modifications — so you always know what changed and when.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/settings.png`} alt="Settings" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/auditlog.png`} alt="Audit log" loading="lazy" />
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Building a Package -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-a-package">Building a Package</h2>
+      <p class="doc-text">
+        Town OS packages are YAML files that describe how to run a containerized service.
+        For the full specification, see the <a href={`${base}packaging/`}>Packaging Format</a>
+        reference. This section covers the practical workflow.
+      </p>
+
+      <h3>Repository Structure</h3>
+      <p class="doc-text">
+        A package repository is a git repository with a <code>packages/</code> directory.
+        Each package gets a subdirectory containing versioned YAML definitions:
+      </p>
+      <pre><code>my-packages/
+  packages/
+    my-app/
+      1.0.yaml
+      2.0.yaml</code></pre>
+
+      <h3>Writing a Package Definition</h3>
+      <p class="doc-text">
+        A minimal package needs only an <code>image</code> field. A typical package
+        includes a description, networking, volumes, and user-facing questions:
+      </p>
+      <pre><code>image: myapp:latest
+description: My custom application
+supplies: ["http"]
+network:
+  external:
+    "@port@": "8080"
+volumes:
+  data:
+    mountpoint: /app/data
+    quota: 5gb
+questions:
+  port:
+    query: "What external port should this app use?"
+    type: port
+    default: "9000"
+notes:
+  URL:
+    value: "http://@LOCAL_EXTERNAL_HOST@:@port@"
+    type: url</code></pre>
+
+      <h3>Template System</h3>
+      <p class="doc-text">
+        Use <code>@variable@</code> syntax to reference question answers and built-in
+        variables (<code>@LOCAL_EXTERNAL_HOST@</code>, <code>@LOCAL_INTERNAL_HOST@</code>).
+        Templates work in environment variables, port mappings, quotas, and note values.
+      </p>
+
+      <h3>Testing Locally</h3>
+      <p class="doc-text">
+        Use the <a href="#dev-environment">dev environment</a> to test your package.
+        Place your repository on disk, add it through the UI or
+        <code>repositories.json</code>, and install your package. The dev environment
+        provides the full Town OS stack for testing.
+      </p>
+
+      <h3>Adding a Repository</h3>
+      <p class="doc-text">
+        Add your package repository to Town OS through the UI
+        (<strong>Packages → Repositories → Add Repository</strong>) or by editing
+        <code>repositories.json</code> directly:
+      </p>
+      <pre><code>[
+  ["default", "https://github.com/town-os/default-packages"],
+  ["my-packages", "https://github.com/myuser/my-packages"]
+]</code></pre>
+
+      <DiagramFlow title="Package Lifecycle">
+        <DiagramBox label="YAML Definition" sub="image, volumes, questions" variant="purple">
+          <DiagramTag variant="purple">1.0.yaml</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="install" />
+        <DiagramBox label="Config Prompts" sub="User answers questions" variant="neutral">
+          <DiagramTag>hostname</DiagramTag>
+          <DiagramTag>port</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="deploy" />
+        <DiagramBox label="Running Container" sub="Service active with volumes" variant="teal">
+          <DiagramTag variant="teal">@variable@ &rarr; value</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Self-Hosting Ideas -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="self-hosting-ideas">Things You Can Self-Host</h2>
+      <p class="doc-text">
+        Town OS is built to run anything that ships as a container image. Here are some
+        ideas to get you started — many of these are available in the
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default package repository</a>,
+        and any container image can be packaged with a simple YAML definition.
+      </p>
+
+      <div class="idea-grid">
+        <div class="idea-card">
+          <h3>Media &amp; Entertainment</h3>
+          <ul>
+            <li><strong>Plex</strong> / <strong>Jellyfin</strong> — stream your movie and TV library to any device</li>
+            <li><strong>Navidrome</strong> — personal music streaming server</li>
+            <li><strong>Calibre-web</strong> — manage and read your ebook collection</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Code &amp; Collaboration</h3>
+          <ul>
+            <li><strong>Gitea</strong> / <strong>Forgejo</strong> — lightweight self-hosted Git</li>
+            <li><strong>GitLab</strong> — full DevOps platform</li>
+            <li><strong>Nextcloud</strong> — files, calendar, contacts, and more</li>
+            <li><strong>Wiki.js</strong> / <strong>BookStack</strong> — documentation and knowledge bases</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Communication</h3>
+          <ul>
+            <li><strong>Jitsi Meet</strong> — private video conferencing</li>
+            <li><strong>Matrix / Synapse</strong> — federated encrypted chat</li>
+            <li><strong>Mattermost</strong> / <strong>Rocket.Chat</strong> — team messaging</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Game Servers</h3>
+          <ul>
+            <li><strong>Valheim</strong>, <strong>Minecraft</strong>, <strong>Terraria</strong>, <strong>Satisfactory</strong> dedicated servers</li>
+            <li>Proton/Steam support via GloriousEggroll containers</li>
+            <li>Any game server that ships as a Linux binary or container</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Home Automation</h3>
+          <ul>
+            <li><strong>Home Assistant</strong> — smart home control hub</li>
+            <li><strong>Node-RED</strong> — visual automation workflows</li>
+            <li><strong>Mosquitto</strong> — MQTT broker for IoT devices</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Privacy &amp; Security</h3>
+          <ul>
+            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong> — network-wide ad blocking (note: <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a> already provides this)</li>
+            <li><strong>WireGuard</strong> / <strong>OpenVPN</strong> — VPN servers for remote access</li>
+            <li><strong>Vaultwarden</strong> — self-hosted password manager</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Productivity</h3>
+          <ul>
+            <li><strong>Paperless-ngx</strong> — document management and OCR</li>
+            <li><strong>Immich</strong> — self-hosted photo and video management</li>
+            <li><strong>Planka</strong> / <strong>Wekan</strong> — kanban boards and project management</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dev Environment -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dev-environment">Development Environment and Test Suite</h2>
+      <p class="doc-text">
+        The Town OS development environment runs the full stack locally using Podman
+        containers. This is the fastest way to test changes, develop packages, and
+        run the test suite.
+      </p>
+
+      <h3>Prerequisites</h3>
+      <ul class="doc-list">
+        <li><strong>Linux</strong> — required for btrfs and Podman rootless containers</li>
+        <li><strong>Podman</strong> — container runtime (rootless mode)</li>
+        <li><strong>Go 1.25+</strong> — for the backend API server</li>
+        <li><strong>Bun</strong> — for the frontend build and dev server</li>
+        <li><strong>btrfs-progs</strong> — for storage management</li>
+      </ul>
+
+      <h3>Starting the Dev Environment</h3>
+      <pre><code>git clone https://gitea.com/town-os/town-os.git
+cd town-os
+make dev</code></pre>
+      <p class="doc-text">
+        This starts the full development stack: the Go backend API server on port 5309
+        and the Vite frontend dev server on port 5173, with hot-reloading for both.
+      </p>
+
+      <h3>Dev Environment Commands</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Command</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>Start the full dev environment</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>Stop all dev containers</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>Tail logs from dev containers</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>Remove dev containers and volumes</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Running Tests</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Command</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>Run unit tests</td></tr>
+            <tr><td><code>make test-integration</code></td><td>Run integration tests (requires privileged Podman)</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>Run UI integration tests</td></tr>
+            <tr><td><code>make test-full</code></td><td>Run all tests (unit + integration + UI)</td></tr>
+            <tr><td><code>make auto-test</code></td><td>Watch for changes and re-run tests automatically</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Integration Tests</h3>
+      <p class="doc-text">
+        Integration tests run inside a privileged Podman container that provides a
+        real btrfs filesystem, systemd, and Podman-in-Podman. This ensures tests
+        exercise the same code paths as a production installation. The test container
+        is ephemeral — it's created fresh for each test run and cleaned up afterward.
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">Dev Workflow</div>
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+          <DiagramBox label="Editor" sub="Edit code" variant="neutral">
+            <DiagramTag>Go + Bun</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="save" />
+          <DiagramBox label="auto-test" sub="Tests run on save" variant="purple">
+            <DiagramTag variant="purple">make auto-test</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="reload" />
+          <DiagramBox label="Browser" sub="Live preview" variant="teal">
+            <DiagramTag variant="teal">localhost:5173</DiagramTag>
+          </DiagramBox>
+        </div>
+        <div class="flex justify-center mt-2">
+          <span class="text-town-muted text-xs border border-town-border rounded-full px-3 py-1">&#x21bb; iterate &mdash; Backend :5309 &middot; Frontend :5173</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporting Bugs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="reporting-bugs">Reporting Bugs</h2>
+      <p class="doc-text">
+        Found something broken? Good bug reports help fix issues faster. Here's
+        how to gather the information needed and file an effective report.
+      </p>
+
+      <h3>Gathering Logs with the API</h3>
+      <p class="doc-text">
+        Town OS exposes journal logs through its REST API. You can use
+        <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>
+        to connect to the API and generate a summary of recent errors:
+      </p>
+      <pre><code># Fetch error-priority journal entries from Town OS
+curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</code></pre>
+      <p class="doc-text">
+        Or use Claude Code to summarize errors interactively:
+      </p>
+      <pre><code># Example Claude Code prompt:
+"Connect to the Town OS API at http://town-os.local:5309
+ and fetch the last 100 error-priority journal entries from
+ /api/systemd/logs/tail. Summarize the errors, group them
+ by service, and suggest likely causes."</code></pre>
+
+      <h3>Filing an Issue</h3>
+      <p class="doc-text">
+        File issues on the Town OS Gitea instance at
+        <a href="https://gitea.com/town-os/town-os/issues" target="_blank" rel="noopener">gitea.com/town-os/town-os/issues</a>.
+      </p>
+
+      <h3>What to Include</h3>
+      <ul class="doc-list">
+        <li><strong>Journal summary</strong> — error log output or a Claude Code summary of recent errors</li>
+        <li><strong>Reproduction steps</strong> — what you did to trigger the problem, step by step</li>
+        <li><strong>Town OS version</strong> — the build date or commit hash from the boot screen</li>
+        <li><strong>Storage backend</strong> — btrfs, btrfs-mdadm, or ZFS, and how many disks</li>
+        <li><strong>Environment</strong> — physical hardware, QEMU, or VirtualBox; RAM and disk sizes</li>
+      </ul>
+
+      <DiagramFlow title="Bug Reporting Flow">
+        <DiagramBox label="Detect Issue" sub="Something broke" variant="neutral">
+          <DiagramTag>&#x26a0; error</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="curl API" />
+        <DiagramBox label="Gather Logs" sub="Fetch journal entries" variant="purple">
+          <DiagramTag variant="purple">:5309/api/systemd/logs</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="summarize" />
+        <DiagramBox label="Summarize" sub="Group by service" variant="purple">
+          <DiagramTag variant="teal">Claude Code</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="file" />
+        <DiagramBox label="File on Gitea" sub="Create issue with details" variant="teal">
+          <DiagramTag variant="teal">&#x2713; reported</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.25rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .callout {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* Screenshots */
+  .screenshot-ref {
+    margin: 1rem 0 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 800px;
+  }
+
+  .screenshot-ref img {
+    display: block;
+    width: 100%;
+  }
+
+  /* Self-hosting idea grid */
+  .idea-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .idea-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .idea-card:hover {
+    border-color: var(--color-primary-dim);
+  }
+
+  .idea-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--color-accent);
+    font-size: 1.1rem;
+  }
+
+  .idea-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .idea-card li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .idea-card li strong {
+    color: var(--color-text);
+  }
+
+  @media (max-width: 768px) {
+    .toc ul {
+      columns: 1;
+    }
+
+    .idea-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

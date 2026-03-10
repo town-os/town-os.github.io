@@ -1,0 +1,18 @@
+---
+interface Props {
+  label: string;
+  sub?: string;
+  variant?: 'purple' | 'teal' | 'neutral';
+}
+const { label, sub, variant = 'neutral' } = Astro.props;
+const colors = {
+  purple: 'border-town-primary bg-town-primary/10',
+  teal: 'border-town-accent/40 bg-town-accent/10',
+  neutral: 'border-town-border bg-town-card',
+};
+---
+<div class={`rounded-xl border px-6 py-5 text-center flex-1 min-w-0 ${colors[variant]}`}>
+  <div class="font-bold text-town-text text-sm">{label}</div>
+  {sub && <div class="text-town-muted text-xs mt-1.5">{sub}</div>}
+  <slot />
+</div>

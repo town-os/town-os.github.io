@@ -4,6 +4,22 @@ const base = import.meta.env.BASE_URL;
 ---
 
 <BaseLayout title="Town OS — Your Cloud in Your Closet">
+  <!-- Early Alpha Warning -->
+  <section class="alpha-banner">
+    <div class="container">
+      <div class="alpha-box">
+        <div class="alpha-badge">EARLY ALPHA</div>
+        <p class="alpha-lead">Town OS is under active development and is not yet ready for general use.</p>
+        <p class="alpha-warning">Town OS will format and use all detected local storage devices. <strong>Running it on a real computer will destroy your data.</strong></p>
+        <p class="alpha-note">
+          If you just want to try it out, the
+          <a href={`${base}guide/#building-vms`}>VM instructions in the guide</a>
+          let you run Town OS safely in a virtual machine with no risk to your hardware.
+        </p>
+      </div>
+    </div>
+  </section>
+
   <!-- Hero -->
   <section class="hero">
     <div class="hero-bg">
@@ -22,6 +38,28 @@ const base = import.meta.env.BASE_URL;
         </a>
         <a href={`${base}screenshots/`} class="btn btn-outline">
           See It in Action
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quick Links -->
+  <section class="section quick-links-section">
+    <div class="container">
+      <div class="callout-row">
+        <a href={`${base}guide/#creating-the-usb-drive`} class="callout-card">
+          <span class="callout-icon">&#x1F4BE;</span>
+          <div>
+            <h3>Write a USB Image</h3>
+            <p>Build and write a bootable Town OS USB drive from source.</p>
+          </div>
+        </a>
+        <a href={`${base}guide/#reporting-bugs`} class="callout-card">
+          <span class="callout-icon">&#x1F41B;</span>
+          <div>
+            <h3>Report a Bug</h3>
+            <p>Gather logs, summarize errors, and file an issue on Gitea.</p>
+          </div>
         </a>
       </div>
     </div>
@@ -217,6 +255,62 @@ make dev</code></pre>
   </section></BaseLayout>
 
 <style>
+  /* Alpha Banner */
+  .alpha-banner {
+    background: #1a0a0a;
+    border-bottom: 2px solid #cc3333;
+    padding: 2.5rem 0;
+  }
+
+  .alpha-box {
+    background: #2a0f0f;
+    border: 2px solid #cc3333;
+    border-radius: 12px;
+    padding: 2.5rem 3rem;
+    text-align: center;
+  }
+
+  .alpha-badge {
+    display: inline-block;
+    background: #cc3333;
+    color: #fff;
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    padding: 0.4rem 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 1.25rem;
+  }
+
+  .alpha-lead {
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .alpha-warning {
+    color: #ff6b6b;
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.6;
+    margin-bottom: 1.25rem;
+  }
+
+  .alpha-warning strong {
+    color: #ff4444;
+    text-transform: uppercase;
+  }
+
+  .alpha-note {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+  }
+
+  .alpha-note a {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
   /* Hero */
   .hero {
     position: relative;
@@ -428,6 +522,52 @@ make dev</code></pre>
     color: var(--color-accent);
   }
 
+  /* Quick Links */
+  .quick-links-section {
+    padding: 2rem 0;
+  }
+
+  .callout-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .callout-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .callout-card:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .callout-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+
+  .callout-card h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+  }
+
+  .callout-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
   @media (max-width: 768px) {
     .hero { padding: 4rem 0 3rem; }
     .hero h1 { font-size: 2rem; }
@@ -436,5 +576,6 @@ make dev</code></pre>
     .features-grid { grid-template-columns: 1fr; }
     .docs-grid { grid-template-columns: 1fr; }
     .repo-highlight { padding: 1.5rem; }
+    .callout-row { grid-template-columns: 1fr; }
   }
 </style>

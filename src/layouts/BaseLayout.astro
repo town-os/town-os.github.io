@@ -5,6 +5,7 @@ interface Props {
 }
 
 const { title, description = 'Town OS — Your Cloud in Your Closet. A self-hosted platform that runs entirely from a USB drive.' } = Astro.props;
+import '../styles/tailwind.css';
 const base = import.meta.env.BASE_URL;
 ---
 <!DOCTYPE html>
@@ -31,6 +32,7 @@ const base = import.meta.env.BASE_URL;
       </button>
       <ul class="nav-links">
         <li><a href={`${base}`}>Home</a></li>
+        <li><a href={`${base}guide/`}>Guide</a></li>
         <li><a href={`${base}concepts/`}>Concepts</a></li>
         <li><a href={`${base}packaging/`}>Packaging</a></li>
         <li><a href={`${base}api/`}>API</a></li>
