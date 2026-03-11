@@ -23,11 +23,13 @@ const base = import.meta.env.BASE_URL;
 <body>
   <header class="site-header">
     <nav class="container nav">
-      <a href={`${base}`} class="nav-brand">
-        <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="32" height="32" />
-        <span>Town OS</span>
-      </a>
-      <a href="https://gitea.com/town-os/town-os/releases/tag/alpha" class="try-badge" target="_blank" rel="noopener">Try it out</a>
+      <div class="nav-brand-group">
+        <a href={`${base}`} class="nav-brand">
+          <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="32" height="32" />
+          <span>Town OS</span>
+        </a>
+        <a href="https://gitea.com/town-os/town-os/releases/tag/alpha" class="try-badge" target="_blank" rel="noopener">Try it out</a>
+      </div>
       <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -100,6 +102,12 @@ const base = import.meta.env.BASE_URL;
     align-items: center;
     justify-content: space-between;
     width: 100%;
+  }
+
+  .nav-brand-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
   }
 
   .nav-brand {
