@@ -21,6 +21,7 @@ const base = import.meta.env.BASE_URL;
       <nav class="toc">
         <ul>
           <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
+          <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
           <li><a href="#raid-and-zfs">RAID Installation and ZFS</a></li>
           <li><a href="#using-the-ui">Using the User Interface</a></li>
@@ -112,8 +113,117 @@ sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
     </div>
   </section>
 
-  <!-- Building VMs -->
+  <!-- DNS Setup -->
   <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="dns-setup">Setting Up DNS on Your Router</h2>
+      <p class="doc-text">
+        Town OS includes <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+        a full DNS server with DNSSEC validation, ad blocking, and DANE support. To use it,
+        you need to tell your router to hand out the Town OS machine's IP address as the
+        DNS server for your network. This way every device on your network automatically
+        uses rolodex for DNS — no per-device configuration needed.
+      </p>
+
+      <h3>Find Your Town OS IP Address</h3>
+      <p class="doc-text">
+        You'll need the local IP address of your Town OS machine. You can find it by:
+      </p>
+      <ul class="doc-list">
+        <li>Checking the Town OS dashboard at <code>http://town-os.local</code></li>
+        <li>Running <code>make vm-ip</code> if you're using a VM</li>
+        <li>Checking your router's DHCP client list for a device named "town-os"</li>
+      </ul>
+      <p class="doc-text">
+        For DNS to work reliably, your Town OS machine should have a static IP address
+        or a DHCP reservation on your router. If the IP changes, DNS will break for
+        your whole network.
+      </p>
+
+      <h3>Assign a Static IP or DHCP Reservation</h3>
+      <p class="doc-text">
+        Most routers let you reserve an IP address for a specific device based on its
+        MAC address. This is usually found under <strong>LAN Settings</strong>,
+        <strong>DHCP</strong>, or <strong>Address Reservation</strong>. Find the Town OS
+        machine in the client list and reserve its current IP.
+      </p>
+      <p class="doc-text">
+        If your router doesn't support DHCP reservations, you can configure a static
+        IP on the Town OS machine itself by adding it to <code>town-os.yaml</code>.
+      </p>
+
+      <h3>Change the DNS Server in Your Router</h3>
+      <p class="doc-text">
+        The exact steps vary by router brand, but the general process is the same:
+      </p>
+      <ol class="doc-list">
+        <li>Log in to your router's admin interface (usually <code>192.168.1.1</code> or <code>192.168.0.1</code>)</li>
+        <li>Find the <strong>DHCP Settings</strong>, <strong>LAN Settings</strong>, or <strong>DNS Settings</strong> section</li>
+        <li>Change the <strong>Primary DNS Server</strong> to your Town OS machine's IP address</li>
+        <li>Optionally set a <strong>Secondary DNS Server</strong> as a fallback (e.g. <code>1.1.1.1</code> or <code>8.8.8.8</code>) — this will be used if Town OS is unreachable</li>
+        <li>Save and apply the settings</li>
+      </ol>
+      <p class="doc-text">
+        After saving, devices on your network will pick up the new DNS server the next
+        time they renew their DHCP lease. You can force this by disconnecting and reconnecting
+        to the network, or by rebooting the device.
+      </p>
+
+      <h3>Common Router Interfaces</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Router Brand</th><th>Where to Find DNS Settings</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ASUS</td><td>LAN → DHCP Server → DNS Server</td></tr>
+            <tr><td>TP-Link</td><td>DHCP → DHCP Settings → Primary DNS</td></tr>
+            <tr><td>Netgear</td><td>Internet → Domain Name Server (DNS) Address</td></tr>
+            <tr><td>Linksys</td><td>Connectivity → Local Network → DHCP Server → Static DNS</td></tr>
+            <tr><td>UniFi</td><td>Settings → Networks → (your network) → DHCP Name Server</td></tr>
+            <tr><td>pfSense / OPNsense</td><td>Services → DHCP Server → DNS Servers</td></tr>
+            <tr><td>OpenWrt</td><td>Network → Interfaces → LAN → DHCP Server → Advanced → DHCP-Options: <code>6,&lt;town-os-ip&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Verify It Works</h3>
+      <p class="doc-text">
+        After your device picks up the new DNS settings, verify that rolodex is handling
+        your DNS queries:
+      </p>
+      <pre><code># Check which DNS server your machine is using
+nslookup example.com
+
+# Or query Town OS directly
+dig @&lt;town-os-ip&gt; example.com
+
+# Test ad blocking — this should return NXDOMAIN or 0.0.0.0
+dig @&lt;town-os-ip&gt; ads.doubleclick.net</code></pre>
+      <p class="doc-text">
+        If <code>ads.doubleclick.net</code> returns a blocked response, rolodex is working
+        and ad blocking is active for your network.
+      </p>
+
+      <DiagramFlow title="DNS Flow">
+        <DiagramBox label="Device" sub="Phone, laptop, etc." variant="neutral">
+          <DiagramTag>DNS query</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="DHCP" />
+        <DiagramBox label="Router" sub="Hands out Town OS as DNS" variant="neutral">
+          <DiagramTag>DNS = Town OS IP</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="forward" />
+        <DiagramBox label="Town OS" sub="rolodex DNS server" variant="purple">
+          <DiagramTag variant="teal">DNSSEC</DiagramTag>
+          <DiagramTag variant="teal">Ad blocking</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Building VMs -->
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="building-vms">Building VMs from USB Images</h2>
       <p class="doc-text">
