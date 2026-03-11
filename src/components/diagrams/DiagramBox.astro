@@ -11,7 +11,7 @@ const colors = {
   neutral: 'border-town-border bg-town-card',
 };
 ---
-<div class={`rounded-xl border px-6 py-5 text-center flex-1 min-w-0 ${colors[variant]}`}>
+<div class={`rounded-xl border px-6 py-5 text-center w-full ${colors[variant]}`}>
   <div class="font-bold text-town-text text-sm">{label}</div>
   {sub && <div class="text-town-muted text-xs mt-1.5">{sub}</div>}
   <slot />

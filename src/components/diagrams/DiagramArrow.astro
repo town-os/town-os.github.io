@@ -4,8 +4,7 @@ interface Props {
 }
 const { label } = Astro.props;
 ---
-<div class="flex flex-col items-center justify-center shrink-0 py-1 md:py-0">
-  <span class="text-town-accent text-lg hidden md:block">&rarr;</span>
-  <span class="text-town-accent text-lg md:hidden">&darr;</span>
+<div class="flex flex-col items-center justify-center shrink-0 py-1">
+  <span class="text-town-accent text-lg">&darr;</span>
   {label && <span class="text-town-muted text-xs mt-0.5">{label}</span>}
 </div>

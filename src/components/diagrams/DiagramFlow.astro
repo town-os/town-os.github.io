@@ -4,9 +4,9 @@ interface Props {
 }
 const { title } = Astro.props;
 ---
-<div class="my-8">
+<div class="mt-12 mb-8 flex flex-col items-center">
   {title && <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">{title}</div>}
-  <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+  <div class="flex flex-col items-center gap-3 w-full max-w-md">
     <slot />
   </div>
 </div>
