@@ -315,7 +315,7 @@ ssh root@town-os.local</code></pre>
 storage_backend: btrfs       # btrfs, btrfs-mdadm, or zfs
 btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
 
-      <h3>Btrfs Native RAID</h3>
+      <h3>btrfs Native RAID</h3>
       <p class="doc-text">
         With <code>storage_backend: btrfs</code>, Town OS uses btrfs's built-in RAID
         capabilities. In <code>auto</code> mode, the RAID level is selected based on
@@ -327,7 +327,7 @@ btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
         <li><strong>3+ disks</strong> — RAID 5 (striping with parity)</li>
       </ul>
 
-      <h3>Btrfs with mdadm</h3>
+      <h3>btrfs with mdadm</h3>
       <p class="doc-text">
         With <code>storage_backend: btrfs-mdadm</code>, Town OS creates an md-raid array
         first, then formats it with btrfs. This approach uses Linux's mature md-raid
@@ -400,7 +400,7 @@ btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
   </section>
 
   <!-- Using the UI -->
-  <section class="section">
+  <section class="section ui-section">
     <div class="container">
       <h2 class="section-title" id="using-the-ui">Using the User Interface</h2>
       <p class="doc-text">
@@ -688,8 +688,8 @@ notes:
 cd town-os
 make dev</code></pre>
       <p class="doc-text">
-        This starts the full development stack: the Go backend API server on port 5309
-        and the Vite frontend dev server on port 5173, with hot-reloading for both.
+        This starts the full development stack with hot-reloading. Once it's ready,
+        open the URL printed in the terminal to access the Town OS dashboard.
       </p>
 
       <h3>Dev Environment Commands</h3>
@@ -896,9 +896,25 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
     border-radius: 0 8px 8px 0;
   }
 
+  /* UI section — center text and screenshots */
+  .ui-section .doc-text,
+  .ui-section .doc-list {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ui-section h3 {
+    text-align: center;
+  }
+
+  .ui-section .section-title {
+    text-align: center;
+  }
+
   /* Screenshots */
   .screenshot-ref {
-    margin: 1rem 0 1.5rem;
+    margin: 1rem auto 1.5rem;
     border: 1px solid var(--color-border);
     border-radius: 8px;
     overflow: hidden;
