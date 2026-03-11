@@ -9,21 +9,28 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="page-lead">
         Town OS packages are YAML definitions that describe how to run a containerized service,
         including its image, networking, storage, and user-facing configuration prompts.
+        Packages can also run virtual machines or Windows applications via Proton.
       </p>
       <nav class="toc">
         <ul>
           <li><a href="#repository-structure">Repository Structure</a></li>
           <li><a href="#package-definition">Package Definition</a></li>
           <li><a href="#top-level-fields">Top-Level Fields</a></li>
+          <li><a href="#image-field">Image Field</a></li>
           <li><a href="#supplies-tags">Supplies Tags</a></li>
           <li><a href="#network-configuration">Network Configuration</a></li>
           <li><a href="#volumes">Volumes</a></li>
           <li><a href="#archives">Archives</a></li>
+          <li><a href="#git-sources">Git Sources</a></li>
           <li><a href="#questions">Questions</a></li>
+          <li><a href="#templates">Templates</a></li>
           <li><a href="#notes">Notes</a></li>
           <li><a href="#template-system">Template System</a></li>
+          <li><a href="#vm-runtime">VM Runtime</a></li>
+          <li><a href="#proton-runtime">Proton Runtime</a></li>
           <li><a href="#featured-packages">Featured Packages</a></li>
           <li><a href="#importing-repositories">Importing Repositories</a></li>
+          <li><a href="#validation-rules">Validation Rules</a></li>
           <li><a href="#style-guidelines">Style Guidelines</a></li>
         </ul>
       </nav>
@@ -41,6 +48,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <pre><code>packages/
   &lt;package-name&gt;/
     &lt;version&gt;.yaml
+featured.json          # optional
 
 # Example:
 packages/
@@ -48,13 +56,15 @@ packages/
     1.0.yaml
     2.0.yaml
   postgres/
-    1.0.yaml</code></pre>
+    1.0.yaml
+featured.json</code></pre>
       <p class="doc-text">
         Each package directory under <code>packages/</code> contains one or more versioned YAML files.
-        The storage system supports upgrading between versions and temporary uninstallation with
-        later restoration. Town OS ships with a
-        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default repository</a>
-        of 140+ packages, but you can add as many additional repositories as you need.
+        Versions are compared using dot-separated segments — numeric segments are compared numerically,
+        otherwise lexicographically. The storage system supports upgrading between versions and
+        temporary uninstallation with later restoration. Town OS ships with a
+        <a href="https://gitea.com/town-os/default-packages" target="_blank" rel="noopener">default repository</a>
+        of packages, but you can add as many additional repositories as you need.
       </p>
     </div>
   </section>
@@ -62,8 +72,9 @@ packages/
   <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="package-definition">Package Definition</h2>
-      <p class="doc-text">A complete package definition with all available fields:</p>
-      <pre><code>image: nginx:1.26-alpine
+      <p class="doc-text">A complete container package definition with all available fields:</p>
+      <pre><code>image:
+  url: nginx:1.26-alpine
 description: Lightweight high-performance web server and reverse proxy
 supplies: ["http"]
 command: ["optional", "command", "override"]
@@ -74,6 +85,8 @@ network:
     "@port@": "80"
   internal:
     "5432": "5432"
+  domains:
+    - "@hostname@"
 volumes:
   html:
     mountpoint: /usr/share/nginx/html
@@ -95,6 +108,18 @@ archives:
   - image: nginx:latest
     directory: /usr/share/nginx/html
     volume: html
+git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: data
+templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      version: &#123;&#123; .Package.Version &#125;&#125;
 notes:
   URL:
     value: "http://@hostname@:@port@"
@@ -102,6 +127,9 @@ notes:
   Support:
     value: "+1 (555) 123-4567"
     type: phone</code></pre>
+      <p class="doc-text">
+        The <code>image</code> field also accepts a shorthand string form: <code>image: nginx:1.26-alpine</code>.
+      </p>
     </div>
   </section>
 
@@ -114,28 +142,74 @@ notes:
             <tr><th>Field</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>image</code></td><td><strong>Required.</strong> Container image reference (e.g. <code>nginx:1.26-alpine</code>). Short names are normalized to <code>docker.io/library/&lt;name&gt;:latest</code>.</td></tr>
+            <tr><td><code>image</code></td><td><strong>Required (container runtime).</strong> Container image reference. Can be a string or an object with <code>url</code> and optional <code>type</code>. Mutually exclusive with <code>vm</code>.</td></tr>
             <tr><td><code>description</code></td><td>Short human-readable summary of the package.</td></tr>
             <tr><td><code>supplies</code></td><td>List of semantic capability tags this package provides (e.g. <code>["database"]</code>, <code>["http"]</code>).</td></tr>
-            <tr><td><code>command</code></td><td>Optional command override for the container.</td></tr>
-            <tr><td><code>environment</code></td><td>Environment variables passed to the container. Values may contain <code>@variable@</code> template markers.</td></tr>
-            <tr><td><code>network</code></td><td>Port mapping configuration (external and internal).</td></tr>
+            <tr><td><code>command</code></td><td>Optional command override for the container. Mutually exclusive with <code>proton</code>.</td></tr>
+            <tr><td><code>environment</code></td><td>Environment variables passed to the container. Keys must match <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>. Values may contain <code>@variable@</code> template markers.</td></tr>
+            <tr><td><code>network</code></td><td>Port mapping and domain configuration.</td></tr>
             <tr><td><code>volumes</code></td><td>Named volumes with mount configuration.</td></tr>
-            <tr><td><code>questions</code></td><td>Interactive prompts shown during installation.</td></tr>
+            <tr><td><code>questions</code></td><td>Interactive prompts shown during installation. Names must be alphanumeric (<code>^[a-zA-Z0-9]+$</code>).</td></tr>
             <tr><td><code>archives</code></td><td>Archive extraction specs to pre-populate volumes from container images.</td></tr>
+            <tr><td><code>git_sources</code></td><td>Git repositories to clone into volumes.</td></tr>
+            <tr><td><code>templates</code></td><td>File templates rendered with Go <code>text/template</code> and written to volumes on install.</td></tr>
             <tr><td><code>notes</code></td><td>Key-value metadata displayed after installation. Supports template substitution.</td></tr>
+            <tr><td><code>vm</code></td><td>Virtual machine configuration. Mutually exclusive with <code>image</code> and <code>proton</code>.</td></tr>
+            <tr><td><code>proton</code></td><td>Windows application configuration via Proton. Mutually exclusive with <code>vm</code> and <code>command</code>.</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        Exactly one runtime must be specified: <code>image</code> (container), <code>vm</code> (virtual machine),
+        or <code>proton</code> (Windows app). These are mutually exclusive.
+      </p>
     </div>
   </section>
 
   <section class="section alt-section">
     <div class="container">
+      <h2 class="section-title" id="image-field">Image Field</h2>
+      <p class="doc-text">
+        The <code>image</code> field identifies the container image to run. It accepts two forms:
+      </p>
+      <pre><code># Object form
+image:
+  url: nginx:1.26-alpine
+  type: oci                # optional, defaults to "oci"
+
+# Shorthand string form
+image: nginx:1.26-alpine</code></pre>
+      <p class="doc-text">
+        Short image names are automatically normalized during compilation:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Input</th><th>Normalized To</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nginx</code></td><td><code>docker.io/library/nginx:latest</code></td></tr>
+            <tr><td><code>myuser/myapp</code></td><td><code>docker.io/myuser/myapp:latest</code></td></tr>
+            <tr><td><code>ghcr.io/org/app</code></td><td><code>ghcr.io/org/app:latest</code></td></tr>
+            <tr><td><code>nginx:1.26-alpine</code></td><td><code>docker.io/library/nginx:1.26-alpine</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        The only valid <code>type</code> value is <code>oci</code> (the default). Image URLs must contain only
+        alphanumeric characters, <code>@</code>, <code>.</code>, <code>_</code>, <code>:</code>,
+        <code>/</code>, and <code>-</code> — shell metacharacters are rejected.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
       <h2 class="section-title" id="supplies-tags">Supplies Tags</h2>
       <p class="doc-text">
         The <code>supplies</code> field declares what capabilities a package provides,
-        enabling categorization and filtering.
+        enabling categorization and filtering. Tags are free-form strings — the following
+        are conventional:
       </p>
       <div class="table-wrapper">
         <table>
@@ -156,7 +230,7 @@ notes:
     </div>
   </section>
 
-  <section class="section">
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="network-configuration">Network Configuration</h2>
       <div class="table-wrapper">
@@ -165,16 +239,20 @@ notes:
             <tr><th>Field</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>network.external</code></td><td>Port mappings exposed to the host. Keys and values are <code>"port"</code> strings. Both may contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>network.external</code></td><td>Port mappings exposed to the host. Keys are host ports, values are container ports. Both are <code>"port"</code> strings and may contain <code>@variable@</code> templates.</td></tr>
             <tr><td><code>network.internal</code></td><td>Port mappings available only between containers on the internal network.</td></tr>
+            <tr><td><code>network.domains</code></td><td>List of domain names associated with this package. May contain <code>@variable@</code> templates.</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="doc-text">Omit <code>external</code> or <code>internal</code> entirely if unused — do not use empty maps.</p>
+      <p class="doc-text">
+        Port values must be integers between 1 and 65535 after template substitution.
+        Omit <code>external</code>, <code>internal</code>, or <code>domains</code> entirely if unused — do not use empty maps or lists.
+      </p>
     </div>
   </section>
 
-  <section class="section alt-section">
+  <section class="section">
     <div class="container">
       <h2 class="section-title" id="volumes">Volumes</h2>
       <div class="table-wrapper">
@@ -183,19 +261,24 @@ notes:
             <tr><th>Field</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>mountpoint</code></td><td><strong>Required.</strong> Absolute path inside the container where the volume is mounted.</td></tr>
-            <tr><td><code>quota</code></td><td>Optional size limit (e.g. <code>512mb</code>, <code>2gb</code>). Supports <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>mountpoint</code></td><td><strong>Required.</strong> Absolute path inside the container where the volume is mounted (must start with <code>/</code>).</td></tr>
+            <tr><td><code>quota</code></td><td>Optional size limit (e.g. <code>512mb</code>, <code>2gb</code>, <code>1tb</code>). Supports <code>mb</code>, <code>gb</code>, <code>tb</code> suffixes. May contain <code>@variable@</code> templates.</td></tr>
             <tr><td><code>archive</code></td><td>Optional archive filename to pre-populate the volume with.</td></tr>
+            <tr><td><code>git</code></td><td>Optional git repository URL to clone into the volume.</td></tr>
             <tr><td><code>uid</code></td><td>Optional numeric user ID for volume ownership.</td></tr>
             <tr><td><code>gid</code></td><td>Optional numeric group ID for volume ownership.</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="doc-text">Omit <code>volumes</code> entirely if the package has none.</p>
+      <p class="doc-text">
+        Volume names must start with an alphanumeric character and contain only alphanumerics,
+        dots, hyphens, and underscores (pattern: <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code>).
+        Omit <code>volumes</code> entirely if the package has none.
+      </p>
     </div>
   </section>
 
-  <section class="section">
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="archives">Archives</h2>
       <p class="doc-text">
@@ -221,6 +304,31 @@ notes:
         If the target volume is empty during install or reconcile, Podman pulls the image,
         creates a temporary container, and copies the specified directory into the volume.
       </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="git-sources">Git Sources</h2>
+      <p class="doc-text">
+        The <code>git_sources</code> field clones git repositories into volumes:
+      </p>
+      <pre><code>git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: config</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>url</code></td><td><strong>Required.</strong> Git repository URL (http, https, or ssh). May contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>branch</code></td><td>Branch to clone. May contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Required.</strong> Name of a volume defined in this package to clone into.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -256,12 +364,13 @@ notes:
             <tr><th>Type</th><th>Validates</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>hostname</code></td><td>Lowercase alphanumeric with hyphens (no dots)</td></tr>
-            <tr><td><code>port</code></td><td>Integer 1–65535</td></tr>
-            <tr><td><code>bytes</code></td><td>Human-readable size (e.g. <code>512mb</code>, <code>2gb</code>, <code>1tb</code>)</td></tr>
-            <tr><td><code>volume</code></td><td>Alphanumeric with hyphens and underscores</td></tr>
+            <tr><td><code>hostname</code></td><td>Lowercase letter followed by lowercase alphanumerics and hyphens (pattern: <code>^[a-z][a-z0-9-]*$</code>)</td></tr>
+            <tr><td><code>port</code></td><td>Integer between 1 and 65535</td></tr>
+            <tr><td><code>bytes</code></td><td>Integer or number with <code>tb</code>, <code>gb</code>, or <code>mb</code> suffix (case-insensitive)</td></tr>
+            <tr><td><code>volume</code></td><td>Alphanumeric characters, hyphens, and underscores (pattern: <code>^[a-zA-Z0-9-_]+$</code>)</td></tr>
             <tr><td><code>archive</code></td><td>Any non-empty string</td></tr>
-            <tr><td><code>duration</code></td><td>Human-readable duration (e.g. <code>30s</code>, <code>5m</code>, <code>2h</code>, <code>1d</code>)</td></tr>
+            <tr><td><code>secret</code></td><td>Any non-empty string</td></tr>
+            <tr><td><code>duration</code></td><td>Integer or number with <code>d</code>, <code>h</code>, <code>m</code>, or <code>s</code> suffix (case-insensitive). Converted to seconds.</td></tr>
             <tr><td><em>(omitted)</em></td><td>Any string — no validation</td></tr>
           </tbody>
         </table>
@@ -270,6 +379,65 @@ notes:
   </section>
 
   <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="templates">Templates</h2>
+      <p class="doc-text">
+        The <code>templates</code> field defines files that are rendered using Go <code>text/template</code>
+        and written to volumes during installation. Templates are only written if the target file does
+        not already exist, preserving user modifications across upgrades.
+      </p>
+      <pre><code>templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      name: &#123;&#123; .Package.Name &#125;&#125;
+      system: &#123;&#123; .System.Hostname &#125;&#125;</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>volume</code></td><td><strong>Required.</strong> Name of a volume defined in this package.</td></tr>
+            <tr><td><code>path</code></td><td><strong>Required.</strong> Relative path within the volume. Must not start with <code>/</code> or contain <code>..</code>.</td></tr>
+            <tr><td><code>content</code></td><td><strong>Required.</strong> Go <code>text/template</code> content to render.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Template Data Context</h3>
+      <p class="doc-text">
+        The following data is available inside <code>&#123;&#123; &#125;&#125;</code> expressions:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Expression</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.Responses.&lt;name&gt;</code></td><td>User's answer to the named question</td></tr>
+            <tr><td><code>.Package.Name</code></td><td>Package name</td></tr>
+            <tr><td><code>.Package.Version</code></td><td>Package version</td></tr>
+            <tr><td><code>.Package.Repo</code></td><td>Repository name</td></tr>
+            <tr><td><code>.Package.Image</code></td><td>Compiled container image reference</td></tr>
+            <tr><td><code>.Package.Description</code></td><td>Package description</td></tr>
+            <tr><td><code>.System.Hostname</code></td><td>System hostname</td></tr>
+            <tr><td><code>.System.ExternalIP</code></td><td>External IP address (if known)</td></tr>
+            <tr><td><code>.System.InternalIP</code></td><td>Internal/LAN IP address (if known)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Template names follow the same rules as volume names. Files are written with mode <code>0600</code>
+        and parent directories are created with mode <code>0750</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="notes">Notes</h2>
       <p class="doc-text">
@@ -295,14 +463,30 @@ notes:
     </div>
   </section>
 
-  <section class="section alt-section">
+  <section class="section">
     <div class="container">
       <h2 class="section-title" id="template-system">Template System</h2>
       <p class="doc-text">
-        Template variables use the <code>@variable@</code> syntax and are substituted during
-        package compilation. They can appear in environment variable values, network port mappings,
-        volume mountpoints, quotas, archive fields, and note values.
+        Town OS has two template systems that operate at different stages of compilation.
       </p>
+
+      <h3><code>@variable@</code> Substitution</h3>
+      <p class="doc-text">
+        The <code>@variable@</code> syntax is substituted during package compilation across all
+        configurable fields: environment values, network port mappings, network domains, volume
+        mountpoints, volume quotas, volume git URLs, git source URLs and branches, template
+        volume and path fields, VM image and memory, Proton configuration, and note values.
+      </p>
+      <p class="doc-text">
+        Each question name becomes a variable. To include a literal <code>@</code> character
+        (e.g. for a git SSH URL like <code>git@@domain@</code>), use <code>@@</code> — two
+        consecutive <code>@</code> characters produce one literal <code>@</code>.
+      </p>
+      <p class="doc-text">
+        Unresolved variables (referencing a name with no matching question response) are left
+        as-is in the output.
+      </p>
+
       <h3>Built-in Variables</h3>
       <div class="table-wrapper">
         <table>
@@ -310,15 +494,96 @@ notes:
             <tr><th>Variable</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>The external hostname of the Town OS host</td></tr>
-            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>The internal hostname of the Town OS host</td></tr>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>The external hostname or IP of the Town OS host</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>The internal hostname or IP of the Town OS host</td></tr>
+            <tr><td><code>@PACKAGE_DNS@</code></td><td>The DNS name assigned to this package on the internal network</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        Built-in variables are substituted before user question responses, so they take precedence.
+      </p>
+
+      <h3>Go Templates (in <code>templates</code> field)</h3>
+      <p class="doc-text">
+        The <code>templates</code> field uses Go <code>text/template</code> syntax
+        (<code>&#123;&#123; .Responses.name &#125;&#125;</code>) for rendering files written to volumes.
+        See the <a href="#templates">Templates</a> section for available data context.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-runtime">VM Runtime</h2>
+      <p class="doc-text">
+        Packages can run virtual machines instead of containers by specifying a <code>vm</code>
+        field instead of <code>image</code>:
+      </p>
+      <pre><code>vm:
+  image: "https://example.com/my-vm.qcow2"
+  memory: 2gb
+  cpus: 2
+description: A virtual machine package</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Required.</strong> URL (http/https) or filename of the VM disk image. May contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>memory</code></td><td>Memory allocation using byte suffixes (e.g. <code>1gb</code>, <code>512mb</code>). Defaults to <code>1gb</code>. May contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>cpus</code></td><td>Number of virtual CPUs. Defaults to 1. Must be non-negative.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        The <code>vm</code> field is mutually exclusive with <code>image</code> and <code>proton</code>.
+        VM images are not normalized like container images.
+      </p>
     </div>
   </section>
 
   <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="proton-runtime">Proton Runtime</h2>
+      <p class="doc-text">
+        Packages can run Windows applications via Proton by specifying a <code>proton</code> field:
+      </p>
+      <pre><code>image:
+  type: oci
+proton:
+  app_image: "mycompany/windows-app:1.0"
+  app_directory: /app
+  volume: app
+  exe: /app/myapp.exe
+  args: ["-fullscreen", "-config", "/app/config.ini"]
+volumes:
+  app:
+    mountpoint: /app</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>app_image</code></td><td><strong>Required.</strong> Container image containing the Windows application.</td></tr>
+            <tr><td><code>app_directory</code></td><td><strong>Required.</strong> Absolute path where the application is located.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Required.</strong> Name of a volume defined in this package.</td></tr>
+            <tr><td><code>exe</code></td><td><strong>Required.</strong> Path to the Windows executable.</td></tr>
+            <tr><td><code>args</code></td><td>Optional list of command-line arguments.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        When <code>proton</code> is set, the container command is automatically generated as
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>. The <code>proton</code>
+        field is mutually exclusive with <code>vm</code> and <code>command</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="featured-packages">Featured Packages</h2>
       <p class="doc-text">
@@ -337,7 +602,7 @@ notes:
     </div>
   </section>
 
-  <section class="section alt-section">
+  <section class="section">
     <div class="container">
       <h2 class="section-title" id="importing-repositories">Importing Repositories</h2>
       <p class="doc-text">
@@ -356,18 +621,52 @@ notes:
       <h3>Via the Filesystem</h3>
       <p class="doc-text">
         Edit <code>repositories.json</code> in the btrfs package data directory. The file is a
-        JSON array of <code>[name, url]</code> pairs:
+        JSON array of objects:
       </p>
       <pre><code>[
-  ["default", "https://github.com/town-os/default-packages"],
-  ["my-packages", "https://github.com/myuser/my-packages"]
+  &#123;"name": "default", "url": "https://gitea.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
 ]</code></pre>
       <p class="doc-text">
         Order matters — later entries override earlier ones when package names collide.
-        For private repositories, embed credentials in the URL or set the
-        <code>TOWN_OS_REPO_USERNAME</code> and <code>TOWN_OS_REPO_PASSWORD</code> environment
-        variables. Restart the service or hit <strong>Refresh</strong> in the UI for changes to
-        take effect.
+        For private repositories, embed credentials in the URL. Restart the service or hit
+        <strong>Refresh</strong> in the UI for changes to take effect.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="validation-rules">Validation Rules</h2>
+      <p class="doc-text">
+        The following constraints are enforced during package validation and compilation:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Rule</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Image URL</td><td>Non-empty; characters must match <code>^[a-zA-Z0-9@][a-zA-Z0-9._:/@-]*$</code></td></tr>
+            <tr><td>Image type</td><td>Empty (defaults to <code>oci</code>) or <code>oci</code></td></tr>
+            <tr><td>Environment keys</td><td>Must match <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code> (POSIX convention)</td></tr>
+            <tr><td>Question names</td><td>Must match <code>^[a-zA-Z0-9]+$</code></td></tr>
+            <tr><td>Volume names</td><td>Must match <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code></td></tr>
+            <tr><td>Mountpoints</td><td>Must start with <code>/</code></td></tr>
+            <tr><td>Template names</td><td>Same rules as volume names</td></tr>
+            <tr><td>Template paths</td><td>Non-empty, relative (no leading <code>/</code>), no <code>..</code> traversal</td></tr>
+            <tr><td>Archive directory</td><td>Must be an absolute path</td></tr>
+            <tr><td>Archive/git volume</td><td>Must reference a volume defined in the package</td></tr>
+            <tr><td>Git URLs</td><td>Must have a valid scheme and host (except <code>file://</code>)</td></tr>
+            <tr><td>VM CPUs</td><td>Must be non-negative</td></tr>
+            <tr><td>Proton app_directory</td><td>Must be an absolute path</td></tr>
+            <tr><td>Runtime</td><td>Exactly one of <code>image</code>, <code>vm</code>, or <code>proton</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Validation runs before template substitution. Fields containing <code>@variable@</code>
+        markers skip path and URL validation until after compilation resolves the templates.
       </p>
     </div>
   </section>
@@ -381,6 +680,8 @@ notes:
         <li>Include <code>description</code> with a short summary of what the package is.</li>
         <li>Include <code>supplies</code> with relevant capability tags when the package provides a well-known service.</li>
         <li>Include <code>notes</code> with connection URLs and any important post-install information.</li>
+        <li>Use <code>@variable@</code> templates to let users customize ports, hostnames, and credentials at install time.</li>
+        <li>Use <code>templates</code> for config files that need Go template logic — they are only written once and preserve user edits.</li>
       </ul>
     </div>
   </section>
