@@ -4,6 +4,19 @@ const base = import.meta.env.BASE_URL;
 ---
 
 <BaseLayout title="Town OS — Your Cloud in Your Closet">
+  <!-- Install Command -->
+  <section class="install-banner">
+    <div class="container">
+      <div class="install-box">
+        <p class="install-label">Write Town OS to a USB drive:</p>
+        <div class="install-command" id="install-command">
+          <code>curl -fsSL https://town-os.github.io/install.sh | bash</code>
+          <button class="copy-btn" id="copy-btn" aria-label="Copy to clipboard">Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- Early Alpha Warning -->
   <section class="alpha-banner">
     <div class="container">
@@ -252,9 +265,77 @@ make dev</code></pre>
         </a>
       </div>
     </div>
-  </section></BaseLayout>
+  </section>
+
+  <script>
+    const btn = document.getElementById('copy-btn');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText('curl -fsSL https://town-os.github.io/install.sh | bash').then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    }
+  </script>
+</BaseLayout>
 
 <style>
+  /* Install Banner */
+  .install-banner {
+    background: var(--color-bg-elevated);
+    border-bottom: 1px solid var(--color-border);
+    padding: 2rem 0;
+  }
+
+  .install-box {
+    text-align: center;
+  }
+
+  .install-label {
+    color: var(--color-text);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .install-command {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    background: var(--color-code-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 1.05rem;
+  }
+
+  .install-command code {
+    padding: 0.75rem 1.25rem;
+    color: var(--color-accent);
+    font-size: 1rem;
+    background: none;
+    border-radius: 0;
+    user-select: all;
+  }
+
+  .copy-btn {
+    padding: 0.75rem 1.25rem;
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-left: 1px solid var(--color-border);
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    background: var(--color-primary-light);
+  }
+
   /* Alpha Banner */
   .alpha-banner {
     background: #1a0a0a;
