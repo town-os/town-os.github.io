@@ -21,6 +21,7 @@ const base = import.meta.env.BASE_URL;
       <nav class="toc">
         <ul>
           <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
+          <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
           <li><a href="#raid-and-zfs">RAID Installation and ZFS</a></li>
@@ -113,8 +114,68 @@ sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
     </div>
   </section>
 
-  <!-- DNS Setup -->
+  <!-- Sledgehammer Boot Option -->
   <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="sledgehammer">Sledgehammer Boot Option</h2>
+      <p class="doc-text">
+        The Town OS USB drive includes a <strong>sledgehammer</strong> boot option that
+        wipes all detected storage devices and resets the system to a clean state. This is
+        useful when you want to start fresh — for example, after testing, before
+        redeploying to new hardware, or when storage has become corrupted.
+      </p>
+
+      <h3>What It Does</h3>
+      <p class="doc-text">
+        When you select the sledgehammer option at boot, Town OS will:
+      </p>
+      <ul class="doc-list">
+        <li>Detect all local storage devices (NVMe, SATA/SAS, SD cards) — the same detection used during normal boot</li>
+        <li>Wipe the partition tables and filesystems on every detected device</li>
+        <li>Reboot the system, which then performs a fresh storage setup as if it were the first boot</li>
+      </ul>
+      <p class="doc-text callout">
+        Sledgehammer destroys all data on all detected storage devices. The USB drive itself
+        is not affected — only the internal disks. Make sure you have backups of anything
+        you need before using this option.
+      </p>
+
+      <h3>How to Use It</h3>
+      <ol class="doc-list">
+        <li>Plug the Town OS USB drive into the target machine and boot from it</li>
+        <li>At the boot menu, select the <strong>sledgehammer</strong> entry instead of the default boot option</li>
+        <li>The system will wipe all detected storage and reboot automatically</li>
+        <li>On the next boot, Town OS will set up storage from scratch using your <code>town-os.yaml</code> configuration</li>
+      </ol>
+
+      <h3>When to Use It</h3>
+      <ul class="doc-list">
+        <li><strong>Factory reset</strong> — return the system to a clean state as if it were freshly deployed</li>
+        <li><strong>Storage backend change</strong> — switching from btrfs to ZFS (or vice versa) requires clearing existing storage first</li>
+        <li><strong>Corrupted storage</strong> — if the filesystem is damaged beyond repair, sledgehammer gives you a clean starting point</li>
+        <li><strong>Redeployment</strong> — repurposing hardware for a different Town OS configuration</li>
+      </ul>
+
+      <DiagramFlow title="Sledgehammer Reset Flow">
+        <DiagramBox label="Boot Menu" sub="Select sledgehammer" variant="neutral">
+          <DiagramTag>sledgehammer</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="wipe" />
+        <DiagramBox label="Clear Storage" sub="All detected disks wiped" variant="purple">
+          <DiagramTag variant="purple">NVMe</DiagramTag>
+          <DiagramTag variant="purple">SATA</DiagramTag>
+          <DiagramTag variant="purple">SD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="reboot" />
+        <DiagramBox label="Fresh Setup" sub="Storage configured from scratch" variant="teal">
+          <DiagramTag variant="teal">town-os.yaml</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- DNS Setup -->
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="dns-setup">Setting Up DNS on Your Router</h2>
       <p class="doc-text">
