@@ -60,7 +60,7 @@ for i in "${!usb_devices[@]}"; do
     echo "  [$((i + 1))] $label"
 done
 echo ""
-read -rp "Select a device [1-${#usb_devices[@]}]: " choice
+read -rp "Select a device [1-${#usb_devices[@]}]: " choice </dev/tty
 
 if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#usb_devices[@]} ]; then
     selected_device="${usb_devices[$((choice - 1))]}"
@@ -77,7 +77,7 @@ echo ""
 echo "WARNING: This will DESTROY ALL DATA on $selected_device"
 echo "  $device_info"
 echo ""
-read -rp "Type 'yes' to continue: " confirm
+read -rp "Type 'yes' to continue: " confirm </dev/tty
 [ "$confirm" = "yes" ] || die "Aborted"
 
 # Determine if we need sudo
