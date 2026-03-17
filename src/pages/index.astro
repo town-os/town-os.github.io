@@ -10,7 +10,7 @@ const base = import.meta.env.BASE_URL;
       <div class="install-box">
         <p class="install-label">Write Town OS to a USB drive:</p>
         <div class="install-command" id="install-command">
-          <code>curl -fsSL https://town-os.github.io/install.sh | bash</code>
+          <code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code>
           <button class="copy-btn" id="copy-btn" aria-label="Copy to clipboard">Copy</button>
         </div>
       </div>
@@ -271,7 +271,7 @@ make dev</code></pre>
     const btn = document.getElementById('copy-btn');
     if (btn) {
       btn.addEventListener('click', () => {
-        navigator.clipboard.writeText('curl -fsSL https://town-os.github.io/install.sh | bash').then(() => {
+        navigator.clipboard.writeText('curl -sSLO https://town-os.github.io/install.sh && bash install.sh').then(() => {
           btn.textContent = 'Copied!';
           setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
         });
