@@ -1,39 +1,16 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 const base = import.meta.env.BASE_URL;
+
+const previewScreenshots = [
+  { file: 'dashboard.png', title: 'Dashboard' },
+  { file: 'packages.png', title: 'Packages' },
+  { file: 'installation.png', title: 'Installation' },
+  { file: 'services.png', title: 'Services' },
+];
 ---
 
 <BaseLayout title="Town OS — Your Cloud in Your Closet">
-  <!-- Install Command -->
-  <section class="install-banner">
-    <div class="container">
-      <div class="install-box">
-        <p class="install-label">Write Town OS to a USB drive:</p>
-        <div class="install-command" id="install-command">
-          <code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code>
-          <button class="copy-btn" id="copy-btn" aria-label="Copy to clipboard">Copy</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Early Alpha Warning -->
-  <section class="alpha-banner">
-    <div class="container">
-      <div class="alpha-box">
-        <div class="alpha-badge">EARLY ALPHA</div>
-        <p class="alpha-lead">Town OS is under active development and is not yet ready for general use.</p>
-        <p class="alpha-warning">Town OS will format and use all detected local storage devices. <strong>Running it on a real computer will destroy your data.</strong></p>
-        <p class="alpha-note">
-          A <a href="https://gitea.com/town-os/town-os/releases/tag/alpha3">USB installer image</a> is
-          available for testing. If you just want to try it out safely, the
-          <a href={`${base}guide/#building-vms`}>VM instructions in the guide</a>
-          let you run Town OS in a virtual machine with no risk to your hardware.
-        </p>
-      </div>
-    </div>
-  </section>
-
   <!-- Hero -->
   <section class="hero">
     <div class="hero-bg">
@@ -42,39 +19,44 @@ const base = import.meta.env.BASE_URL;
     <div class="container hero-content">
       <img src={`${base}images/logos/logo-256.png`} alt="Town OS logo" width="120" height="120" class="hero-logo" />
       <h1>Your Cloud in Your Closet</h1>
-      <p class="hero-subtitle">
-        Town OS is a self-hosted platform that runs entirely from a USB drive.
-        No installation. No cloud subscriptions. Just plug in and own your digital life.
-      </p>
+      <div class="hero-text-box">
+        <p class="hero-lead">
+          Town OS is a self-hosted platform that boots from a USB drive and dedicates
+          all of your computer's local storage to your data.
+        </p>
+        <ul class="hero-bullets">
+          <li>Updates to components arrive over the air.</li>
+          <li>The USB cannot be changed, enhancing security.</li>
+          <li>Almost everything is fixable with a reboot.</li>
+          <li>Core system upgrades are just a USB change.</li>
+        </ul>
+      </div>
       <div class="hero-actions">
-        <a href="https://gitea.com/town-os/town-os" class="btn btn-primary" target="_blank" rel="noopener">
-          View on Gitea
+        <a href="#install" class="btn btn-primary">
+          Try It Out
         </a>
-        <a href={`${base}screenshots/`} class="btn btn-outline">
-          See It in Action
+        <a href="https://gitea.com/town-os/town-os" class="btn btn-outline" target="_blank" rel="noopener">
+          View on Gitea
         </a>
       </div>
     </div>
   </section>
 
-  <!-- Quick Links -->
-  <section class="section quick-links-section">
+  <!-- Preview Screenshots -->
+  <section class="preview-section">
     <div class="container">
-      <div class="callout-row">
-        <a href={`${base}guide/#creating-the-usb-drive`} class="callout-card">
-          <span class="callout-icon">&#x1F4BE;</span>
-          <div>
-            <h3>Write a USB Image</h3>
-            <p>Build and write a bootable Town OS USB drive from source.</p>
-          </div>
-        </a>
-        <a href={`${base}guide/#reporting-bugs`} class="callout-card">
-          <span class="callout-icon">&#x1F41B;</span>
-          <div>
-            <h3>Report a Bug</h3>
-            <p>Gather logs, summarize errors, and file an issue on Gitea.</p>
-          </div>
-        </a>
+      <div class="preview-grid">
+        {previewScreenshots.map((shot) => (
+          <a href={`${base}screenshots/`} class="preview-item">
+            <img
+              src={`${base}images/screenshots/${shot.file}`}
+              alt={shot.title}
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="preview-label">{shot.title}</span>
+          </a>
+        ))}
       </div>
     </div>
   </section>
@@ -120,24 +102,37 @@ const base = import.meta.env.BASE_URL;
     </div>
   </section>
 
-  <!-- Getting Started -->
-  <section class="section getting-started-section">
+  <!-- Install Command -->
+  <section class="install-banner" id="install">
     <div class="container">
-      <h2 class="section-title">Getting Started</h2>
-      <p class="getting-started-lead">
-        Clone the repository, run <code>make dev</code>, and open the URL shown in the terminal:
-      </p>
-      <div class="code-block">
-        <pre><code>git clone https://gitea.com/town-os/town-os.git
-cd town-os
-make dev</code></pre>
+      <div class="install-box">
+        <p class="install-label">Write Town OS to a USB drive:</p>
+        <div class="install-command" id="install-command">
+          <code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code>
+          <button class="copy-btn" id="copy-btn" aria-label="Copy to clipboard">Copy</button>
+        </div>
       </div>
-      <p class="getting-started-note">
-        Requires Linux with Podman, Go 1.25+, Bun, and btrfs-progs. See the
-        <a href="https://gitea.com/town-os/town-os#prerequisites" target="_blank" rel="noopener">getting started instructions</a> for full prerequisites.
-      </p>
     </div>
   </section>
+
+  <!-- Early Alpha Warning -->
+  <section class="alpha-banner">
+    <div class="container">
+      <div class="alpha-box">
+        <div class="alpha-badge">EARLY ALPHA</div>
+        <p class="alpha-lead">Town OS is under active development and is not yet ready for general use.</p>
+        <p class="alpha-warning">Town OS will format and use all detected local storage devices. <strong>Running it on a real computer will destroy your data.</strong></p>
+        <p class="alpha-note">
+          A <a href="https://gitea.com/town-os/town-os/releases/tag/alpha3">USB installer image</a> is
+          available for testing. If you just want to try it out safely, the
+          <a href={`${base}guide/#building-vms`}>VM instructions in the guide</a>
+          let you run Town OS in a virtual machine with no risk to your hardware.
+        </p>
+      </div>
+    </div>
+  </section>
+
+
 
   <!-- Features -->
   <section class="section features-section">
@@ -146,59 +141,68 @@ make dev</code></pre>
       <div class="features-grid">
         <div class="card feature-card">
           <h3>Smart Storage</h3>
-          <p>
-            btrfs-backed storage with per-package subvolumes, configurable
-            quotas, and archive support. Volumes persist across reinstalls
-            and upgrades — your data is organized and protected.
-          </p>
+          <p>btrfs-backed, persistent across reinstalls and upgrades.</p>
+          <ul class="feature-list">
+            <li>Per-package subvolumes with configurable quotas</li>
+            <li>Archive and download volumes as compressed backups</li>
+            <li>Your data stays organized and protected</li>
+          </ul>
         </div>
         <div class="card feature-card">
           <h3>Integrated Networking</h3>
-          <p>
-            Manage your entire local network with
-            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
-            a standards-compliant DNS server with DNSSEC validation and DANE
-            support — block advertisements and malware for every device in
-            your home, and use it as a personal trust root for your network.
-            Packages declare their own port mappings (external and internal),
-            and Town OS handles UPnP forwarding, tunnels, and VPN attachments
-            automatically.
-          </p>
+          <p>Manage your entire local network from one box.</p>
+          <ul class="feature-list">
+            <li>Built-in DNS with DNSSEC validation and DANE support via <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a></li>
+            <li>Ad and malware blocking for every device on your network</li>
+            <li>Automatic UPnP forwarding, tunnels, and VPN attachments</li>
+            <li>ACME certificate management coming soon</li>
+            <li>DHCP and full router functionality coming soon</li>
+          </ul>
         </div>
         <div class="card feature-card">
           <h3>Package Ecosystem</h3>
-          <p>
-            Install databases, web servers, media platforms, and collaboration
-            tools with a click — configure through guided prompts. Anyone can
-            <a href={`${base}packaging/`}>create their own package repository</a>
-            and use it alongside the defaults.
-          </p>
+          <p>Install services with a click, configure through guided prompts. <a href={`${base}packaging/`}>Create your own repositories</a> alongside the defaults.</p>
+          <ul class="feature-list">
+            <li>Make one for your neighborhood or multi-office business</li>
+            <li>Control your chain of coffee shops</li>
+            <li>Own your whole stack on your Mom &amp; Pop ISP</li>
+            <li>Get your parents or kids safe with the tools you want them to use</li>
+            <li>Start a Mastodon network or Minecraft for your children's friends</li>
+            <li>Gitea, Jitsi, Plex, databases, web servers, and more</li>
+            <li>Networking and storage managed automatically per package</li>
+          </ul>
         </div>
         <div class="card feature-card">
           <h3>Friendly UI</h3>
-          <p>
-            A clean, modern dashboard for managing services, storage, users,
-            and packages. Designed to be safe and intuitive for non-technical
-            users while powerful enough for admins.
-          </p>
+          <p>A clean dashboard for everyone.</p>
+          <ul class="feature-list">
+            <li>Manage services, storage, users, and packages</li>
+            <li>Built-in audit logging for every action</li>
+            <li>Live systemd journal integration for service logs</li>
+            <li>Grafana and Prometheus dashboards set up automatically</li>
+            <li>Safe and intuitive for non-technical users, powerful enough for admins</li>
+          </ul>
         </div>
         <div class="card feature-card">
-          <h3>Fast and Flexible</h3>
-          <p>
-            The OS runs entirely in RAM, so the system itself never touches
-            your disks. Administrators get audit logging, live service logs,
-            per-volume quota management, and a complete REST API with 51
-            endpoints.
-          </p>
+          <h3>Fast, Flexible and Secure</h3>
+          <p>The OS runs entirely in RAM — your disks are for your data.</p>
+          <ul class="feature-list">
+            <li>Immutable operating system on USB — tamper-resistant by design</li>
+            <li>Over the air updates for components</li>
+            <li>Seamless upgrades — most things can be fixed by a reboot</li>
+            <li>Audit logging and live service logs</li>
+            <li>Per-volume quota management</li>
+            <li><strong>Complete REST API</strong> — clients already exist and will be published soon</li>
+          </ul>
         </div>
         <div class="card feature-card">
           <h3>Open Source</h3>
-          <p>
-            Licensed under GNU AGPL 3.0. The code is always available for
-            examination, and must be released if it is packaged or changed
-            by anyone else. Nobody can take advantage of Town OS users
-            without someone knowing about it.
-          </p>
+          <p>Licensed under GNU AGPL 3.0.</p>
+          <ul class="feature-list">
+            <li>Code is always available for examination — by security professionals, automated scanners and watchdogs alike</li>
+            <li>Must be released if packaged or changed by anyone</li>
+            <li>Nobody can take advantage of users without someone knowing</li>
+          </ul>
         </div>
       </div>
     </div>
@@ -392,6 +396,48 @@ make dev</code></pre>
     font-weight: 600;
   }
 
+  /* Preview Screenshots */
+  .preview-section {
+    background: var(--color-bg);
+    padding: 2.5rem 0;
+  }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .preview-item {
+    display: block;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .preview-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .preview-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .preview-label {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
   /* Hero */
   .hero {
     position: relative;
@@ -413,6 +459,7 @@ make dev</code></pre>
     opacity: 0.18;
   }
 
+
   .hero-content {
     position: relative;
     z-index: 1;
@@ -432,12 +479,42 @@ make dev</code></pre>
     background-clip: text;
   }
 
-  .hero-subtitle {
-    font-size: 1.2rem;
-    color: var(--color-text-muted);
+  .hero-text-box {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    padding: 1.75rem 2.25rem;
     max-width: 640px;
     margin: 0 auto 2rem;
+  }
+
+  .hero-lead {
+    font-size: 1.25rem;
+    color: #f0f0f0;
+    font-weight: 700;
+    margin: 0 0 1rem;
+    line-height: 1.7;
+  }
+
+  .hero-bullets {
+    list-style: none;
+    margin: 0;
+    padding-left: 1.5rem;
+    text-align: left;
+  }
+
+  .hero-bullets li {
+    color: #e0e0e0;
+    font-size: 1.1rem;
     line-height: 1.8;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .hero-bullets li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
   }
 
   .hero-actions {
@@ -507,6 +584,47 @@ make dev</code></pre>
   .feature-card p {
     color: var(--color-text-muted);
     font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .feature-list li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    padding-left: 1.1rem;
+    position: relative;
+  }
+
+  .feature-list li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+  }
+
+  .feature-list a {
+    color: var(--color-accent);
+  }
+
+  .feature-sublist {
+    list-style: none;
+    padding: 0;
+    margin: 0.2rem 0 0 0.75rem;
+  }
+
+  .feature-sublist li {
+    font-size: 0.85rem;
+    padding-left: 1rem;
+  }
+
+  .feature-sublist li::before {
+    content: "\2013";
   }
 
   /* Repo highlight */
@@ -652,11 +770,13 @@ make dev</code></pre>
   @media (max-width: 768px) {
     .hero { padding: 4rem 0 3rem; }
     .hero h1 { font-size: 2rem; }
-    .hero-subtitle { font-size: 1rem; }
+    .hero-lead { font-size: 1.05rem; }
+    .hero-bullets li { font-size: 1rem; }
     .intro-grid { grid-template-columns: 1fr; }
     .features-grid { grid-template-columns: 1fr; }
     .docs-grid { grid-template-columns: 1fr; }
     .repo-highlight { padding: 1.5rem; }
     .callout-row { grid-template-columns: 1fr; }
+    .preview-grid { grid-template-columns: repeat(2, 1fr); }
   }
 </style>
