@@ -7,6 +7,9 @@ export default defineConfig({
   build: {
     assets: '_assets',
   },
+  server: {
+    allowedHosts: true,
+  },
   vite: {
     plugins: [tailwindcss()],
   },
