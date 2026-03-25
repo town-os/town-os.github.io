@@ -96,6 +96,13 @@ Tailwind mirrors these as `--color-town-*` in `tailwind.css` (used only in diagr
 - Navigation toggle and copy-to-clipboard are the only interactive behaviors
 - Aria attributes for accessibility on all interactive elements
 
+## USB Installer Image
+- When updating the installer image URL/tag, update ALL references across the codebase:
+  - `install.sh` (root) — `IMAGE_URL` variable
+  - `public/install.sh` — `IMAGE_URL` variable
+  - `src/pages/index.astro` — the release link to the USB installer image
+- The image is hosted on Gitea at `https://gitea.com/town-os/install/releases/`
+
 ## General Rules
 - No emojis in copy unless explicitly requested
 - Images use `loading="lazy"` and `decoding="async"` where appropriate

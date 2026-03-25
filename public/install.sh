@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_URL="https://gitea.com/town-os/town-os/releases/download/2026-03-24-unstable/town-os-2026-03-24.img.bz2"
+IMAGE_URL="https://gitea.com/town-os/install/releases/download/v0.0.1-alpha1/town-os-2026-03-24.img.bz2"
 
 die() { echo "Error: $*" >&2; exit 1; }
 
