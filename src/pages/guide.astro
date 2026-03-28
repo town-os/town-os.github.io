@@ -20,6 +20,7 @@ const base = import.meta.env.BASE_URL;
       </p>
       <nav class="toc">
         <ul>
+          <li><a href="#quick-start">Quick Start</a></li>
           <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
           <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
@@ -32,6 +33,81 @@ const base = import.meta.env.BASE_URL;
           <li><a href="#reporting-bugs">Reporting Bugs</a></li>
         </ul>
       </nav>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section quickstart-section">
+    <div class="container">
+      <h2 class="section-title" id="quick-start">Quick Start</h2>
+      <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
+        Get Town OS running on a spare computer in minutes. All you need is a USB drive
+        (8 GB or larger) and a Linux or macOS machine to write it from.
+      </p>
+
+      <h3>1. Write the USB Drive</h3>
+      <p class="doc-text">
+        Run the installer script on any machine with <code>curl</code>, <code>bzip2</code>,
+        and <code>dd</code> installed. It downloads the latest Town OS image and writes it
+        directly to a USB drive.
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code></pre>
+      <p class="doc-text">
+        The script will scan for connected USB devices, show you a list with device names
+        and sizes, and ask you to pick one. After you confirm, it streams the compressed
+        image and writes it to the drive in a single pass. The whole process takes a few
+        minutes depending on your internet connection.
+      </p>
+
+      <div class="data-warning">
+        <div class="data-warning-badge">DATA DESTRUCTION WARNING</div>
+        <p class="data-warning-text">
+          Town OS will <strong>format and use all detected local storage devices</strong>
+          (NVMe, SATA, SAS, SD cards). Booting Town OS on a machine will
+          <strong>permanently destroy all existing data</strong> on every internal drive.
+        </p>
+        <p class="data-warning-text">
+          Only boot Town OS on a dedicated machine with no data you want to keep, or use
+          the <a href="#building-vms">VM instructions</a> to try it safely first.
+        </p>
+      </div>
+
+      <h3>2. Boot from USB</h3>
+      <p class="doc-text">
+        Plug the USB drive into the target computer and boot from it. You may need to
+        press a key during startup to reach the boot menu — common keys are
+        <strong>F12</strong>, <strong>F2</strong>, <strong>Esc</strong>, or
+        <strong>Del</strong>, depending on your hardware.
+      </p>
+
+      <h3>3. First Boot: Use Sledgehammer</h3>
+      <p class="doc-text">
+        If the target machine has been used before for something else, <strong>select the sledgehammer
+        boot option</strong> from the boot menu on your first boot. Sledgehammer wipes
+        all detected storage devices and ensures Town OS starts with a completely clean
+        slate. This avoids problems caused by leftover partition tables, filesystems,
+        or RAID metadata from a previous operating system.
+      </p>
+      <p class="doc-text">
+        After sledgehammer finishes, the machine reboots automatically and Town OS
+        performs a fresh storage setup. See
+        <a href="#sledgehammer">Sledgehammer Boot Option</a> for full details.
+      </p>
+
+      <h3>4. What Happens on Boot</h3>
+      <ul class="doc-list">
+        <li>Town OS loads entirely into RAM from the USB drive</li>
+        <li>All detected local storage devices are formatted and configured as a RAID array for your data</li>
+        <li>Networking is configured automatically via DHCP</li>
+        <li>The web UI becomes available at <code>http://town-os.local</code> or the machine's IP address</li>
+      </ul>
+
+      <h3>5. Create Your Account and Start Using It</h3>
+      <p class="doc-text">
+        Open a browser and go to <code>http://town-os.local</code>. You will be prompted
+        to create an administrator account. Once logged in, you can install packages, manage
+        storage, and configure services from the dashboard.
+      </p>
     </div>
   </section>
 
@@ -874,9 +950,107 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
       </DiagramFlow>
     </div>
   </section>
+
+  <script>
+    document.querySelectorAll('pre').forEach((pre) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-copy-wrapper';
+      pre.parentNode!.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.textContent = 'Copy';
+      btn.setAttribute('aria-label', 'Copy to clipboard');
+      wrapper.appendChild(btn);
+
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = (code || pre).textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+        });
+      });
+    });
+  </script>
 </BaseLayout>
 
 <style>
+  .quickstart-section {
+    background: var(--color-bg-elevated);
+    border-bottom: 2px solid var(--color-primary-dim);
+  }
+
+  .data-warning {
+    background: #2a0f0f;
+    border: 2px solid #993333;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .data-warning-badge {
+    display: inline-block;
+    background: #993333;
+    color: #d0d0d0;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    padding: 0.35rem 1.25rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .data-warning-text {
+    color: #cc5555;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+    max-width: 800px;
+  }
+
+  .data-warning-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .data-warning-text strong {
+    color: #bb4444;
+  }
+
+  .data-warning-text a {
+    color: var(--color-accent);
+  }
+
+  .code-copy-wrapper {
+    position: relative;
+  }
+
+  .code-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.3rem 0.75rem;
+    background: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    opacity: 0;
+  }
+
+  .code-copy-wrapper:hover .code-copy-btn {
+    opacity: 1;
+  }
+
+  .code-copy-btn:hover {
+    background: var(--color-primary-light);
+  }
+
   .page-lead {
     font-size: 1.15rem;
     color: var(--color-text-muted);

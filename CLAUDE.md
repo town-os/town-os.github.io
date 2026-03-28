@@ -58,8 +58,9 @@ Tailwind mirrors these as `--color-town-*` in `tailwind.css` (used only in diagr
 
 ### Cards & Components
 - Cards: `.card` class — `var(--color-bg-card)` bg, 1px border, 12px radius, 1.75rem padding
-- Buttons: `.btn` base + `.btn-primary` (purple) or `.btn-outline` (cyan border)
+- Buttons: `.btn` base + `.btn-primary` (purple) or `.btn-outline` (cyan border). Use `.btn-primary` for all hero/prominent action buttons — do not mix styles in the same button row
 - Hover effects: border-color shift + `translateY(-2px)` — consistent across cards, gallery items, callouts
+- Destructive/warning banners: `#2a0f0f` bg, `2px solid #993333` border, 12px radius. Badge uses `#993333` bg with `#d0d0d0` text, 800 weight, `0.15em` letter-spacing. Warning text in `#cc5555`, strong in `#bb4444`. Same pattern used by the alpha banner on the home page and the data warning in the guide
 
 ### Content Presentation
 - Bold first sentence / paragraph, then present details as a bulleted list
