@@ -28,6 +28,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <li><a href="#template-system">Template System</a></li>
           <li><a href="#vm-runtime">VM Runtime</a></li>
           <li><a href="#proton-runtime">Proton Runtime</a></li>
+          <li><a href="#compilation">Compilation</a></li>
+          <li><a href="#response-persistence">Response Persistence</a></li>
+          <li><a href="#installation-workflow">Installation Workflow</a></li>
+          <li><a href="#uninstallation">Uninstallation</a></li>
+          <li><a href="#install-preview">Install Preview</a></li>
           <li><a href="#featured-packages">Featured Packages</a></li>
           <li><a href="#importing-repositories">Importing Repositories</a></li>
           <li><a href="#validation-rules">Validation Rules</a></li>
@@ -160,8 +165,12 @@ notes:
         </table>
       </div>
       <p class="doc-text">
-        Exactly one runtime must be specified: <code>image</code> (container), <code>vm</code> (virtual machine),
-        or <code>proton</code> (Windows app). These are mutually exclusive.
+        There are two runtime types: <strong>container</strong> (the default) and <strong>vm</strong>.
+        A package specifies <code>image</code> or <code>proton</code> for the container runtime,
+        or <code>vm</code> for the VM runtime. Proton is a specialization of the container runtime
+        — it uses Podman under the hood but auto-generates the command and extracts Windows application
+        files from a separate container image. These fields are mutually exclusive: a package must
+        include exactly one of <code>image</code>/<code>proton</code> or <code>vm</code>.
       </p>
     </div>
   </section>
@@ -364,12 +373,12 @@ image: nginx:1.26-alpine</code></pre>
             <tr><th>Type</th><th>Validates</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>hostname</code></td><td>Lowercase letter followed by lowercase alphanumerics and hyphens (pattern: <code>^[a-z][a-z0-9-]*$</code>)</td></tr>
-            <tr><td><code>port</code></td><td>Integer between 1 and 65535</td></tr>
+            <tr><td><code>hostname</code></td><td>Lowercase letter followed by lowercase alphanumerics and hyphens (pattern: <code>^[a-z][a-z0-9-]*$</code>). Auto-generates <code>&lt;package-name&gt;-&lt;4-char-hex&gt;</code> when empty.</td></tr>
+            <tr><td><code>port</code></td><td>Integer between 1 and 65535. Auto-generates a random available port in the range 10000-60000 when empty or set to <code>"auto"</code>.</td></tr>
             <tr><td><code>bytes</code></td><td>Integer or number with <code>tb</code>, <code>gb</code>, or <code>mb</code> suffix (case-insensitive)</td></tr>
             <tr><td><code>volume</code></td><td>Alphanumeric characters, hyphens, and underscores (pattern: <code>^[a-zA-Z0-9-_]+$</code>)</td></tr>
             <tr><td><code>archive</code></td><td>Any non-empty string</td></tr>
-            <tr><td><code>secret</code></td><td>Any non-empty string</td></tr>
+            <tr><td><code>secret</code></td><td>Auto-generates a 64-character hex string (256 bits) when empty or set to <code>"auto"</code>. Can be overridden with an explicit value.</td></tr>
             <tr><td><code>duration</code></td><td>Integer or number with <code>d</code>, <code>h</code>, <code>m</code>, or <code>s</code> suffix (case-insensitive). Converted to seconds.</td></tr>
             <tr><td><em>(omitted)</em></td><td>Any string — no validation</td></tr>
           </tbody>
@@ -577,13 +586,123 @@ volumes:
       </div>
       <p class="doc-text">
         When <code>proton</code> is set, the container command is automatically generated as
-        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>. The <code>proton</code>
-        field is mutually exclusive with <code>vm</code> and <code>command</code>.
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>. The container image
+        defaults to the system-wide <code>proton_image</code> setting
+        (<code>quay.io/town/proton:latest</code>), which can be overridden per-package by
+        setting <code>image</code>. The <code>app_image</code> field is normalized during
+        compilation using the same rules as regular container image references.
+        The <code>proton</code> field is mutually exclusive with <code>vm</code> and <code>command</code>.
       </p>
     </div>
   </section>
 
   <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="compilation">Compilation</h2>
+      <p class="doc-text">
+        <strong>Compilation transforms a package definition and user responses into a fully resolved,
+        runnable configuration.</strong> The compile pipeline performs these steps:
+      </p>
+      <ul class="doc-list">
+        <li>Validates all question responses against their declared types</li>
+        <li>Applies type-specific validation (port ranges, hostname patterns, byte parsing, etc.)</li>
+        <li>Substitutes all <code>@variable@</code> template markers with resolved values</li>
+        <li>Normalizes container image URLs to fully qualified references</li>
+        <li>Produces a resolved package ready for installation</li>
+      </ul>
+      <p class="doc-text">
+        For VM packages, memory strings (e.g. <code>2gb</code>) are parsed to byte counts and
+        CPU defaults are applied. Validation errors are collected across all fields and returned
+        together, so users can fix everything in one pass rather than hitting errors one at a time.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="response-persistence">Response Persistence</h2>
+      <p class="doc-text">
+        <strong>Responses are saved per version</strong> at
+        <code>responses/&lt;repo&gt;/&lt;pkg&gt;/&lt;version&gt;.json</code>.
+        A <code>last</code> copy is also saved at
+        <code>responses/last/&lt;repo&gt;/&lt;pkg&gt;.json</code> for reuse during upgrades
+        and reinstallation from uninstalled volumes.
+      </p>
+      <p class="doc-text">
+        Last responses are cleared after a successful install. This means that if a package
+        is uninstalled and later reinstalled, the previous answers are offered as defaults.
+        Once the new install succeeds, the cached copy is removed.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="installation-workflow">Installation Workflow</h2>
+      <p class="doc-text">
+        <strong>Installing a package runs through a defined sequence of steps.</strong>
+        The process handles everything from file setup through service startup:
+      </p>
+      <ul class="doc-list">
+        <li>Hard link creation from the repository package file to the installed directory</li>
+        <li>Response persistence (version-specific and <code>last</code> copy)</li>
+        <li>Volume creation with quotas and optional UID/GID ownership</li>
+        <li>Volume seeding from archives and git sources (container runtime only)</li>
+        <li>Template application (files rendered into volumes)</li>
+        <li>Systemd unit generation (Podman-based for containers, QEMU-based for VMs)</li>
+        <li>Network state file creation</li>
+        <li>Service start</li>
+        <li>Last response clearing on success</li>
+      </ul>
+      <p class="doc-text">
+        Two optional flags control volume behavior:
+      </p>
+      <ul class="doc-list">
+        <li><code>reuse_volumes</code> — reuse volumes from a previous uninstalled version of the same package</li>
+        <li><code>import_from_version</code> — import volumes from a specific prior version</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="uninstallation">Uninstallation</h2>
+      <p class="doc-text">
+        <strong>Uninstalling a package preserves volume data by default.</strong>
+        Volumes are moved from the <code>installed/</code> prefix to the <code>uninstalled/</code>
+        prefix rather than being deleted. This allows reinstallation with the original data intact.
+      </p>
+      <p class="doc-text">
+        The uninstall process also removes the network state file and stops, disables, and
+        uninstalls the associated systemd units.
+      </p>
+      <p class="doc-text">
+        To delete volumes immediately instead of preserving them, use the <code>purge_volumes</code>
+        flag. Purged volumes cannot be recovered.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="install-preview">Install Preview</h2>
+      <p class="doc-text">
+        <strong>Before committing to an install, you can preview what would be created.</strong>
+        The install preview endpoint (<code>POST /packages/install-preview</code>) returns a
+        summary of the planned installation without making any changes:
+      </p>
+      <ul class="doc-list">
+        <li>Volumes that would be created</li>
+        <li>Ports that would be mapped</li>
+        <li>Upgrade information (if upgrading from a previous version)</li>
+        <li>Runtime type (container or VM)</li>
+        <li>Whether the package has questions to answer</li>
+        <li>VM configuration details (image, memory, CPUs) for VM packages</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
     <div class="container">
       <h2 class="section-title" id="featured-packages">Featured Packages</h2>
       <p class="doc-text">
@@ -602,7 +721,7 @@ volumes:
     </div>
   </section>
 
-  <section class="section">
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="importing-repositories">Importing Repositories</h2>
       <p class="doc-text">
@@ -635,7 +754,7 @@ volumes:
     </div>
   </section>
 
-  <section class="section alt-section">
+  <section class="section">
     <div class="container">
       <h2 class="section-title" id="validation-rules">Validation Rules</h2>
       <p class="doc-text">
@@ -660,7 +779,7 @@ volumes:
             <tr><td>Git URLs</td><td>Must have a valid scheme and host (except <code>file://</code>)</td></tr>
             <tr><td>VM CPUs</td><td>Must be non-negative</td></tr>
             <tr><td>Proton app_directory</td><td>Must be an absolute path</td></tr>
-            <tr><td>Runtime</td><td>Exactly one of <code>image</code>, <code>vm</code>, or <code>proton</code></td></tr>
+            <tr><td>Runtime</td><td>Exactly one of <code>image</code>/<code>proton</code> (container) or <code>vm</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -671,7 +790,7 @@ volumes:
     </div>
   </section>
 
-  <section class="section">
+  <section class="section alt-section">
     <div class="container">
       <h2 class="section-title" id="style-guidelines">Style Guidelines</h2>
       <ul class="guidelines-list">
@@ -742,6 +861,23 @@ volumes:
   h3 {
     margin-top: 1.5rem;
     margin-bottom: 0.75rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
   }
 
   .guidelines-list {

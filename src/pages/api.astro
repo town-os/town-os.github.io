@@ -7,8 +7,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     <div class="container">
       <h1>API Documentation</h1>
       <p class="page-lead">
-        Complete reference for the Town OS systemcontroller API — 51 endpoints across
-        accounts, storage, repositories, packages, systemd, settings, audit, and status.
+        Complete reference for the Town OS systemcontroller API — 79 endpoints across
+        accounts, storage, repositories, packages, systemd, settings, audit, pages, DNS,
+        monitoring, system services, locales, VM images, and status.
       </p>
       <div class="client-libs-cards">
         <a href="#go-client" class="card client-lib-card">
@@ -38,6 +39,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <li><a href="#systemd">Systemd</a></li>
           <li><a href="#settings">Settings</a></li>
           <li><a href="#audit">Audit Log</a></li>
+          <li><a href="#pages">Pages</a></li>
+          <li><a href="#dns">DNS</a></li>
+          <li><a href="#monitoring">Monitoring</a></li>
+          <li><a href="#system-services">System Services</a></li>
+          <li><a href="#locales">Locales</a></li>
+          <li><a href="#vm-images">VM Images</a></li>
           <li><a href="#client-libraries">Client Libraries</a></li>
           <li><a href="#development">Development Reference</a></li>
           <li><a href="#prerequisites">Prerequisites</a></li>
@@ -168,11 +175,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <span class="method post">POST</span>
           <code class="endpoint-path">/account/create</code>
           <span class="auth-badge auth-public">Public</span>
+          /
+          <span class="auth-badge auth-admin">Admin</span>
         </div>
       </div>
       <p class="doc-text">
-        Create a new account. The first account created becomes the administrator. Password
-        must be at least 8 characters. Email, phone, and real name are required.
+        Create a new account. In bootstrap mode (no enabled admin accounts exist), this
+        endpoint is public. Otherwise, admin authentication is required. The first account
+        created becomes the administrator. Password must be at least 8 characters. Email,
+        phone, and real name are required.
       </p>
       <div class="table-wrapper">
         <table>
@@ -352,12 +363,23 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       </p>
       <div class="table-wrapper">
         <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>Required.</strong> Target subvolume path.</td></tr>
+            <tr><td><code>archive</code></td><td>file</td><td><strong>Required.</strong> Archive file to upload.</td></tr>
+            <tr><td><code>subpath</code></td><td>string</td><td>Optional. Relative path within the volume for unpacking; created on demand.</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>Optional. Systemd unit name to stop before unpacking and restart after completion.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrapper">
+        <table>
           <thead>
             <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>max_archive_size</code></td><td>20 MB</td><td>Maximum upload size.</td></tr>
-            <tr><td><code>archive_unpack_timeout</code></td><td>120 seconds</td><td>Maximum time for unpacking.</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>1 GB</td><td>Maximum upload size.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 seconds</td><td>Maximum time for unpacking.</td></tr>
           </tbody>
         </table>
       </div>
@@ -370,10 +392,42 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </div>
       </div>
       <p class="doc-text">
-        Download a 7z archive of subvolume contents. Send <code>subvolume</code> (required),
-        optional <code>paths</code> (string array for specific files), and optional
-        <code>stop_service</code> (systemd unit to stop during archiving). Returns a binary
-        stream.
+        Download an archive of subvolume contents. Returns a streamed archive in the
+        requested format.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>Required.</strong> Source subvolume path.</td></tr>
+            <tr><td><code>paths</code></td><td>string[]</td><td>Optional. Array of specific paths within the subvolume to include.</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>Optional. Systemd unit name to stop during archiving and restart after.</td></tr>
+            <tr><td><code>format</code></td><td>string</td><td>Optional. Compression format: <code>tar.gz</code> (default), <code>tar.bz2</code>, or <code>tar.xz</code>.</td></tr>
+            <tr><td><code>filename</code></td><td>string</td><td>Optional. Custom base name for the downloaded file. The server appends the appropriate extension. Defaults to <code>download</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/package-volumes</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List package volumes grouped by package, with optional inclusion of uninstalled volumes.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete a specific package volume by internal name.
       </p>
     </div>
   </section>
@@ -433,7 +487,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method post">POST</span>
           <code class="endpoint-path">/repository/move</code>
-          <span class="auth-badge auth-authenticated">Authenticated</span>
+          <span class="auth-badge auth-admin">Admin</span>
         </div>
       </div>
       <p class="doc-text">
@@ -709,6 +763,69 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="doc-text">
         Dismiss the current upgrade notifications. Send an empty JSON object.
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/manifest</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Returns the raw YAML package definition. Send <code>repo</code>, <code>name</code>,
+        and <code>version</code>. Returns the file content with
+        <code>Content-Type: text/x-yaml</code>. Returns 404 if the package file does not exist.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/featured</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List featured packages across all repositories.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/last-responses</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Retrieve cached last responses for a package. Send <code>repo</code> and
+        <code>name</code>. Returns the saved responses from a previous uninstall for reuse
+        during reinstallation.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/clear-last-responses</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete the cached last responses file for a package. Send <code>repo</code> and
+        <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/rebuild-git</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Pull latest changes for git-seeded volumes of an installed package and restart
+        the dependent service. Send <code>repo</code>, <code>name</code>, and
+        <code>version</code>. Template variables are re-evaluated against saved responses
+        before rebuilding.
+      </p>
     </div>
   </section>
 
@@ -739,7 +856,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       </div>
       <p class="doc-text">
         Control a systemd unit. Send <code>name</code> (unit name) and <code>action</code>
-        (<code>start</code>, <code>stop</code>, or <code>restart</code>).
+        (<code>start</code>, <code>stop</code>, <code>restart</code>, <code>enable</code>,
+        or <code>disable</code>).
       </p>
 
       <div class="endpoint">
@@ -751,9 +869,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       </div>
       <p class="doc-text">
         Stream journal entries for a unit in real time via Server-Sent Events. Pass the
-        <code>unit</code> query parameter. Each SSE event contains a JSON-encoded journal entry
-        with fields like <code>Message</code>, <code>Priority</code>,
-        <code>RealtimeTimestamp</code>, and <code>SystemdUnit</code>.
+        <code>unit</code> query parameter; empty or <code>__system__</code> returns system-wide
+        logs. Each SSE event contains a JSON-encoded journal entry with fields like
+        <code>Message</code>, <code>Priority</code>, <code>RealtimeTimestamp</code>, and
+        <code>SystemdUnit</code>.
       </p>
 
       <div class="endpoint">
@@ -770,13 +889,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <table>
           <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
           <tbody>
-            <tr><td><code>unit</code></td><td>string</td><td><strong>Required.</strong> Systemd unit name.</td></tr>
-            <tr><td><code>lines</code></td><td>int</td><td><strong>Required.</strong> Number of entries to return.</td></tr>
+            <tr><td><code>unit</code></td><td>string</td><td>Systemd unit name. Empty or <code>__system__</code> for system-wide logs.</td></tr>
+            <tr><td><code>lines</code></td><td>int</td><td>Number of entries to return (default 100).</td></tr>
             <tr><td><code>before</code></td><td>string</td><td>Cursor — return entries before this position.</td></tr>
             <tr><td><code>after</code></td><td>string</td><td>Cursor — return entries after this position.</td></tr>
             <tr><td><code>grep</code></td><td>string</td><td>Case-insensitive substring filter on message text.</td></tr>
             <tr><td><code>since</code></td><td>int</td><td>Unix timestamp — return entries from this time forward.</td></tr>
             <tr><td><code>until</code></td><td>int</td><td>Unix timestamp — stop collecting at this time.</td></tr>
+            <tr><td><code>priority</code></td><td>int</td><td>Syslog severity filter (0 = no filter).</td></tr>
           </tbody>
         </table>
       </div>
@@ -834,8 +954,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </thead>
           <tbody>
             <tr><td><code>default_quota</code></td><td>53687091200 (50 GB)</td><td>Default quota for new filesystems.</td></tr>
-            <tr><td><code>max_archive_size</code></td><td>20971520 (20 MB)</td><td>Maximum archive upload size.</td></tr>
-            <tr><td><code>archive_unpack_timeout</code></td><td>120 (seconds)</td><td>Maximum time for archive unpacking.</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>1073741824 (1 GB)</td><td>Maximum archive upload size.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 (seconds)</td><td>Maximum time for archive unpacking.</td></tr>
+            <tr><td><code>locale</code></td><td>en-US</td><td>System-wide locale for internationalization.</td></tr>
+            <tr><td><code>proton_image</code></td><td>quay.io/town/proton:latest</td><td>Proton/Wine runner container image.</td></tr>
+            <tr><td><code>dns_tld</code></td><td>home</td><td>Top-level domain for local DNS resolution.</td></tr>
           </tbody>
         </table>
       </div>
@@ -878,6 +1001,340 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         account, revoke session, install/uninstall/disable/enable package, create/modify/remove
         filesystem, add/remove/move/refresh repository, upload/download archive, update setting,
         dismiss upgrades, and purge volumes.
+      </p>
+    </div>
+  </section>
+
+  <!-- Pages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="pages">Pages</h2>
+      <p class="doc-text">
+        Static site hosting supporting three content source types: archive uploads, container
+        images, and git repositories. Users assign a domain, and the system serves the content
+        via a Caddy container. All mutation endpoints require admin authentication; the list
+        endpoint requires regular authentication.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/pages</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all pages with sorting, search, and pagination. Sortable by name, repo URL,
+        branch, domain, source type, status, and timestamps.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/create</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Create a new page. Accepts name, source type (<code>archive</code>,
+        <code>container_image</code>, or <code>git</code>), repo URL, branch, domain,
+        container image, and image directory. Source type defaults to <code>archive</code>.
+        Git and container image pages are provisioned asynchronously.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/upload</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Upload a tar archive of content for an archive-type page. Accepts multipart form with
+        <code>name</code> and <code>archive</code> file. Only valid for pages with source type
+        <code>archive</code>; returns 400 for other source types.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/update</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Partial update of a page's repo URL, branch, domain, source type, container image,
+        or image directory. Only provided fields are changed.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete a page from the database, remove the webroot symlink, and delete the btrfs
+        subvolume.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/rebuild</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Rebuild page content from source. Git pages pull latest changes; container image pages
+        re-extract from the image. Archive pages return 400 (re-upload via
+        <code>/pages/upload</code> instead).
+      </p>
+    </div>
+  </section>
+
+  <!-- DNS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns">DNS</h2>
+      <p class="doc-text">
+        Integrated local DNS resolver powered by a <code>rolodex-dns</code> container. Manages
+        zone files and records for installed packages, providing local name resolution via a
+        gRPC Unix socket interface.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/status</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Returns DNS status including enabled flag, running state, TLD, and record count.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/records</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List all DNS records.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/add</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Add a DNS record. Accepts name, record type, value, and TTL.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a DNS record by name and type.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get the current top-level domain setting.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Set the TLD. Changes the existing TLD and re-registers all installed packages.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/setup</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Initialize or restart the DNS server and register all installed packages.
+      </p>
+    </div>
+  </section>
+
+  <!-- Monitoring -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="monitoring">Monitoring</h2>
+      <p class="doc-text">
+        Integrated Prometheus, Node Exporter, and Grafana stack for system monitoring. The
+        stack runs as systemd-supervised podman containers with <code>Restart=always</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/status</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Returns container status (name, image, running state, port) for each monitoring
+        service. Returns <code>&lbrace;"status": "disabled"&rbrace;</code> when monitoring
+        is not configured.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/grafana/*</code>
+          <span class="auth-badge auth-public">Public</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Reverse proxy to the local Grafana instance, stripping the
+        <code>/monitoring/grafana</code> prefix from the URL path. Returns 503 if monitoring
+        is not configured. This endpoint bypasses authentication.
+      </p>
+    </div>
+  </section>
+
+  <!-- System Services -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="system-services">System Services</h2>
+      <p class="doc-text">
+        System services are systemd-managed infrastructure containers (distinct from
+        user-installed package services). They use the <code>town-os-system--</code> unit
+        name prefix.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/system-services</code>
+          <span class="auth-badge auth-public">Public</span>
+          /
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List system services with live unit status. Accessible from localhost without
+        authentication. Each entry includes key, display name, image, port, and systemd
+        unit status fields.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/status</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Control a system service. Accepts <code>key</code> and <code>action</code>
+        (<code>start</code>, <code>stop</code>, or <code>restart</code>).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/refresh</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Refresh system service unit files and status.
+      </p>
+    </div>
+  </section>
+
+  <!-- Locales -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="locales">Locales</h2>
+      <p class="doc-text">
+        Internationalization locale information for the system.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/locales</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Returns the current locale, list of populated locales, common languages (with
+        native-script names), and extended locales. Uses BCP 47 locale codes.
+      </p>
+    </div>
+  </section>
+
+  <!-- VM Images -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-images">VM Images</h2>
+      <p class="doc-text">
+        Management of cached VM disk images used by VM packages. Remote images are downloaded
+        and converted to raw format via <code>qemu-img convert</code>; the converted image is
+        cached in the <code>vm-images</code> subvolume.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/vm-images</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List cached VM disk images. Returns name and file size for each image.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/upload</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Download a VM image from a URL and convert it to raw format. Accepts a URL and
+        optional name. The name defaults to the URL's filename with a <code>.raw</code>
+        extension. Downloads have a 30-minute timeout.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/delete</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a cached VM image by name.
       </p>
     </div>
   </section>

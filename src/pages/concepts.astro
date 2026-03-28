@@ -17,12 +17,15 @@ const base = import.meta.env.BASE_URL;
         <div class="card concept-card">
           <h3>Packages</h3>
           <p>
-            A package is a self-contained YAML definition of a containerized service, pulled from
-            a git repository. Each package specifies its container image, networking port mappings,
-            storage volumes, environment variables, and interactive questions — everything needed
-            to run the service. Packages declare <code>supplies</code> tags (like <code>http</code>,
-            <code>database</code>, <code>cache</code>) to describe their capabilities.
-            The default repository ships with 140+ pre-built packages.
+            A package is a self-contained YAML definition of a service, pulled from a git
+            repository. Each package specifies its networking port mappings, storage volumes,
+            environment variables, and interactive questions — everything needed to run the
+            service. Packages can run as containers (the default), QEMU-based virtual machines,
+            or Windows applications via Valve's Proton compatibility layer. File templates
+            (Go <code>text/template</code> files) can be rendered into volumes at install time
+            for dynamic configuration. Packages declare <code>supplies</code> tags (like
+            <code>http</code>, <code>database</code>, <code>cache</code>) to describe their
+            capabilities. The default repository ships with 140+ pre-built packages.
           </p>
         </div>
 
@@ -33,9 +36,11 @@ const base = import.meta.env.BASE_URL;
             Your responses fill <code>@variable@</code> template placeholders throughout the package
             definition — setting hostnames, ports, credentials, and other options. Each question
             has a typed validator (<code>hostname</code>, <code>port</code>, <code>bytes</code>,
-            <code>volume</code>, <code>archive</code>, <code>duration</code>, or free-form text)
-            and an optional default value, so configuration errors are caught before the service
-            ever starts.
+            <code>volume</code>, <code>archive</code>, <code>duration</code>, <code>secret</code>,
+            or free-form text) and an optional default value, so configuration errors are caught
+            before the service ever starts. Several types auto-generate values when left empty:
+            ports are assigned randomly in the 10000–60000 range, hostnames are generated as
+            <code>package-name-4hex</code>, and secrets produce a 64-character hex string.
           </p>
         </div>
 
@@ -59,8 +64,12 @@ const base = import.meta.env.BASE_URL;
             serve as a personal trust root for your network. Each package declares its own port
             mappings — <code>external</code> ports exposed to the host and <code>internal</code>
             ports available only between containers. Port values support <code>@variable@</code>
-            templates so users can choose ports at install time. UPnP forwarding, tunnels, and
-            VPN attachments are handled automatically.
+            templates so users can choose ports at install time. Packages that declare
+            dependencies share a network, allowing containers in the same dependency tree to
+            communicate directly. Parent packages receive environment variables for each
+            dependency (<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> and
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>). UPnP forwarding, tunnels, and VPN
+            attachments are handled automatically.
           </p>
         </div>
 
@@ -70,9 +79,12 @@ const base = import.meta.env.BASE_URL;
             All data is stored on btrfs subvolumes with per-package isolation. Each volume has
             a mountpoint inside the container, a configurable quota (e.g. <code>512mb</code>,
             <code>2gb</code>), and optional <code>uid</code>/<code>gid</code> ownership. Volumes
-            can be pre-populated from container images using the <code>archives</code> feature.
-            Data persists across package reinstalls and upgrades — your files are never lost when
-            you update a service.
+            can be pre-populated from container images using the <code>archives</code> feature,
+            or seeded by cloning a git repository into an empty volume at install time. Users
+            can also create their own standalone volumes. VM disk images are cached in a
+            dedicated subvolume so subsequent installs reuse them. Btrfs snapshots are supported
+            for point-in-time backups. Data persists across package reinstalls and upgrades —
+            your files are never lost when you update a service.
           </p>
         </div>
 
@@ -96,6 +108,85 @@ const base = import.meta.env.BASE_URL;
             available. After installation, <code>notes</code> display key metadata like connection
             URLs, credentials, or contact information — with optional type validation for
             <code>url</code>, <code>phone</code>, and <code>email</code>.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Pages</h3>
+          <p>
+            Town OS can host static websites. Each page has three possible source types:
+            upload a tar archive, extract files from a container image, or clone a git repository.
+            Every page gets its own domain and is served through Caddy. Archive pages can be
+            updated by re-uploading; git and container image pages can be rebuilt on demand.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Monitoring</h3>
+          <p>
+            A built-in observability stack runs out of the box with no configuration required.
+            Prometheus collects metrics, Node Exporter reports host statistics (CPU, memory, disk,
+            network), and Grafana serves auto-provisioned dashboards. The entire stack runs as
+            system services and restarts automatically on failure.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Internationalization</h3>
+          <p>
+            All user-facing strings are routed through a message catalog keyed by BCP 47 locale
+            codes. 21 common languages are presented in their native scripts, with 87+ country-specific
+            codes available. Only English (<code>en-US</code>) is fully translated today —
+            the infrastructure is ready for community translations.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Accounts &amp; Sessions</h3>
+          <p>
+            Town OS supports administrator and normal user accounts. Passwords require a minimum
+            of 8 characters. Authentication uses JWT tokens with a 7-day inactivity expiration.
+            Sessions are ephemeral — signing keys are regenerated on every reboot, which clears
+            all active sessions automatically.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Audit Logging</h3>
+          <p>
+            Every administrative action is recorded with the account name, action, request path,
+            detail, success flag, and timestamp. Read-only endpoints are excluded. The audit log
+            supports pagination, filtering by account, and full-text search.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Settings</h3>
+          <p>
+            System-wide configuration is managed through key-value settings in the UI.
+            Configurable values include the default volume quota (50 GB), max archive upload
+            size (1 GB), archive unpack timeout (600s), locale, Proton runner image, and the
+            DNS top-level domain.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Package Upgrades</h3>
+          <p>
+            Town OS automatically detects when newer package versions are available in your
+            configured repositories. A badge on the dashboard shows the number of pending
+            upgrades. You can dismiss versions you do not want — dismissals are tracked by
+            a SHA256 hash so they reappear only when the upgrade set changes.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>System Services</h3>
+          <p>
+            Infrastructure containers — monitoring, DNS, and the web UI — are managed separately
+            from user-installed packages. They use a distinct systemd prefix
+            (<code>town-os-system--</code>), always restart on failure, and cannot be disabled
+            by users.
           </p>
         </div>
       </div>

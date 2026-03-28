@@ -41,8 +41,8 @@ const base = import.meta.env.BASE_URL;
     <div class="container">
       <h2 class="section-title" id="quick-start">Quick Start</h2>
       <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
-        Get Town OS running on a spare computer in minutes. All you need is a USB drive
-        (8 GB or larger) and a Linux or macOS machine to write it from.
+        Get Town OS running on a spare computer in minutes. All you need is a USB-C drive
+        (4 GB or larger) and a Linux or macOS machine to write it from.
       </p>
 
       <h3>1. Write the USB Drive</h3>
@@ -98,15 +98,16 @@ const base = import.meta.env.BASE_URL;
       <ul class="doc-list">
         <li>Town OS loads entirely into RAM from the USB drive</li>
         <li>All detected local storage devices are formatted and configured as a RAID array for your data</li>
-        <li>Networking is configured automatically via DHCP</li>
-        <li>The web UI becomes available at <code>http://town-os.local</code> or the machine's IP address</li>
+        <li>Town OS connects to your router via Ethernet and picks up an IP address automatically</li>
       </ul>
 
       <h3>5. Create Your Account and Start Using It</h3>
       <p class="doc-text">
-        Open a browser and go to <code>http://town-os.local</code>. You will be prompted
-        to create an administrator account. Once logged in, you can install packages, manage
-        storage, and configure services from the dashboard.
+        From any device on the same network, open a browser and go to
+        <code>http://town-os.local</code>. If that doesn't work, check your router's
+        DHCP client list for a device named "town-os" and use its IP address directly.
+        You will be prompted to create an administrator account. Once logged in, you can
+        install packages, manage storage, and configure services from the dashboard.
       </p>
     </div>
   </section>
@@ -130,7 +131,7 @@ const base = import.meta.env.BASE_URL;
         <li><code>make</code> — the build is driven entirely by Makefiles</li>
         <li><code>squashfs-tools</code> — for creating the compressed root filesystem</li>
         <li><code>parted</code> and <code>gdisk</code> — for GPT partitioning</li>
-        <li>A USB drive (8 GB or larger recommended)</li>
+        <li>A USB-C drive (4 GB or larger recommended)</li>
       </ul>
 
       <h3>Cloning and Building</h3>
@@ -813,11 +814,15 @@ notes:
 
       <h3>Prerequisites</h3>
       <ul class="doc-list">
-        <li><strong>Linux</strong> — required for btrfs and Podman rootless containers</li>
-        <li><strong>Podman</strong> — container runtime (rootless mode)</li>
+        <li><strong>Linux</strong> — required for btrfs and Podman rootful containers</li>
+        <li><strong>Podman</strong> — container runtime (rootful mode, with sudo)</li>
         <li><strong>Go 1.25+</strong> — for the backend API server</li>
         <li><strong>Bun</strong> — for the frontend build and dev server</li>
         <li><strong>btrfs-progs</strong> — for storage management</li>
+        <li><strong>QEMU</strong> — qemu-system-x86_64 and qemu-img for VM package support</li>
+        <li><strong>libsystemd</strong> — development headers for systemd integration</li>
+        <li><strong>golangci-lint</strong> — for Go linting</li>
+        <li><strong>Python 3</strong> — for build and test scripts</li>
       </ul>
 
       <h3>Starting the Dev Environment</h3>
