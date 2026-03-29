@@ -66,8 +66,10 @@ const base = import.meta.env.BASE_URL;
             ports available only between containers. Port values support <code>@variable@</code>
             templates so users can choose ports at install time. Packages that declare
             dependencies share a network, allowing containers in the same dependency tree to
-            communicate directly. Parent packages receive environment variables for each
-            dependency (<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> and
+            communicate directly. Parent packages can reference dependencies using
+            <code>@dep_KEY_host@</code> and <code>@dep_KEY_port_N@</code> template variables
+            in their environment, or via runtime environment variables
+            (<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> and
             <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>). UPnP forwarding, tunnels, and VPN
             attachments are handled automatically.
           </p>

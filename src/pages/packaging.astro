@@ -25,6 +25,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <li><a href="#questions">Questions</a></li>
           <li><a href="#templates">Templates</a></li>
           <li><a href="#notes">Notes</a></li>
+          <li><a href="#dependencies">Dependencies</a></li>
           <li><a href="#template-system">Template System</a></li>
           <li><a href="#vm-runtime">VM Runtime</a></li>
           <li><a href="#proton-runtime">Proton Runtime</a></li>
@@ -472,6 +473,51 @@ image: nginx:1.26-alpine</code></pre>
     </div>
   </section>
 
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dependencies">Dependencies</h2>
+      <p class="doc-text">
+        Packages can declare dependencies on other packages. Dependencies share the parent's
+        podman network, allowing containers in the same dependency tree to communicate
+        directly by container name via podman's built-in DNS.
+      </p>
+      <pre><code>dependencies:
+  db:
+    package: postgres
+    responses:
+      password: "@dbpass@"
+      user: "mattermost"
+      database: "mattermost"
+      port: "5432"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>package</code></td><td><strong>Required.</strong> Name of the dependency package to install.</td></tr>
+            <tr><td><code>repo</code></td><td>Repository containing the dependency. Defaults to the parent's repository.</td></tr>
+            <tr><td><code>version</code></td><td>Version to install. Defaults to the latest available version.</td></tr>
+            <tr><td><code>responses</code></td><td>Question responses for the dependency. Values support <code>@variable@</code> syntax from parent questions.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Parent packages receive environment variables for each dependency at runtime:
+        <code>TOWNOS_DEP_&#123;KEY&#125;_HOST</code> (the container name) and
+        <code>TOWNOS_DEP_&#123;KEY&#125;_PORT_&#123;port&#125;</code> (container-side port number).
+        Parents can also use <code>@dep_KEY_host@</code> and <code>@dep_KEY_port_N@</code>
+        template variables in their environment values (see <a href="#template-system">Template System</a>).
+      </p>
+      <p class="doc-text">
+        <strong>Example:</strong> A Mattermost package with a <code>db</code> dependency on PostgreSQL
+        can reference the database host in its datasource URL:
+      </p>
+      <pre><code>environment:
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:@dbpass@@@dep_db_host@:@dep_db_port_5432@/mattermost?sslmode=disable"</code></pre>
+    </div>
+  </section>
+
   <section class="section">
     <div class="container">
       <h2 class="section-title" id="template-system">Template System</h2>
@@ -506,11 +552,16 @@ image: nginx:1.26-alpine</code></pre>
             <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>The external hostname or IP of the Town OS host</td></tr>
             <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>The internal hostname or IP of the Town OS host</td></tr>
             <tr><td><code>@PACKAGE_DNS@</code></td><td>The DNS name assigned to this package on the internal network</td></tr>
+            <tr><td><code>@dep_KEY_host@</code></td><td>Container hostname for dependency KEY (resolvable via podman DNS on the shared network). Only available when the package declares dependencies.</td></tr>
+            <tr><td><code>@dep_KEY_port_N@</code></td><td>Container port N for dependency KEY. Only available when the package declares dependencies.</td></tr>
           </tbody>
         </table>
       </div>
       <p class="doc-text">
         Built-in variables are substituted before user question responses, so they take precedence.
+        Dependency template variables (<code>@dep_*@</code>) are resolved after dependency
+        installation and applied to the parent's environment values. KEY is the lowercase
+        dependency key name, and N is the container port number.
       </p>
 
       <h3>Go Templates (in <code>templates</code> field)</h3>
