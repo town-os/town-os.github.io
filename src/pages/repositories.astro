@@ -33,7 +33,7 @@ const base = import.meta.env.BASE_URL;
           </div>
           <div class="card-content">
             <h2>Rolodex</h2>
-            <p>Standards-compliant DNS server with full DNSSEC validation and DANE support. Enables ad blocking, malware blocking, and personal domains for your network. Designed to double as a personal trust root. DHCP also planned.</p>
+            <p>DNS server that manages authoritative zones for your packages and forwards upstream queries. Designed as the networking backbone for Town OS. DNSSEC, ad blocking, and DHCP are planned.</p>
           </div>
           <span class="card-arrow">&rarr;</span>
         </a>
@@ -46,7 +46,33 @@ const base = import.meta.env.BASE_URL;
           </div>
           <div class="card-content">
             <h2>Install</h2>
-            <p>Very experimental — the USB drive installer. This is currently the least safe way to try Town OS, so prefer working from the development repository instead. Still very much in the works — keep your eye on it.</p>
+            <p>The USB drive image builder. Produces a bootable image with squashfs root, GPT partitioning, and GRUB for both UEFI and BIOS. Supports QEMU and VirtualBox for testing.</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Default Packages</h2>
+            <p>The default package repository included on every Town OS installation. Contains packages for Gitea, Jitsi Meet, Mattermost, Plex, PostgreSQL, and more. BSD-3-Clause licensed.</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h2zm-6-4h8v2h-8z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>ttyforce</h2>
+            <p>Rust-based TUI installer and getty replacement for Town OS. Handles interactive network configuration, disk provisioning with automatic RAID, SSH key import from GitHub, and displays live system status after boot.</p>
           </div>
           <span class="card-arrow">&rarr;</span>
         </a>

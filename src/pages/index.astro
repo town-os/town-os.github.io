@@ -82,7 +82,7 @@ const previewScreenshots = [
           <p>
             Under the hood, Town OS manages storage with btrfs subvolumes, runs services in
             containers managed by systemd, and orchestrates networking automatically
-            — including UPnP port forwarding, tunnel establishment, and per-package port
+            — including UPnP port forwarding and per-package port
             mappings. It's a complete home server operating system built for real people.
           </p>
         </div>
@@ -157,11 +157,10 @@ const previewScreenshots = [
           <h3>Integrated Networking</h3>
           <p>Manage your entire local network from one box.</p>
           <ul class="feature-list">
-            <li>Built-in DNS with DNSSEC validation and DANE support via <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a></li>
-            <li>Ad and malware blocking for every device on your network</li>
-            <li>Automatic UPnP forwarding, tunnels, and VPN attachments</li>
-            <li>ACME certificate management coming soon</li>
-            <li>DHCP and full router functionality coming soon</li>
+            <li>Built-in DNS via <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a> — manages authoritative zones for your packages and forwards upstream queries</li>
+            <li>Automatic UPnP port forwarding for external access</li>
+            <li>Per-package port mappings and dependency networking</li>
+            <li>DNSSEC, ad blocking, ACME certificates, and DHCP coming soon</li>
           </ul>
         </div>
         <div class="card feature-card">
@@ -185,7 +184,7 @@ const previewScreenshots = [
             <li>Manage services, storage, users, and packages</li>
             <li>Built-in audit logging for every action</li>
             <li>Live systemd journal integration for service logs</li>
-            <li>Grafana, Prometheus, and Node Exporter dashboards set up automatically</li>
+            <li>Prometheus and Node Exporter with built-in dashboards — optional Grafana upgrade</li>
             <li>Available in 21 languages — community translations welcome</li>
             <li>Safe and intuitive for non-technical users, powerful enough for admins</li>
           </ul>
@@ -225,26 +224,20 @@ const previewScreenshots = [
           <p>
             Every Town OS installation ships with the
             <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default-packages</a>
-            repository, which covers a broad range of self-hosted services:
+            repository, a curated set of self-hosted services:
           </p>
           <div class="tag-grid">
-            <span class="tag">Databases</span>
-            <span class="tag">Web Servers</span>
-            <span class="tag">Media</span>
-            <span class="tag">Collaboration</span>
-            <span class="tag">Monitoring</span>
-            <span class="tag">Caching</span>
-            <span class="tag">Search</span>
-            <span class="tag">Messaging</span>
-            <span class="tag">Storage</span>
-            <span class="tag">Git Hosting</span>
+            <span class="tag">Gitea</span>
+            <span class="tag">Jitsi Meet</span>
+            <span class="tag">Mattermost</span>
+            <span class="tag">Plex</span>
+            <span class="tag">PostgreSQL</span>
           </div>
           <p>
-            Packages like Gitea, Nginx, Plex, and most of the databases work today.
-            The default repository also contains many experimental packages — pull
-            requests to resolve issues with them are encouraged. You can also create
-            your own private repositories — perfect for family, friends, or custom
-            deployments.
+            Packages are tested to varying degrees — Gitea, Plex, and PostgreSQL work
+            well today. The default repository is growing, and pull requests to add or
+            improve packages are encouraged. You can also create your own private
+            repositories — perfect for family, friends, or custom deployments.
           </p>
           <a href="https://github.com/town-os/default-packages" class="btn btn-primary" target="_blank" rel="noopener">
             Browse Packages on GitHub
@@ -269,7 +262,7 @@ const previewScreenshots = [
         </a>
         <a href={`${base}api/`} class="card doc-link">
           <h3>API Reference</h3>
-          <p>The complete API for controlling Town OS — 51 endpoints across accounts, storage, repositories, packages, systemd, settings, and audit.</p>
+          <p>The complete API for controlling Town OS — 77 endpoints across accounts, storage, repositories, packages, systemd, settings, audit, pages, DNS, and more.</p>
         </a>
         <a href={`${base}screenshots/`} class="card doc-link">
           <h3>Screenshots</h3>

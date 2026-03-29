@@ -25,7 +25,7 @@ const base = import.meta.env.BASE_URL;
           <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
-          <li><a href="#raid-and-zfs">RAID Installation and ZFS</a></li>
+          <li><a href="#raid-and-zfs">RAID Installation</a></li>
           <li><a href="#using-the-ui">Using the User Interface</a></li>
           <li><a href="#building-a-package">Building a Package</a></li>
           <li><a href="#self-hosting-ideas">Things You Can Self-Host</a></li>
@@ -95,11 +95,23 @@ const base = import.meta.env.BASE_URL;
       </p>
 
       <h3>4. What Happens on Boot</h3>
+      <p class="doc-text">
+        Town OS loads entirely into RAM from the USB drive, then launches
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>,
+        an interactive TUI installer that guides you through setup directly on the
+        machine's console.
+      </p>
       <ul class="doc-list">
-        <li>Town OS loads entirely into RAM from the USB drive</li>
-        <li>All detected local storage devices are formatted and configured as a RAID array for your data</li>
-        <li>Town OS connects to your router via Ethernet and picks up an IP address automatically</li>
+        <li><strong>Network configuration</strong> — ttyforce detects available interfaces. If a wired connection with link is present, it advances automatically. Otherwise it presents WiFi network selection with signal strength, security info, and WPA2/WPA3 password entry.</li>
+        <li><strong>Disk provisioning</strong> — ttyforce groups detected disks by type and size, then automatically selects the appropriate RAID level: single drive for 1 disk, RAID1 (mirror) for 2, or RAID5 (striped with parity) for 3 or more. All storage uses btrfs.</li>
+        <li><strong>SSH key import</strong> — you can enter GitHub usernames to import public SSH keys for secure remote access.</li>
       </ul>
+      <p class="doc-text">
+        After provisioning completes, the system reboots and ttyforce switches to
+        getty mode — a live status display showing service health, system metrics,
+        and journal output on the console. From here you can log in, reconfigure
+        networking, or trigger a sledgehammer wipe.
+      </p>
 
       <h3>5. Create Your Account and Start Using It</h3>
       <p class="doc-text">
@@ -129,9 +141,12 @@ const base = import.meta.env.BASE_URL;
       </p>
       <ul class="doc-list">
         <li><code>make</code> — the build is driven entirely by Makefiles</li>
+        <li><code>arch-install-scripts</code> — for pacstrap bootstrapping</li>
         <li><code>squashfs-tools</code> — for creating the compressed root filesystem</li>
-        <li><code>parted</code> and <code>gdisk</code> — for GPT partitioning</li>
-        <li>A USB-C drive (4 GB or larger recommended)</li>
+        <li><code>parted</code> and <code>e2fsprogs</code>, <code>dosfstools</code> — for partitioning and filesystem creation</li>
+        <li><code>podman</code> — for enabling systemd units inside the chroot</li>
+        <li>An Arch Linux host system (required for pacstrap)</li>
+        <li>A USB drive (4 GB or larger recommended)</li>
       </ul>
 
       <h3>Cloning and Building</h3>
@@ -150,8 +165,9 @@ make image</code></pre>
         The resulting image uses a GPT layout with:
       </p>
       <ul class="doc-list">
-        <li>An EFI system partition for booting</li>
-        <li>A squashfs partition containing the compressed root filesystem</li>
+        <li>A BIOS boot partition (1 MiB) for legacy BIOS booting</li>
+        <li>An EFI system partition (64 MiB, FAT32) for UEFI booting</li>
+        <li>A data partition (ext4) containing the squashfs root filesystem and GRUB</li>
       </ul>
       <p class="doc-text">
         At boot time, Town OS mounts the squashfs as a read-only lower layer, with a
@@ -257,7 +273,8 @@ sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
       <h2 class="section-title" id="dns-setup">Setting Up DNS on Your Router</h2>
       <p class="doc-text">
         Town OS includes <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
-        a full DNS server with DNSSEC validation, ad blocking, and DANE support. To use it,
+        a DNS server that manages authoritative zones for your packages and forwards
+        upstream queries. To use it as your network's DNS server,
         you need to tell your router to hand out the Town OS machine's IP address as the
         DNS server for your network. This way every device on your network automatically
         uses rolodex for DNS — no per-device configuration needed.
@@ -336,11 +353,11 @@ nslookup example.com
 # Or query Town OS directly
 dig @&lt;town-os-ip&gt; example.com
 
-# Test ad blocking — this should return NXDOMAIN or 0.0.0.0
-dig @&lt;town-os-ip&gt; ads.doubleclick.net</code></pre>
+# Query a package domain (if you have packages installed)
+dig @&lt;town-os-ip&gt; mypackage.home</code></pre>
       <p class="doc-text">
-        If <code>ads.doubleclick.net</code> returns a blocked response, rolodex is working
-        and ad blocking is active for your network.
+        If <code>example.com</code> resolves correctly, rolodex is working
+        and handling DNS for your network.
       </p>
 
       <DiagramFlow title="DNS Flow">
@@ -353,8 +370,8 @@ dig @&lt;town-os-ip&gt; ads.doubleclick.net</code></pre>
         </DiagramBox>
         <DiagramArrow label="forward" />
         <DiagramBox label="Town OS" sub="rolodex DNS server" variant="purple">
-          <DiagramTag variant="teal">DNSSEC</DiagramTag>
-          <DiagramTag variant="teal">Ad blocking</DiagramTag>
+          <DiagramTag variant="teal">Authoritative zones</DiagramTag>
+          <DiagramTag variant="teal">Upstream forwarding</DiagramTag>
         </DiagramBox>
       </DiagramFlow>
     </div>
@@ -441,55 +458,32 @@ ssh root@town-os.local</code></pre>
   <!-- RAID and ZFS -->
   <section class="section alt-section">
     <div class="container">
-      <h2 class="section-title" id="raid-and-zfs">RAID Installation and ZFS</h2>
+      <h2 class="section-title" id="raid-and-zfs">RAID Installation</h2>
       <p class="doc-text">
-        Town OS supports multiple storage backends for redundancy and performance.
-        Configuration is driven by <code>town-os.yaml</code>, which can be placed on
-        the USB drive or provided at boot.
+        Disk provisioning is handled interactively by
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
+        during the first boot. All storage uses btrfs.
       </p>
 
-      <h3>Configuration</h3>
-      <pre><code># town-os.yaml
-storage_backend: btrfs       # btrfs, btrfs-mdadm, or zfs
-btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
-
-      <h3>btrfs Native RAID</h3>
+      <h3>Automatic RAID Selection</h3>
       <p class="doc-text">
-        With <code>storage_backend: btrfs</code>, Town OS uses btrfs's built-in RAID
-        capabilities. In <code>auto</code> mode, the RAID level is selected based on
-        disk count:
+        ttyforce detects available disks, groups them by transport type (NVMe, SATA, etc.)
+        and similar size, then automatically selects the RAID level based on disk count:
       </p>
       <ul class="doc-list">
         <li><strong>1 disk</strong> — single mode (no redundancy)</li>
-        <li><strong>2 disks</strong> — RAID 1 (mirroring)</li>
-        <li><strong>3+ disks</strong> — RAID 5 (striping with parity)</li>
-      </ul>
-
-      <h3>btrfs with mdadm</h3>
-      <p class="doc-text">
-        With <code>storage_backend: btrfs-mdadm</code>, Town OS creates an md-raid array
-        first, then formats it with btrfs. This approach uses Linux's mature md-raid
-        implementation underneath btrfs, which some administrators prefer for its
-        proven reliability.
-      </p>
-
-      <h3>ZFS</h3>
-      <p class="doc-text">
-        With <code>storage_backend: zfs</code>, Town OS creates a ZFS pool with
-        automatic topology selection:
-      </p>
-      <ul class="doc-list">
-        <li><strong>2 disks</strong> — mirror (equivalent to RAID 1)</li>
-        <li><strong>3+ disks</strong> — RAID-Z (equivalent to RAID 5)</li>
+        <li><strong>2 disks</strong> — RAID 1 (btrfs mirror)</li>
+        <li><strong>3+ disks</strong> — RAID 5 (btrfs striped with parity)</li>
       </ul>
       <p class="doc-text">
-        ZFS datasets are created for each package's volumes, and ZFS block volumes
-        (zvols) are available for packages that need raw block devices.
+        The default mount point is <code>/town-os</code>. ttyforce creates
+        <code>@etc</code> and <code>@var</code> subvolumes for overlayfs-compatible
+        persistence.
       </p>
 
       <h3>Disk Detection</h3>
       <p class="doc-text">
-        Town OS automatically detects available storage devices. It identifies NVMe drives,
+        ttyforce automatically detects available storage devices. It identifies NVMe drives,
         SATA/SAS drives, and SD cards, while excluding the boot USB device and any
         removable media. The detection logic ensures that Town OS never touches the
         drive it booted from.
@@ -516,14 +510,14 @@ btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
           <div class="flex justify-center"><span class="text-town-accent">&darr; <span class="text-town-muted text-xs">detection</span></span></div>
           <!-- RAID layer -->
           <div class="flex flex-col sm:flex-row gap-2">
-            <DiagramBox label="btrfs native" sub="Built-in RAID" variant="purple" />
-            <DiagramBox label="btrfs + mdadm" sub="md-raid under btrfs" variant="purple" />
-            <DiagramBox label="ZFS" sub="Pools and datasets" variant="purple" />
+            <DiagramBox label="btrfs single" sub="1 disk" variant="purple" />
+            <DiagramBox label="btrfs RAID 1" sub="2 disks (mirror)" variant="purple" />
+            <DiagramBox label="btrfs RAID 5" sub="3+ disks (parity)" variant="purple" />
           </div>
           <div class="flex justify-center"><span class="text-town-accent">&darr;</span></div>
           <!-- Output -->
           <div class="flex flex-col sm:flex-row gap-2">
-            <DiagramBox label="Subvolumes / Datasets" sub="Per-package storage" variant="teal">
+            <DiagramBox label="Subvolumes" sub="Per-package storage" variant="teal">
               <DiagramTag variant="teal">pkg-a</DiagramTag>
               <DiagramTag variant="teal">pkg-b</DiagramTag>
             </DiagramBox>
@@ -610,8 +604,9 @@ btrfs_raid_mode: auto        # auto, single, raid1, raid5</code></pre>
 
       <h3>Monitoring</h3>
       <p class="doc-text">
-        Town OS includes built-in monitoring with Grafana and Prometheus dashboards
-        for tracking system metrics, service health, and resource usage over time.
+        Town OS includes built-in monitoring with Prometheus and Node Exporter for
+        tracking system metrics, service health, and resource usage over time. A lightweight
+        built-in dashboard is the default, with an optional Grafana upgrade available.
       </p>
       <div class="screenshot-ref">
         <img src={`${base}images/screenshots/monitoring.png`} alt="Monitoring dashboards" loading="lazy" />
@@ -783,7 +778,7 @@ notes:
         <div class="idea-card">
           <h3>Privacy &amp; Security</h3>
           <ul>
-            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong> — network-wide ad blocking (note: <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a> already provides this)</li>
+            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong> — network-wide ad blocking</li>
             <li><strong>WireGuard</strong> / <strong>OpenVPN</strong> — VPN servers for remote access</li>
             <li><strong>Vaultwarden</strong> — self-hosted password manager</li>
           </ul>

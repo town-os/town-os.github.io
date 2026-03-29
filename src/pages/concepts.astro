@@ -25,7 +25,9 @@ const base = import.meta.env.BASE_URL;
             (Go <code>text/template</code> files) can be rendered into volumes at install time
             for dynamic configuration. Packages declare <code>supplies</code> tags (like
             <code>http</code>, <code>database</code>, <code>cache</code>) to describe their
-            capabilities. The default repository ships with 140+ pre-built packages.
+            capabilities. The default repository ships with curated packages
+            covering git hosting, video conferencing, media streaming, team messaging,
+            and databases — with more being added regularly.
           </p>
         </div>
 
@@ -59,9 +61,8 @@ const base = import.meta.env.BASE_URL;
           <p>
             Town OS includes
             <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
-            a standards-compliant DNS server with full DNSSEC validation and DANE support,
-            providing ad and malware blocking for every connected device. Rolodex can also
-            serve as a personal trust root for your network. Each package declares its own port
+            a DNS server that manages authoritative zones for your packages and forwards
+            upstream queries. Each package declares its own port
             mappings — <code>external</code> ports exposed to the host and <code>internal</code>
             ports available only between containers. Port values support <code>@variable@</code>
             templates so users can choose ports at install time. Packages that declare
@@ -70,8 +71,8 @@ const base = import.meta.env.BASE_URL;
             <code>@dep_KEY_host@</code> and <code>@dep_KEY_port_N@</code> template variables
             in their environment, or via runtime environment variables
             (<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> and
-            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>). UPnP forwarding, tunnels, and VPN
-            attachments are handled automatically.
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>). UPnP forwarding is handled
+            automatically.
           </p>
         </div>
 
@@ -127,8 +128,9 @@ const base = import.meta.env.BASE_URL;
           <h3>Monitoring</h3>
           <p>
             A built-in observability stack runs out of the box with no configuration required.
-            Prometheus collects metrics, Node Exporter reports host statistics (CPU, memory, disk,
-            network), and Grafana serves auto-provisioned dashboards. The entire stack runs as
+            Prometheus collects metrics and Node Exporter reports host statistics (CPU, memory, disk,
+            network). Two monitoring backends are available: a lightweight built-in UI (default)
+            or Grafana with auto-provisioned dashboards. The entire stack runs as
             system services and restarts automatically on failure.
           </p>
         </div>
