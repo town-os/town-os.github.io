@@ -958,9 +958,12 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
       pre.parentNode!.insertBefore(wrapper, pre);
       wrapper.appendChild(pre);
 
+      const clipboardIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+      const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
       const btn = document.createElement('button');
       btn.className = 'code-copy-btn';
-      btn.textContent = 'Copy';
+      btn.innerHTML = `${clipboardIcon}<span>Copy</span>`;
       btn.setAttribute('aria-label', 'Copy to clipboard');
       wrapper.appendChild(btn);
 
@@ -968,8 +971,8 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
         const code = pre.querySelector('code');
         const text = (code || pre).textContent || '';
         navigator.clipboard.writeText(text).then(() => {
-          btn.textContent = 'Copied!';
-          setTimeout(() => { btn.textContent = 'Copy'; }, 2000);
+          btn.innerHTML = `${checkIcon}<span>Copied!</span>`;
+          setTimeout(() => { btn.innerHTML = `${clipboardIcon}<span>Copy</span>`; }, 2000);
         });
       });
     });
@@ -977,9 +980,38 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
 </BaseLayout>
 
 <style>
+  .container {
+    padding: 0 6rem;
+  }
+
+  .section.alt-section,
   .quickstart-section {
-    background: var(--color-bg-elevated);
-    border-bottom: 2px solid var(--color-primary-dim);
+    background: linear-gradient(
+      to right,
+      var(--color-bg) 0,
+      var(--color-bg) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% + 600px),
+      var(--color-bg) calc(50% + 600px),
+      var(--color-bg) 100%
+    );
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .quickstart-section {
+    position: relative;
+  }
+
+  .quickstart-section::after {
+    content: '';
+    position: absolute;
+    left: max(0px, calc(50% - 600px));
+    right: max(0px, calc(50% - 600px));
+    bottom: 0;
+    height: 2px;
+    background: var(--color-primary-dim);
+    pointer-events: none;
   }
 
   .data-warning {
@@ -1023,32 +1055,58 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
     color: var(--color-accent);
   }
 
-  .code-copy-wrapper {
+  :global(.code-copy-wrapper) {
     position: relative;
+    margin: 1.75rem 0 1.5rem;
   }
 
-  .code-copy-btn {
+  :global(.code-copy-wrapper pre) {
+    margin: 0;
+  }
+
+  pre {
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  h3 + :global(.code-copy-wrapper),
+  h3 + pre {
+    margin-top: 1rem;
+  }
+
+  :global(.code-copy-btn) {
     position: absolute;
     top: 0.5rem;
     right: 0.5rem;
-    padding: 0.3rem 0.75rem;
-    background: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: rgba(91, 76, 158, 0.55);
     color: var(--color-text);
-    border: none;
+    border: 1px solid rgba(124, 107, 191, 0.6);
     border-radius: 6px;
     font-weight: 600;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     cursor: pointer;
-    transition: background 0.2s;
-    opacity: 0;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.3;
   }
 
-  .code-copy-wrapper:hover .code-copy-btn {
+  :global(.code-copy-btn svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  :global(.code-copy-wrapper:hover .code-copy-btn),
+  :global(.code-copy-btn:focus-visible) {
     opacity: 1;
+    background: var(--color-primary);
+    border-color: var(--color-primary-light);
   }
 
-  .code-copy-btn:hover {
+  :global(.code-copy-btn:hover) {
     background: var(--color-primary-light);
+    border-color: var(--color-primary-light);
   }
 
   .page-lead {
@@ -1086,7 +1144,7 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
   .doc-text {
     color: var(--color-text-muted);
     font-size: 1rem;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
     max-width: 800px;
   }
 
@@ -1098,7 +1156,7 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
     list-style: disc;
     padding-left: 1.5rem;
     color: var(--color-text-muted);
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.75rem;
     max-width: 800px;
   }
 
@@ -1111,17 +1169,14 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
     color: var(--color-text);
   }
 
-  .alt-section {
-    background: var(--color-bg-elevated);
-  }
 
   .table-wrapper {
     overflow-x: auto;
   }
 
   h3 {
-    margin-top: 1.5rem;
-    margin-bottom: 0.75rem;
+    margin-top: 2.75rem;
+    margin-bottom: 1rem;
   }
 
   .callout {
@@ -1204,7 +1259,17 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
     color: var(--color-text);
   }
 
+  @media (max-width: 1024px) {
+    .container {
+      padding: 0 2.5rem;
+    }
+  }
+
   @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
     .toc ul {
       columns: 1;
     }
