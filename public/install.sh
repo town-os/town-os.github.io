@@ -7,13 +7,13 @@ IMAGE_PATH="/town-os.img.bz2"
 die() { echo "Error: $*" >&2; exit 1; }
 
 # Check for required tools
-for cmd in bzip2 dd lsblk docker tar; do
+for cmd in bzip2 dd lsblk podman tar; do
     command -v "$cmd" >/dev/null 2>&1 || die "'$cmd' is required but not found"
 done
 
-# Verify docker is usable by the current user (not just installed)
-if ! docker info >/dev/null 2>&1; then
-    die "Docker is installed but not accessible. Make sure the daemon is running and your user is in the 'docker' group (or run this script with sudo)."
+# Verify podman is usable by the current user (not just installed)
+if ! podman info >/dev/null 2>&1; then
+    die "Podman is installed but not functioning. Check 'podman info' for details."
 fi
 
 # Find USB block devices by checking if the sysfs device path goes through a USB bus
@@ -117,19 +117,19 @@ done
 # USB image at $IMAGE_PATH.
 echo ""
 echo "Pulling $INSTALLER_IMAGE..."
-docker pull "$INSTALLER_IMAGE" || die "Failed to pull $INSTALLER_IMAGE"
+podman pull "$INSTALLER_IMAGE" || die "Failed to pull $INSTALLER_IMAGE"
 
-# Create a throwaway container so we can stream the file out via docker cp
+# Create a throwaway container so we can stream the file out via podman cp
 # without loading the whole image into memory or a temp file.
-container_id=$(docker create "$INSTALLER_IMAGE")
-trap 'docker rm "$container_id" >/dev/null 2>&1 || true' EXIT
+container_id=$(podman create "$INSTALLER_IMAGE")
+trap 'podman rm "$container_id" >/dev/null 2>&1 || true' EXIT
 
-# docker cp emits a tar stream on stdout; tar -xO extracts its single
+# podman cp emits a tar stream on stdout; tar -xO extracts its single
 # entry back to stdout so bzip2 and dd can consume it directly.
 echo ""
 echo "Writing Town OS to $selected_device..."
 echo ""
-docker cp "$container_id:$IMAGE_PATH" - \
+podman cp "$container_id:$IMAGE_PATH" - \
     | tar -xO \
     | bzip2 -dc \
     | run_as_root dd of="$selected_device" bs=4M status=progress conv=fsync
