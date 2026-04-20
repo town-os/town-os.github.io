@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-IMAGE_URL="https://gitea.com/town-os/town-os/releases/download/2026-03-24-unstable/town-os-2026-03-24.img.bz2"
+INSTALLER_IMAGE="${TOWN_OS_INSTALLER_IMAGE:-quay.io/town/installer:latest}"
+IMAGE_PATH="/town-os.img.bz2"
 
 die() { echo "Error: $*" >&2; exit 1; }
 
 # Check for required tools
-for cmd in bzip2 dd lsblk curl; do
+for cmd in bzip2 dd lsblk docker tar; do
     command -v "$cmd" >/dev/null 2>&1 || die "'$cmd' is required but not found"
 done
+
+# Verify docker is usable by the current user (not just installed)
+if ! docker info >/dev/null 2>&1; then
+    die "Docker is installed but not accessible. Make sure the daemon is running and your user is in the 'docker' group (or run this script with sudo)."
+fi
 
 # Find USB block devices by checking if the sysfs device path goes through a USB bus
 find_usb_devices() {
@@ -107,10 +113,26 @@ for part in "${selected_device}"*; do
     fi
 done
 
-# Stream, decompress, and write in one pipeline
-echo "Downloading and writing Town OS to $selected_device..."
+# Pull the installer image. Its single layer contains the compressed
+# USB image at $IMAGE_PATH.
 echo ""
-curl -fL "$IMAGE_URL" | bzip2 -dc | run_as_root dd of="$selected_device" bs=4M status=progress conv=fsync
+echo "Pulling $INSTALLER_IMAGE..."
+docker pull "$INSTALLER_IMAGE" || die "Failed to pull $INSTALLER_IMAGE"
+
+# Create a throwaway container so we can stream the file out via docker cp
+# without loading the whole image into memory or a temp file.
+container_id=$(docker create "$INSTALLER_IMAGE")
+trap 'docker rm "$container_id" >/dev/null 2>&1 || true' EXIT
+
+# docker cp emits a tar stream on stdout; tar -xO extracts its single
+# entry back to stdout so bzip2 and dd can consume it directly.
+echo ""
+echo "Writing Town OS to $selected_device..."
+echo ""
+docker cp "$container_id:$IMAGE_PATH" - \
+    | tar -xO \
+    | bzip2 -dc \
+    | run_as_root dd of="$selected_device" bs=4M status=progress conv=fsync
 
 run_as_root sync
 run_as_root eject "$selected_device" 2>/dev/null || true
