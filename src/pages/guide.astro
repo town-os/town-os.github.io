@@ -121,6 +121,16 @@ const base = import.meta.env.BASE_URL;
         You will be prompted to create an administrator account. Once logged in, you can
         install packages, manage storage, and configure services from the dashboard.
       </p>
+
+      <h3>6. Point Your Router's DNS at Town OS</h3>
+      <p class="doc-text">
+        Town OS ships with <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+        a DNS server that resolves package hostnames and forwards everything else upstream.
+        To make every device on your network use it automatically, give the Town OS machine
+        a static IP (or DHCP reservation) and set your router's <strong>Primary DNS Server</strong>
+        to that address. See <a href="#dns-setup">Setting Up DNS on Your Router</a> for
+        per-brand instructions and verification steps.
+      </p>
     </div>
   </section>
 
@@ -285,10 +295,13 @@ sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
         You'll need the local IP address of your Town OS machine. You can find it by:
       </p>
       <ul class="doc-list">
-        <li>Checking the Town OS dashboard at <code>http://town-os.local</code></li>
+        <li>Logging in to the dashboard at <code>http://town-os.local</code> after first-boot setup and selecting the <strong>internal IP</strong> shown on the dashboard — this is the address to use as your DNS server</li>
         <li>Running <code>make vm-ip</code> if you're using a VM</li>
         <li>Checking your router's DHCP client list for a device named "town-os"</li>
       </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard-internal-ip.png`} alt="Town OS dashboard showing External IP and Internal IP with copy buttons" loading="lazy" />
+      </div>
       <p class="doc-text">
         For DNS to work reliably, your Town OS machine should have a static IP address
         or a DHCP reservation on your router. If the IP changes, DNS will break for
