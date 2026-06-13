@@ -24,6 +24,7 @@ const base = import.meta.env.BASE_URL;
           <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
           <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
+          <li><a href="#trusting-the-ca">Trusting the Certificate Authority</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
           <li><a href="#raid-and-zfs">RAID Installation</a></li>
           <li><a href="#using-the-ui">Using the User Interface</a></li>
@@ -387,6 +388,89 @@ dig @&lt;town-os-ip&gt; mypackage.home</code></pre>
           <DiagramTag variant="teal">Upstream forwarding</DiagramTag>
         </DiagramBox>
       </DiagramFlow>
+    </div>
+  </section>
+
+
+  <!-- Trusting the CA -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="trusting-the-ca">Trusting the Certificate Authority</h2>
+      <p class="doc-text">
+        Town OS issues TLS certificates for your internal services through the
+        <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+        built-in certificate authority. For your browser to show a padlock instead of a
+        warning, each device needs to trust the <strong>Rolodex root CA</strong> once.
+        There are three ways to fetch it &mdash; pick whichever fits the device.
+      </p>
+
+      <h3>Option 1: From DNS (works anywhere DNS does)</h3>
+      <p class="doc-text">
+        Rolodex publishes the CA chain <em>in DNS itself</em>, so any device that can
+        resolve your zone can fetch the CA &mdash; no access to the enrollment portal
+        required. The root and per-zone intermediate are served as
+        <code>CERT</code> records (RFC&nbsp;4398) at <code>_ca.&lt;zone&gt;</code>, with a
+        chunked <code>TXT</code> fallback at <code>_rolodex-ca.&lt;zone&gt;</code>:
+      </p>
+      <pre><code># See the published CA records
+dig @&lt;town-os-ip&gt; CERT _ca.example.home
+
+# Extract the root CA to a PEM file (root = the self-signed one)
+dig @&lt;town-os-ip&gt; +short CERT _ca.example.home</code></pre>
+      <p class="doc-text">
+        The easiest way to consume these records in a browser is the
+        <strong>Rolodex browser extension</strong> (in the rolodex repository under
+        <code>extension/</code>, loaded unpacked via <code>chrome://extensions</code> or
+        <code>about:debugging</code> in Firefox). Open the popup&rsquo;s
+        <strong>CA via DNS</strong> section, enter your DoH URL
+        (<code>https://&lt;town-os-ip&gt;/dns-query</code>) and zone, and it retrieves the
+        chain over DNS-over-HTTPS, prefers the CERT records with automatic TXT fallback,
+        verifies it against the published DANE TLSA records if you give it a hostname,
+        and offers the root, intermediate, and full chain as PEM downloads.
+      </p>
+
+      <h3>Option 2: From the Enrollment Portal</h3>
+      <p class="doc-text">
+        On the trusted network, browse to the enrollment portal
+        (<code>https://&lt;town-os-ip&gt;:8500</code> by default) and click
+        <strong>Download root CA (PEM)</strong>. The same extension and the
+        <code>rolodex-ca-ui</code> local console can do this too.
+      </p>
+
+      <h3>Option 3: From the Command Line</h3>
+      <pre><code># Via the management CLI (prints root + intermediate PEM)
+rolodex-dns-cli ensure-zone-ca --zone example.home
+
+# Or fetch the portal download directly
+curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pre>
+
+      <h3>Install the Root CA on Your Device</h3>
+      <p class="doc-text">
+        Once you have <code>rolodex-root-ca.pem</code>, add it to the trust store:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>How</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Firefox</td><td>Settings &rarr; Privacy &amp; Security &rarr; Certificates &rarr; View Certificates &rarr; Authorities &rarr; Import (check &ldquo;Trust this CA to identify websites&rdquo;)</td></tr>
+            <tr><td>Chrome / Edge (desktop)</td><td>Uses the OS trust store &mdash; install per the OS rows below, then restart the browser</td></tr>
+            <tr><td>macOS</td><td>Double-click the PEM to add it to Keychain Access, then set it to &ldquo;Always Trust&rdquo; under SSL</td></tr>
+            <tr><td>Linux (Fedora/RHEL)</td><td><code>sudo cp rolodex-root-ca.pem /etc/pki/ca-trust/source/anchors/ &amp;&amp; sudo update-ca-trust</code></td></tr>
+            <tr><td>Linux (Debian/Ubuntu)</td><td><code>sudo cp rolodex-root-ca.pem /usr/local/share/ca-certificates/rolodex.crt &amp;&amp; sudo update-ca-certificates</code></td></tr>
+            <tr><td>Windows</td><td>Double-click &rarr; Install Certificate &rarr; Local Machine &rarr; &ldquo;Trusted Root Certification Authorities&rdquo;</td></tr>
+            <tr><td>Android</td><td>Settings &rarr; Security &rarr; Encryption &amp; credentials &rarr; Install a certificate &rarr; CA certificate</td></tr>
+            <tr><td>iOS</td><td>Open the PEM (AirDrop/mail), install the profile, then enable it under Settings &rarr; General &rarr; About &rarr; Certificate Trust Settings</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Servers issued through the Rolodex ACME endpoint present a
+        <code>leaf + intermediate</code> chain that validates against this root. DANE-aware
+        clients can additionally verify the intermediate against the
+        <code>TLSA</code> records rolodex publishes automatically on issuance.
+      </p>
     </div>
   </section>
 
