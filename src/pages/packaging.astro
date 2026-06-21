@@ -249,9 +249,9 @@ image: nginx:1.26-alpine</code></pre>
             <tr><th>Field</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>network.external</code></td><td>Port mappings exposed to the host. Keys are host ports, values are container ports. Both are <code>"port"</code> strings and may contain <code>@variable@</code> templates.</td></tr>
-            <tr><td><code>network.internal</code></td><td>Port mappings available only between containers on the internal network.</td></tr>
-            <tr><td><code>network.domains</code></td><td>List of domain names associated with this package. May contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>network.external</code></td><td>Port mappings exposed directly on the host. Keys are host ports, values are container ports. Both are <code>"port"</code> strings and may contain <code>@variable@</code> templates.</td></tr>
+            <tr><td><code>network.internal</code></td><td>Port mappings reachable only from inside the package's own network (and from the shared HTTP ingress). Keys are host-side/forwarded ports, values are container ports.</td></tr>
+            <tr><td><code>network.domains</code></td><td>Optional list of additional, internet-facing FQDNs the HTTP ingress should obtain a publicly-trusted (Let&rsquo;s Encrypt / ACME) certificate for. May contain <code>@variable@</code> templates.</td></tr>
           </tbody>
         </table>
       </div>
@@ -259,6 +259,69 @@ image: nginx:1.26-alpine</code></pre>
         Port values must be integers between 1 and 65535 after template substitution.
         Omit <code>external</code>, <code>internal</code>, or <code>domains</code> entirely if unused — do not use empty maps or lists.
       </p>
+      <p class="doc-text">
+        A port entry&rsquo;s <strong>key</strong> is either a numeric port string
+        (<code>"2222": "22"</code>) or a <strong>semantic name</strong> matching
+        <code>^[a-zA-Z][a-zA-Z0-9_]*$</code> (<code>http: "3000"</code>). Naming a port lets
+        parents reference it by role (<code>@dep_KEY_port_http@</code>) instead of by number,
+        and — for the special name <code>http</code> — opts the port into the shared HTTP
+        ingress described below.
+      </p>
+
+      <h3>HTTP ingress (the <code>http</code> named port)</h3>
+      <p class="doc-text">
+        Town OS runs a single shared <strong>ingress on port <code>:443</code></strong> that
+        terminates TLS for every package and reverse-proxies to the package&rsquo;s plain-HTTP
+        container port. A package joins the ingress by naming an <strong>internal</strong> port
+        <code>http</code>:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"      # container's plain-HTTP port</code></pre>
+      <p class="doc-text">When you do this:</p>
+      <ul class="doc-list">
+        <li>
+          The service is reachable at <code>https://&lt;PACKAGE_DNS&gt;/</code> —
+          <strong>no port in the URL.</strong> There is no host port to choose; do not also map
+          the HTTP port under <code>external</code>.
+        </li>
+        <li>
+          The ingress serves a <strong>locally-trusted leaf certificate</strong> (issued by the
+          built-in Rolodex CA) for <code>&lt;PACKAGE_DNS&gt;</code> (e.g.
+          <code>gitea.default.home</code>), and Rolodex <strong>publishes DANE
+          <code>TLSA</code> records on <code>_443</code></strong> so DANE-aware clients can pin
+          the certificate.
+        </li>
+        <li>
+          Because the ingress owns <code>:443</code>, any URL the app generates must be
+          <strong>port-less HTTPS</strong>. Set the app&rsquo;s public URL accordingly (e.g.
+          gitea&rsquo;s <code>GITEA__server__ROOT_URL: "https://@PACKAGE_DNS@/"</code>), and
+          leave the app listening on plain HTTP inside the container.
+        </li>
+      </ul>
+      <p class="doc-text">
+        Non-HTTP protocols (SSH, databases, etc.) must <strong>not</strong> use the
+        <code>http</code> name — they are not HTTP and cannot be TLS-terminated by the ingress.
+        Forward them untouched with a numeric mapping instead:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"          # fronted by the :443 ingress, TLS-terminated
+    "@sshport@": "22"     # raw TCP forward, never wrapped in TLS</code></pre>
+
+      <h3>Internet-facing names (<code>domains</code>)</h3>
+      <p class="doc-text">
+        By default the ingress only serves the locally-trusted <code>&lt;PACKAGE_DNS&gt;</code>
+        name. To additionally expose a service to the public internet with a
+        <strong>publicly-trusted</strong> certificate, list the real FQDN(s) under
+        <code>network.domains</code> and point that name&rsquo;s public DNS at this host. The
+        ingress obtains an ACME (Let&rsquo;s Encrypt) certificate for each listed domain:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"
+  domains:
+    - git.example.com</code></pre>
     </div>
   </section>
 
