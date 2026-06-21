@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALLER_IMAGE="${TOWN_OS_INSTALLER_IMAGE:-quay.io/town/installer:latest}"
+INSTALLER_IMAGE="${TOWN_OS_INSTALLER_IMAGE:-quay.io/town/installer:release-$(uname -m)}"
 IMAGE_PATH="/town-os.img.bz2"
 
 die() { echo "Error: $*" >&2; exit 1; }
