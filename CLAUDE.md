@@ -98,11 +98,10 @@ Tailwind mirrors these as `--color-town-*` in `tailwind.css` (used only in diagr
 - Aria attributes for accessibility on all interactive elements
 
 ## USB Installer Image
-- When updating the installer image URL/tag, update ALL references across the codebase:
-  - `install.sh` (root) — `IMAGE_URL` variable
-  - `public/install.sh` — `IMAGE_URL` variable
-  - `src/pages/index.astro` — the release link to the USB installer image
-- The image is hosted on Gitea at `https://gitea.com/town-os/install/releases/`
+- `install.sh` (root) and `public/install.sh` are **identical copies** — Astro serves `public/install.sh` at the site root (`https://town-os.github.io/install.sh`), the root copy is the maintained source. Keep them in sync (any edit to one must be mirrored to the other).
+- The script `podman pull`s the installer image `quay.io/town/installer:<tag>` and streams its `/town-os.img.bz2` straight to the chosen USB/SD/NVMe. The tag defaults to `release-$(uname -m)`; override the whole reference with the `TOWN_OS_INSTALLER_IMAGE` env var.
+- **Raspberry Pi:** `RPI=1` (env) or `--rpi` (arg) flashes the Pi image — it pulls the **separate** `release-aarch64-rpi` tag (the Pi image is always 64-bit Arm regardless of the flashing host) with `--platform linux/arm64`. User-facing instructions live in `src/pages/guide.astro` (Quick Start); the homepage `index.astro` command stays the PC default.
+- The installer image is built and pushed by the **`town-os/install`** repo (`make push-installer` / `make release`, optionally `RPI=1`), not by this repo.
 
 ## General Rules
 - No emojis in copy unless explicitly requested

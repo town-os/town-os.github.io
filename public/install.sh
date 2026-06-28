@@ -1,7 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-INSTALLER_IMAGE="${TOWN_OS_INSTALLER_IMAGE:-quay.io/town/installer:release-$(uname -m)}"
+# Raspberry Pi: RPI=1 (env) or --rpi (arg) writes the native-boot Raspberry Pi
+# image (Pi 4/400/CM4, Pi 5/CM5) instead of the standard PC image. The Pi image is
+# always 64-bit Arm regardless of THIS machine's architecture, so it pulls a fixed
+# release-aarch64-rpi tag and requests the arm64 platform (so podman doesn't balk
+# when you flash the SD card / USB / NVMe from an x86_64 laptop).
+RPI="${RPI:-}"
+for _arg in "$@"; do
+    case "$_arg" in
+        --rpi) RPI=1 ;;
+    esac
+done
+
+if [ -n "$RPI" ]; then
+    DEFAULT_TAG="release-aarch64-rpi"
+    PLATFORM_OPT="linux/arm64"
+else
+    DEFAULT_TAG="release-$(uname -m)"
+    PLATFORM_OPT=""
+fi
+INSTALLER_IMAGE="${TOWN_OS_INSTALLER_IMAGE:-quay.io/town/installer:${DEFAULT_TAG}}"
 IMAGE_PATH="/town-os.img.bz2"
 
 die() { echo "Error: $*" >&2; exit 1; }
@@ -117,11 +136,11 @@ done
 # USB image at $IMAGE_PATH.
 echo ""
 echo "Pulling $INSTALLER_IMAGE..."
-podman pull "$INSTALLER_IMAGE" || die "Failed to pull $INSTALLER_IMAGE"
+podman pull ${PLATFORM_OPT:+--platform "$PLATFORM_OPT"} "$INSTALLER_IMAGE" || die "Failed to pull $INSTALLER_IMAGE"
 
 # Create a throwaway container so we can stream the file out via podman cp
 # without loading the whole image into memory or a temp file.
-container_id=$(podman create "$INSTALLER_IMAGE")
+container_id=$(podman create ${PLATFORM_OPT:+--platform "$PLATFORM_OPT"} "$INSTALLER_IMAGE")
 trap 'podman rm "$container_id" >/dev/null 2>&1 || true' EXIT
 
 # podman cp emits a tar stream on stdout; tar -xO extracts its single
