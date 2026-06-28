@@ -96,6 +96,19 @@ fi
 # Validate the device
 [ -b "$selected_device" ] || die "'$selected_device' is not a valid block device"
 
+# Guard against a device too small for the image. The UNCOMPRESSED Town OS image
+# is a few GB — larger than the compressed download — so an undersized stick
+# fills up and dd fails partway with ENOSPC *after* already wiping the device.
+# Reject obviously-too-small media up front (before the destructive write). This
+# is a conservative floor, not the exact image size; override with
+# MIN_DEVICE_BYTES. lsblk reads the size from sysfs, so no root is needed here.
+MIN_DEVICE_BYTES="${MIN_DEVICE_BYTES:-3000000000}"
+device_bytes=$(lsblk -bdno SIZE "$selected_device" 2>/dev/null | head -1 | xargs)
+[ -n "$device_bytes" ] || device_bytes=0
+if [ "$device_bytes" -lt "$MIN_DEVICE_BYTES" ]; then
+    die "$selected_device is too small ($((device_bytes / 1000 / 1000)) MB). Town OS needs at least $((MIN_DEVICE_BYTES / 1000 / 1000)) MB — use a 4 GB+ drive (override the floor with MIN_DEVICE_BYTES)."
+fi
+
 # Confirm
 device_info=$(lsblk -dpno NAME,SIZE,MODEL "$selected_device" 2>/dev/null || echo "$selected_device")
 echo ""
@@ -149,13 +162,28 @@ echo ""
 echo "Writing Town OS to $selected_device..."
 echo "(progress below shows the uncompressed image size, which is larger than the download)"
 echo ""
+# Run dd + the final flush + eject in a SINGLE root shell. Two reasons:
+#   1. The write can take several minutes on slow USB/SD media, easily exceeding
+#      sudo's credential timeout. If sync/eject were separate `sudo` calls after
+#      dd, they'd silently re-prompt for a password on /dev/tty — invisible under
+#      `curl | bash` — and the script would appear to hang *after* the data was
+#      already written. One sudo invocation avoids that re-auth window entirely.
+#   2. `dd conv=fsync` (and the sync) block while gigabytes of write-back cache
+#      flush to slow media, sitting at ~100% with no output. The message makes
+#      that expected instead of looking frozen.
+# `set -e` inside the subshell ensures a dd failure (e.g. ENOSPC) still aborts —
+# otherwise the trailing `eject || true` would mask it and we'd print "Done!".
 podman cp "$container_id:$IMAGE_PATH" - \
     | tar -xO \
     | bzip2 -dc \
-    | run_as_root dd of="$selected_device" bs=4M status=progress conv=fsync
-
-run_as_root sync
-run_as_root eject "$selected_device" 2>/dev/null || true
+    | run_as_root bash -c '
+        set -e
+        dd of="$1" bs=4M status=progress conv=fsync
+        echo
+        echo "Flushing buffers to the device (can take a few minutes on slow USB/SD cards)..."
+        sync
+        eject "$1" 2>/dev/null || true
+    ' _ "$selected_device"
 
 echo ""
 echo "Done! You can safely remove $selected_device and plug it into the target machine."
