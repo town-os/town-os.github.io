@@ -147,6 +147,7 @@ trap 'podman rm "$container_id" >/dev/null 2>&1 || true' EXIT
 # entry back to stdout so bzip2 and dd can consume it directly.
 echo ""
 echo "Writing Town OS to $selected_device..."
+echo "(progress below shows the uncompressed image size, which is larger than the download)"
 echo ""
 podman cp "$container_id:$IMAGE_PATH" - \
     | tar -xO \
