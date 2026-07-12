@@ -636,6 +636,42 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <div class="endpoint">
         <div class="endpoint-header">
           <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/start</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Begin the OAuth device flow for an <code>oauth</code> question. Send <code>repo</code>,
+        <code>name</code>, <code>version</code>, and <code>question</code>. The system controller
+        runs the flow&rsquo;s start step against the provider and returns
+        <code>flow_id</code>, <code>approve_url</code> (open this in the user&rsquo;s browser),
+        an optional <code>user_code</code>, and <code>interval_ms</code> — how often to poll.
+      </p>
+      <p class="doc-text">
+        The provider&rsquo;s URLs come from the package, not from Town OS, so they are checked
+        before they are called: <code>https</code> only, and never an address on the
+        host&rsquo;s own network.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/poll</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Poll a flow started above. Send <code>flow_id</code>. Returns <code>status</code>:
+        <code>pending</code> while the user has not approved yet, <code>approved</code> together
+        with the <code>token</code>, or <code>expired</code> once the flow has timed out or its
+        token has already been collected — a flow is single-use. The token is then submitted as
+        that question&rsquo;s answer to <code>/packages/install</code>, exactly like a typed
+        response.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
           <code class="endpoint-path">/packages/install-preview</code>
           <span class="auth-badge auth-admin">Admin</span>
         </div>

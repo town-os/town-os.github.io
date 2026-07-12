@@ -426,6 +426,8 @@ image: nginx:1.26-alpine</code></pre>
             <tr><td><code>query</code></td><td><strong>Required.</strong> The prompt text shown to the user.</td></tr>
             <tr><td><code>type</code></td><td>Optional validation type. Omit for free-form text.</td></tr>
             <tr><td><code>default</code></td><td>Optional default value suggested to the user.</td></tr>
+            <tr><td><code>optional</code></td><td>Set to <code>true</code> to let the question be left blank. Every other question must be answered with a non-empty value.</td></tr>
+            <tr><td><code>oauth</code></td><td><strong>Required for <code>type: oauth</code>, and only valid there.</strong> The device flow the install dialog runs to obtain a token.</td></tr>
           </tbody>
         </table>
       </div>
@@ -445,6 +447,7 @@ image: nginx:1.26-alpine</code></pre>
             <tr><td><code>secret</code></td><td>Auto-generates a 64-character hex string (256 bits) when empty or set to <code>"auto"</code>. Can be overridden with an explicit value.</td></tr>
             <tr><td><code>duration</code></td><td>Integer or number with <code>d</code>, <code>h</code>, <code>m</code>, or <code>s</code> suffix (case-insensitive). Converted to seconds.</td></tr>
             <tr><td><code>boolean</code></td><td><code>true</code>, <code>false</code>, <code>t</code>, <code>f</code>, <code>1</code>, or <code>0</code> (case-insensitive). Normalized to the string <code>true</code> or <code>false</code>. Rendered as a checkbox in the install dialog; an unanswered question resolves to the <code>default</code>, or to <code>false</code> when none is declared.</td></tr>
+            <tr><td><code>oauth</code></td><td>A token obtained by running an OAuth device flow from the install dialog rather than by typing. Rendered as a <strong>Connect</strong> button; the token that comes back is the answer. Stored and displayed like a <code>secret</code>.</td></tr>
             <tr><td><em>(omitted)</em></td><td>Any string — no validation</td></tr>
           </tbody>
         </table>
@@ -474,6 +477,111 @@ questions:
         <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> renders as <code>true</code> or
         <code>false</code> and can be tested with
         <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code>.
+      </p>
+
+      <h3>Optional Questions</h3>
+      <p class="doc-text">
+        Every question must be answered with a non-empty value unless it declares
+        <code>optional: true</code>. Without it, a setting the application can genuinely do
+        without — an SMTP relay, an API key — has no honest expression: the author has to invent
+        a placeholder default and hope the operator overwrites it.
+      </p>
+      <pre><code>environment:
+  SMTP_HOST: "@smtp_host@"
+  SMTP_PORT: "@smtp_port@"
+questions:
+  smtp_host:
+    query: "SMTP server hostname"
+    optional: true
+  smtp_port:
+    query: "SMTP server port"
+    type: port
+    optional: true
+    default: "587"</code></pre>
+      <p class="doc-text">
+        Left blank, an optional question substitutes the <strong>empty string</strong> at its
+        <code>@marker@</code> sites, so the application sees the variable empty rather than set
+        to something nobody chose. It is never auto-generated: a blank optional
+        <code>secret</code> stays blank instead of becoming a random string the application
+        would dutifully try to authenticate with.
+      </p>
+      <p class="doc-text">
+        <code>optional</code> composes with <code>type</code> — an answered optional port is
+        still validated as a port, while a blank one compiles away to nothing. It is meaningless
+        on a <code>boolean</code>, which is a checkbox and always resolves to one of its two
+        values.
+      </p>
+
+      <h3>OAuth Questions</h3>
+      <p class="doc-text">
+        Some applications are configured with a credential only their vendor can mint — a Plex
+        account token, a GitHub personal token — and the usual way to get one is to run a script
+        in a terminal and paste what it prints. An <code>oauth</code> question runs that flow
+        from the install dialog instead: the operator clicks <strong>Connect</strong>, approves
+        in a browser tab, and the token that comes back becomes the answer.
+      </p>
+      <p class="doc-text">
+        There is <strong>no provider registry</strong>. The question carries an
+        <code>oauth</code> block naming the provider&rsquo;s own URLs, so any vendor with a
+        device-style flow works without a change to Town OS.
+      </p>
+      <pre><code>environment:
+  PLEX_TOKEN: "@plextoken@"
+questions:
+  plextoken:
+    query: "Plex account"
+    type: oauth
+    oauth:
+      start:
+        method: POST
+        url: "https://plex.tv/api/v2/pins?strong=true"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      extract:
+        id: id
+        code: code
+      approve: "https://app.plex.tv/auth#?clientID=&#123;&#123;client_id&#125;&#125;&amp;code=&#123;&#123;code&#125;&#125;"
+      poll:
+        url: "https://plex.tv/api/v2/pins/&#123;&#123;id&#125;&#125;"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      token: authToken
+      interval: 2s
+      timeout: 10m</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start</code></td><td><strong>Required.</strong> The request that opens the flow: <code>method</code> (default <code>GET</code>), <code>url</code>, and optional <code>headers</code> and <code>form</code> body.</td></tr>
+            <tr><td><code>extract</code></td><td>JSON fields to pull out of the start response and make available to the templates below, written as <code>name: json_field</code>.</td></tr>
+            <tr><td><code>approve</code></td><td><strong>Required.</strong> The URL the operator opens to approve. It is opened in a new tab and also shown as a link, in case a popup blocker eats it.</td></tr>
+            <tr><td><code>user_code</code></td><td>Optional template for a short code the operator must type on the approval page. GitHub shows one; Plex does not.</td></tr>
+            <tr><td><code>poll</code></td><td><strong>Required.</strong> The request repeated until approval. Same shape as <code>start</code>.</td></tr>
+            <tr><td><code>token</code></td><td><strong>Required.</strong> The JSON field in the poll response holding the token. Absent or <code>null</code> is how a provider says &ldquo;not approved yet&rdquo;.</td></tr>
+            <tr><td><code>interval</code></td><td>How often to poll. Defaults to <code>5s</code>; honor the provider&rsquo;s documented rate limit.</td></tr>
+            <tr><td><code>timeout</code></td><td>How long to keep polling before giving up. Defaults to <code>5m</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>&#123;&#123;...&#125;&#125;</code> placeholders in URLs, headers, and form values resolve
+        against whatever <code>extract</code> named, plus <code>&#123;&#123;client_id&#125;&#125;</code> —
+        a random identifier Town OS generates per flow and sends on every step, which is what
+        Plex ties its pin to.
+      </p>
+      <p class="doc-text">
+        The token is a credential, so it is treated as one: masked in the package info panel,
+        copyable but never printed. It is cached like any other response, so reinstalling or
+        upgrading reuses it rather than sending the operator back to the provider.
+      </p>
+      <p class="doc-text">
+        Because it is the system controller — not the browser — that calls these URLs, they must
+        be <code>https</code> and must not resolve to a loopback, private, link-local, or CGNAT
+        address. The check runs when the connection is actually made, and again on every
+        redirect, so a package cannot use a flow to make the controller reach into the
+        host&rsquo;s own network.
       </p>
     </div>
   </section>
