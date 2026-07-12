@@ -444,10 +444,37 @@ image: nginx:1.26-alpine</code></pre>
             <tr><td><code>archive</code></td><td>Any non-empty string</td></tr>
             <tr><td><code>secret</code></td><td>Auto-generates a 64-character hex string (256 bits) when empty or set to <code>"auto"</code>. Can be overridden with an explicit value.</td></tr>
             <tr><td><code>duration</code></td><td>Integer or number with <code>d</code>, <code>h</code>, <code>m</code>, or <code>s</code> suffix (case-insensitive). Converted to seconds.</td></tr>
+            <tr><td><code>boolean</code></td><td><code>true</code>, <code>false</code>, <code>t</code>, <code>f</code>, <code>1</code>, or <code>0</code> (case-insensitive). Normalized to the string <code>true</code> or <code>false</code>. Rendered as a checkbox in the install dialog; an unanswered question resolves to the <code>default</code>, or to <code>false</code> when none is declared.</td></tr>
             <tr><td><em>(omitted)</em></td><td>Any string — no validation</td></tr>
           </tbody>
         </table>
       </div>
+
+      <h3>Boolean Questions</h3>
+      <p class="doc-text">
+        A <code>boolean</code> question is shown as a checkbox rather than a text field, and its
+        answer is substituted as the literal string <code>true</code> or <code>false</code>.
+        Because an unchecked box is still a real answer, a question with
+        <code>default: "true"</code> can be turned off by the user — the explicit
+        <code>false</code> wins over the default.
+      </p>
+      <pre><code>environment:
+  REGISTRATION_OPEN: "@open@"
+  METRICS_ENABLED: "@metrics@"
+questions:
+  open:
+    query: "Allow open registration?"
+    type: boolean          # unanswered -&gt; "false"
+  metrics:
+    query: "Enable metrics?"
+    type: boolean
+    default: "true"        # unanswered -&gt; "true"</code></pre>
+      <p class="doc-text">
+        The normalized value is what file templates see too, so
+        <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> renders as <code>true</code> or
+        <code>false</code> and can be tested with
+        <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code>.
+      </p>
     </div>
   </section>
 

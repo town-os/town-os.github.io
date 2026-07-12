@@ -39,10 +39,12 @@ const base = import.meta.env.BASE_URL;
             definition — setting hostnames, ports, credentials, and other options. Each question
             has a typed validator (<code>hostname</code>, <code>port</code>, <code>bytes</code>,
             <code>volume</code>, <code>archive</code>, <code>duration</code>, <code>secret</code>,
-            or free-form text) and an optional default value, so configuration errors are caught
-            before the service ever starts. Several types auto-generate values when left empty:
-            ports are assigned randomly in the 10000–60000 range, hostnames are generated as
-            <code>package-name-4hex</code>, and secrets produce a 64-character hex string.
+            <code>boolean</code>, or free-form text) and an optional default value, so
+            configuration errors are caught before the service ever starts. The type also picks
+            the control you are shown — a <code>boolean</code> is a checkbox, a
+            <code>secret</code> is a masked field. Several types auto-generate values when left
+            empty: ports are assigned randomly in the 10000–60000 range, hostnames are generated
+            as <code>package-name-4hex</code>, and secrets produce a 64-character hex string.
           </p>
         </div>
 
