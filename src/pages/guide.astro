@@ -540,6 +540,9 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         paired with its own DNS TLD, managed under <strong>Dashboard &rarr; Networks</strong>
         (admin only).
       </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-panel.webp`} alt="The Networks page listing the built-in home network with its TLD, subnet, peer count, and a Remote access toggle, plus a Create Network button" loading="lazy" decoding="async" />
+      </div>
 
       <h3>The Default Network</h3>
       <ul class="doc-list">
@@ -558,6 +561,9 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>Claims the network's TLD (TLDs are unique per box — creating a network with a TLD another network already owns is rejected).</li>
         <li>Runs a per-network DNS resolver on the overlay so joined devices can resolve that network's names.</li>
       </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-create.webp`} alt="The Create Network dialog with Name and TLD fields, noting the TLD defaults to the network name" loading="lazy" decoding="async" />
+      </div>
       <p class="doc-text">
         The <strong>Remote access</strong> switch on each row brings the WireGuard interface up or
         down. Turning it off cuts remote access while leaving the containers running and reachable
@@ -613,6 +619,18 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         clients. Reinstalling a package on a different network moves its DNS and certificates to
         that network's TLD.
       </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-install.webp`} alt="The Install jitsi dialog with a Network selector at the top labeled 'The network this package is served on', above the package's configuration questions" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        For example, installing Jitsi on a network with the <code>fart</code> TLD publishes it at
+        <code>jitsi.default.fart</code>. Once it's running, the service shows up on your
+        <strong>Dashboard</strong> as a clickable link at that address, ready to open from any
+        device on the network.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="The Dashboard's Installed Services list showing jitsi with a link to https://jitsi.default.fart/" loading="lazy" decoding="async" />
+      </div>
 
       <DiagramFlow title="Remote Access over a Network">
         <DiagramBox label="Your Device" sub="Phone or laptop" variant="neutral">
