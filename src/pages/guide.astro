@@ -25,9 +25,13 @@ const base = import.meta.env.BASE_URL;
           <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
           <li><a href="#trusting-the-ca">Trusting the Certificate Authority</a></li>
+          <li><a href="#networks">Networks and Remote Access</a></li>
+          <li><a href="#android-app">Town OS on Android</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
           <li><a href="#raid-and-zfs">RAID Installation</a></li>
           <li><a href="#using-the-ui">Using the User Interface</a></li>
+          <li><a href="#pages">Hosting Static Sites</a></li>
+          <li><a href="#updating">Updating Town OS</a></li>
           <li><a href="#building-a-package">Building a Package</a></li>
           <li><a href="#self-hosting-ideas">Things You Can Self-Host</a></li>
           <li><a href="#dev-environment">Development Environment and Test Suite</a></li>
@@ -380,11 +384,48 @@ nslookup example.com
 # Or query Town OS directly
 dig @&lt;town-os-ip&gt; example.com
 
-# Query a package domain (if you have packages installed)
-dig @&lt;town-os-ip&gt; mypackage.home</code></pre>
+# Query a package domain (if you have packages installed).
+# Names follow &lt;name&gt;.&lt;repo&gt;.&lt;tld&gt; — .home is the default network's TLD
+dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
       <p class="doc-text">
         If <code>example.com</code> resolves correctly, rolodex is working
         and handling DNS for your network.
+      </p>
+
+      <h3>Choosing a Resolution Mode</h3>
+      <p class="doc-text">
+        Names that don't belong to one of your networks are resolved according to the
+        <strong>resolution mode</strong>, which you set under
+        <strong>Settings &rarr; DNS Resolution</strong> in the dashboard. Three modes are
+        available:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Automatic (recommended)</strong> — the default. Tries to resolve iteratively from the root servers first, then falls back through DoH/DoT, a local forwarder, and finally a public resolver, sticking with whichever tier last worked. This keeps recursion's privacy where the network allows it, and degrades gracefully on networks that filter outbound DNS.</li>
+        <li><strong>Recursive only</strong> — resolves everything iteratively from the root servers with no fallback. Guarantees no query is ever handed to a third-party resolver, but every external name fails on networks that block or hijack outbound port 53 (hotels, captive portals, some ISPs).</li>
+        <li><strong>Forward</strong> — always sends unmatched queries to upstream resolvers (Google Public DNS by default). This is the classic forwarding behavior.</li>
+      </ul>
+
+      <h3>Blocking Ads and Malicious Domains</h3>
+      <p class="doc-text">
+        rolodex can screen queries against <strong>DNSBL</strong> (domain blocklists) and
+        <strong>RBL</strong> (IP blocklists) providers, giving you network-wide ad and threat
+        blocking without a separate Pi-hole. Manage these under
+        <strong>DNS &rarr; Blocklists</strong>. Town OS never downloads or caches blocklist
+        feeds — providers are queried on demand as regular DNS zones.
+      </p>
+      <ul class="doc-list">
+        <li><strong>Provider zones</strong> — enable a category (DNSBL or RBL), then add provider zones. One-click suggestions include well-known lists such as Spamhaus (<code>dbl.spamhaus.org</code>, <code>zen.spamhaus.org</code>), SURBL, URIBL, SpamCop, and Barracuda; you can also add any custom zone. Each provider has its own on/off switch.</li>
+        <li><strong>Local entries</strong> — block a specific domain or IP by hand. Blocking a domain returns <code>NXDOMAIN</code> for forward lookups; you can note a reason for each entry.</li>
+      </ul>
+
+      <h3>Publishing Services in DNS</h3>
+      <p class="doc-text">
+        By default every installed package service is published in DNS under its network's TLD
+        so you can reach it by name. Under <strong>DNS &rarr; Services</strong> you can toggle
+        publishing per service — an unpublished service keeps running but is no longer resolvable
+        by name. Each service's fully-qualified name follows the pattern
+        <code>&lt;name&gt;.&lt;repo&gt;.&lt;tld&gt;</code> (for the default network, that TLD is
+        <code>.home</code>).
       </p>
 
       <DiagramFlow title="DNS Flow">
@@ -484,6 +525,168 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         clients can additionally verify the intermediate against the
         <code>TLSA</code> records rolodex publishes automatically on issuance.
       </p>
+    </div>
+  </section>
+
+  <!-- Networks and Remote Access -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="networks">Networks and Remote Access</h2>
+      <p class="doc-text">
+        Town OS groups your services into <strong>networks</strong>. Every box starts with a
+        built-in network called <code>home</code> — it is LAN-only, resolves names under
+        <code>.home</code>, and has no tunnel. To reach your services securely from outside your
+        house, create additional networks: each one is a <strong>WireGuard overlay</strong>
+        paired with its own DNS TLD, managed under <strong>Dashboard &rarr; Networks</strong>
+        (admin only).
+      </p>
+
+      <h3>The Default Network</h3>
+      <ul class="doc-list">
+        <li><strong>Always present, can't be removed.</strong> The <code>home</code> network is created automatically and is where packages land unless you pick another.</li>
+        <li><strong>Local only.</strong> It has no WireGuard transport — <code>.home</code> names resolve on your LAN and are deliberately never exposed to remote peers.</li>
+        <li><strong>Uses the <code>.home</code> TLD</strong>, which comes from the <code>dns_tld</code> setting.</li>
+      </ul>
+
+      <h3>Creating a Network for Remote Access</h3>
+      <p class="doc-text">
+        Click <strong>Create Network</strong> and give it a name (for example <code>office</code>)
+        and, optionally, a TLD (it defaults to the network name). Town OS then:
+      </p>
+      <ul class="doc-list">
+        <li>Generates a WireGuard interface with a deterministic overlay subnet drawn from the <code>10.64.0.0/10</code> range, with the box itself as the <code>.1</code> address.</li>
+        <li>Claims the network's TLD (TLDs are unique per box — creating a network with a TLD another network already owns is rejected).</li>
+        <li>Runs a per-network DNS resolver on the overlay so joined devices can resolve that network's names.</li>
+      </ul>
+      <p class="doc-text">
+        The <strong>Remote access</strong> switch on each row brings the WireGuard interface up or
+        down. Turning it off cuts remote access while leaving the containers running and reachable
+        locally.
+      </p>
+
+      <h3>Enrolling a Device</h3>
+      <p class="doc-text">
+        Open a network's <strong>Peers</strong> dialog, enter a device name, and click
+        <strong>Add Peer</strong>. Town OS returns a ready-to-import WireGuard configuration —
+        paste it into the WireGuard app on your phone or laptop.
+      </p>
+      <p class="doc-text callout">
+        <strong>Copy the config right away.</strong> It contains a freshly generated private key
+        that is never stored — you cannot retrieve it later, and will have to enroll the device
+        again if you lose it.
+      </p>
+      <p class="doc-text">
+        The generated config points the device's DNS at the box's overlay address, so your
+        network's names resolve automatically once the tunnel is up. Leave the
+        <strong>Runs rolodex DNS</strong> switch off for ordinary devices; enable it only for a
+        peer that itself runs a rolodex DNS server you want to forward to.
+      </p>
+
+      <h3>WireGuard-Only Accounts</h3>
+      <p class="doc-text">
+        To let someone enroll their own devices without giving them run of the dashboard, create a
+        <strong>WireGuard-only account</strong> (a checkbox on the Create User screen). Such an
+        account:
+      </p>
+      <ul class="doc-list">
+        <li>Is <strong>scoped to one or more specific networks</strong> — it can enroll peers only on those, and never on the <code>home</code> network.</li>
+        <li>Is <strong>fail-closed</strong>: it can authenticate, enroll and refresh its own peers, and fetch the CA, but nothing else in the control plane.</li>
+        <li>Enrolls <strong>expiring peers</strong>. Each enrollment carries a TTL (default 2 hours, set under <strong>Settings &rarr; WireGuard Peer TTL</strong>) and must be refreshed to stay connected; abandoned devices age out automatically. Peers an admin adds are permanent.</li>
+      </ul>
+
+      <h3>Watching and Disconnecting Peers</h3>
+      <p class="doc-text">
+        The <strong>Connected Peers</strong> panel on the Networks page lists every enrolled peer
+        across all networks with its live handshake status, overlay IP, data transferred, and
+        expiry. To forcibly cut a device off, use <strong>Disconnect</strong> — this removes the
+        peer, tears its tunnel down immediately, and revokes its key, so the device cannot
+        reconnect until it is enrolled again.
+      </p>
+
+      <h3>Installing Packages on a Network</h3>
+      <p class="doc-text">
+        The install dialog (and the Pages dialog) includes a <strong>Network</strong> selector.
+        Whichever network you choose determines the service's DNS name and TLS certificate — a
+        package installed on <code>office</code> resolves under <code>.office</code> and its
+        certificate is issued for that name. Services on a non-default network are dual-homed: they
+        resolve to the overlay address for tunnelled peers and to the LAN address for local
+        clients. Reinstalling a package on a different network moves its DNS and certificates to
+        that network's TLD.
+      </p>
+
+      <DiagramFlow title="Remote Access over a Network">
+        <DiagramBox label="Your Device" sub="Phone or laptop" variant="neutral">
+          <DiagramTag>WireGuard</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="tunnel" />
+        <DiagramBox label="Town OS" sub="Network overlay + DNS" variant="purple">
+          <DiagramTag variant="purple">office subnet</DiagramTag>
+          <DiagramTag variant="teal">.office TLD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="resolve" />
+        <DiagramBox label="Your Services" sub="Reachable by name" variant="teal">
+          <DiagramTag variant="teal">gitea.default.office</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Town OS on Android -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="android-app">Town OS on Android</h2>
+      <p class="doc-text">
+        The <a href="https://github.com/town-os/android-client" target="_blank" rel="noopener">Town OS
+        Android client</a> connects your phone to one of your
+        <a href="#networks">networks</a> over WireGuard and sets up DNS so your services resolve by
+        name — from anywhere. It is a full WireGuard client that enrolls the phone as a peer for
+        you; there is no config file to copy by hand.
+      </p>
+
+      <div class="phone-shots">
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-login.webp`} alt="Town OS Android client login screen — a Connect to a box card with box address, admin username, and password fields" loading="lazy" decoding="async" />
+          <figcaption>Logging in to a box</figcaption>
+        </figure>
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-connection.webp`} alt="Town OS Android client connection screen — Disconnected status with Connect and Forget this network buttons, above a DNS resolver settings card" loading="lazy" decoding="async" />
+          <figcaption>Managing the connection and DNS</figcaption>
+        </figure>
+      </div>
+
+      <h3>Installing the App</h3>
+      <p class="doc-text">
+        The app is distributed as an APK from the project's
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">releases page</a>
+        — it is not on the Play Store or F-Droid.
+      </p>
+      <ul class="doc-list">
+        <li>Download the <strong>debug APK</strong> (<code>town-os-client-&lt;version&gt;-debug.apk</code>). The <code>-unsigned.apk</code> on the same release cannot be installed as-is — the project ships no signing key, so the debug build is the one to grab.</li>
+        <li>Requires <strong>Android 8.0 (Oreo) or newer</strong>.</li>
+        <li>Because it is sideloaded, allow <strong>installing unknown apps</strong> when your browser or file manager prompts.</li>
+        <li>Prefer to build it yourself? Clone the repo and run <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> with the phone connected over USB and USB debugging enabled. <code>make help</code> lists every target.</li>
+      </ul>
+
+      <h3>Before You Connect</h3>
+      <ul class="doc-list">
+        <li><strong>Create a network first.</strong> The app can only join networks that carry a WireGuard overlay — the built-in <code>home</code> network is LAN-only and won't appear. See <a href="#networks">Networks and Remote Access</a> to create one.</li>
+        <li><strong>Have an administrator account ready.</strong> Enrolling a device is an admin action, so the app signs in with admin credentials.</li>
+      </ul>
+
+      <h3>Connecting to a Network</h3>
+      <ol class="doc-list">
+        <li><strong>Log in to your box.</strong> Enter its address — a bare IP, <code>IP:port</code>, or full URL (port <code>5309</code> is assumed) — along with your admin username and password.</li>
+        <li><strong>Join a network.</strong> The app lists the networks you can join, each with its TLD, subnet, and peer count. Give the device a name (it defaults to your phone's model) and tap <strong>Join</strong>. The WireGuard keypair is generated on the phone and only the public half is sent to the box, so your private key never leaves the device.</li>
+        <li><strong>Connect.</strong> Tap <strong>Connect</strong> and approve Android's <em>Connection request</em> (VPN) prompt. The app brings up the tunnel and installs the network's TLD as a search domain, so both <code>gitea</code> and <code>gitea.default.&lt;tld&gt;</code> resolve.</li>
+        <li>You are now on the network by name from anywhere. Use <strong>Disconnect</strong> to drop the tunnel, or <strong>Forget this network</strong> to remove the saved enrollment.</li>
+      </ol>
+
+      <h3>Troubleshooting</h3>
+      <ul class="doc-list">
+        <li><strong>Names don't resolve, but the tunnel is up.</strong> The usual culprit is Android's strict <strong>Private DNS</strong>. If it is set to a specific provider hostname, Android sends every lookup there and ignores the tunnel, so Town OS names come back "not found." Switch <strong>Settings &rarr; Network &amp; internet &rarr; Private DNS</strong> to <strong>Automatic</strong> or <strong>Off</strong>. The app detects this and shows a warning with a shortcut straight to the setting. (Automatic mode is fine and never warns.)</li>
+        <li><strong>Still nothing?</strong> In the app's DNS card, set the <strong>resolver override</strong> to the box's LAN address — the app routes it through the tunnel so split-horizon DNS still works.</li>
+        <li><strong>Logged out after the box reboots.</strong> Town OS clears all sessions on restart; just log in again.</li>
+      </ul>
     </div>
   </section>
 
@@ -738,6 +941,70 @@ ssh root@town-os.local</code></pre>
     </div>
   </section>
 
+  <!-- Hosting Static Sites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pages">Hosting Static Sites</h2>
+      <p class="doc-text">
+        Beyond containerized packages, Town OS has built-in <strong>static site hosting</strong>,
+        always on and managed under <strong>Dashboard &rarr; Pages</strong>. Each page is served
+        by a shared web server behind the ingress and gets a DNS name and TLS certificate under
+        its network's TLD, just like a package.
+      </p>
+
+      <h3>Content Sources</h3>
+      <p class="doc-text">
+        When you create a page you pick a <strong>name</strong>, a <strong>domain</strong>
+        (defaults to the name), a <strong>network</strong> (defaults to <code>home</code>), and one
+        of three content sources:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Archive upload</strong> — upload a tarball of your site. The page waits in a pending state until you upload the archive.</li>
+        <li><strong>Git repository</strong> — clone from a repo URL. You can specify a branch (defaults to <code>main</code>), which is handy for sites published to <code>gh-pages</code>.</li>
+        <li><strong>Container image</strong> — extract a directory out of an OCI image.</li>
+      </ul>
+      <p class="doc-text">
+        Git and container pages provision asynchronously — the table shows a
+        <strong>Provisioning…</strong> badge that resolves to active or error. Use
+        <strong>Rebuild</strong> to pull the latest content for git and container pages; for an
+        archive page, upload a new tarball instead.
+      </p>
+
+      <h3>How Pages Are Served</h3>
+      <p class="doc-text">
+        Each page lives on its own storage subvolume and is served directly over HTTP on port 80,
+        while package services redirect port 80 to HTTPS. Because a page carries a network, its
+        name resolves under that network's TLD and is reachable by your LAN and — if the network is
+        a WireGuard overlay — by your enrolled remote devices.
+      </p>
+    </div>
+  </section>
+
+  <!-- Updating Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="updating">Updating Town OS</h2>
+      <p class="doc-text">
+        Town OS updates its core services in place from the dashboard. On
+        <strong>System Management</strong>, the <strong>Refresh Core Services</strong> button pulls
+        the latest container images and restarts every core service — including the system
+        controller itself, which is how the box self-updates.
+      </p>
+
+      <h3>What Happens During a Refresh</h3>
+      <ul class="doc-list">
+        <li>Images are pulled and services restarted in dependency order: the system controller first (so its new image is ready before it restarts itself), then DNS, then the rest.</li>
+        <li>Your login session is intentionally reset as the controller restarts, so the dashboard holds off its usual session checks while the refresh runs rather than bouncing you to the login page.</li>
+        <li>Progress is shown as a five-stage stepper: <strong>Booting system controller</strong> &rarr; <strong>Booting DNS</strong> &rarr; <strong>Starting system services</strong> &rarr; <strong>Restarting packages</strong> (with one row per installed package) &rarr; <strong>Ready</strong>.</li>
+        <li>When the refresh completes, the dashboard shows a <strong>Reload</strong> button instead of reloading itself out from under you.</li>
+      </ul>
+      <p class="doc-text">
+        These same five stages appear on the provisioning screen during a normal boot, so you can
+        watch startup progress package by package.
+      </p>
+    </div>
+  </section>
+
   <!-- Building a Package -->
   <section class="section alt-section">
     <div class="container">
@@ -783,6 +1050,15 @@ notes:
   URL:
     value: "http://@LOCAL_EXTERNAL_HOST@:@port@"
     type: url</code></pre>
+      <p class="doc-text">
+        Questions support several types beyond free text and <code>port</code>: <code>secret</code>
+        (auto-generated when left blank), <code>boolean</code> (rendered as a checkbox),
+        <code>oauth</code> (a <strong>Connect</strong> button that runs a provider's device-flow to
+        obtain a token), and any question can be marked <code>optional: true</code> to allow it to
+        be left blank. See the <a href={`${base}packaging/`}>Packaging Format</a> reference for the
+        full list. At install time the operator also picks which
+        <a href="#networks">network</a> the package is served on.
+      </p>
 
       <h3>Template System</h3>
       <p class="doc-text">
@@ -1324,6 +1600,38 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
   .screenshot-ref img {
     display: block;
     width: 100%;
+  }
+
+  /* Phone screenshots — narrow, side by side */
+  .phone-shots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.5rem auto 2rem;
+    max-width: 800px;
+  }
+
+  .phone-shot {
+    flex: 0 1 300px;
+    max-width: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-bg-card);
+  }
+
+  .phone-shot img {
+    display: block;
+    width: 100%;
+  }
+
+  .phone-shot figcaption {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    border-top: 1px solid var(--color-border);
   }
 
   /* Self-hosting idea grid */
