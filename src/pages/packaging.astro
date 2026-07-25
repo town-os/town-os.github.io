@@ -428,6 +428,7 @@ image: nginx:1.26-alpine</code></pre>
             <tr><td><code>default</code></td><td>Optional default value suggested to the user.</td></tr>
             <tr><td><code>optional</code></td><td>Set to <code>true</code> to let the question be left blank. Every other question must be answered with a non-empty value.</td></tr>
             <tr><td><code>oauth</code></td><td><strong>Required for <code>type: oauth</code>, and only valid there.</strong> The device flow the install dialog runs to obtain a token.</td></tr>
+            <tr><td><code>show_if</code></td><td>Names a <code>boolean</code> question in the same package. This question is hidden in the install dialog until that box is checked, and compiles to the empty string (and is exempt from the required check) while it is off &mdash; letting a package tuck an advanced group behind one switch. The referenced question must exist, be a boolean, and not itself be conditional.</td></tr>
           </tbody>
         </table>
       </div>
