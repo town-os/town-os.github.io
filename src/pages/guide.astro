@@ -21,14 +21,14 @@ const base = import.meta.env.BASE_URL;
       <nav class="toc">
         <ul>
           <li><a href="#quick-start">Quick Start</a></li>
-          <li><a href="#creating-the-usb-drive">Creating the USB Drive</a></li>
+          <li><a href="#building-the-usb-image">Building the USB Image from Source</a></li>
           <li><a href="#sledgehammer">Sledgehammer Boot Option</a></li>
           <li><a href="#dns-setup">Setting Up DNS on Your Router</a></li>
           <li><a href="#trusting-the-ca">Trusting the Certificate Authority</a></li>
           <li><a href="#networks">Networks and Remote Access</a></li>
           <li><a href="#android-app">Town OS on Android</a></li>
           <li><a href="#building-vms">Building VMs from USB Images</a></li>
-          <li><a href="#raid-and-zfs">RAID Installation</a></li>
+          <li><a href="#raid-installation">RAID Installation</a></li>
           <li><a href="#using-the-ui">Using the User Interface</a></li>
           <li><a href="#pages">Hosting Static Sites</a></li>
           <li><a href="#updating">Updating Town OS</a></li>
@@ -47,14 +47,16 @@ const base = import.meta.env.BASE_URL;
       <h2 class="section-title" id="quick-start">Quick Start</h2>
       <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
         Get Town OS running on a spare computer in minutes. All you need is a USB-C drive
-        (4 GB or larger) and a Linux or macOS machine to write it from.
+        (4 GB or larger) and a Linux machine to write it from.
       </p>
 
       <h3>1. Write the USB Drive</h3>
       <p class="doc-text">
-        Run the installer script on any machine with <code>curl</code>, <code>bzip2</code>,
-        and <code>dd</code> installed. It downloads the latest Town OS image and writes it
-        directly to a USB drive.
+        Run the installer script on any Linux machine with <code>podman</code>,
+        <code>curl</code>, <code>bzip2</code>, <code>dd</code>, <code>lsblk</code>, and
+        <code>tar</code> installed — <strong>Podman is required</strong>, since the script
+        pulls the installer image with it (and must be working, not just installed). It
+        downloads the latest Town OS image and writes it directly to a USB drive.
       </p>
       <pre><code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code></pre>
       <p class="doc-text">
@@ -155,7 +157,7 @@ const base = import.meta.env.BASE_URL;
   <!-- Creating the USB Drive -->
   <section class="section alt-section">
     <div class="container">
-      <h2 class="section-title" id="creating-the-usb-drive">Creating the USB Drive</h2>
+      <h2 class="section-title" id="building-the-usb-image">Building the USB Image from Source</h2>
       <p class="doc-text">
         The Town OS USB image is built from the
         <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
@@ -165,17 +167,23 @@ const base = import.meta.env.BASE_URL;
 
       <h3>Prerequisites</h3>
       <p class="doc-text">
-        You'll need a Linux system with the following tools installed:
+        You need a Linux host and a USB drive (4 GB or larger). The build uses Arch
+        Linux tooling (<code>pacstrap</code>, <code>mkinitcpio</code>, <code>arch-chroot</code>),
+        but you do <strong>not</strong> need to be running Arch — on any other distro
+        <code>make image</code> automatically runs the build inside a same-architecture
+        Arch container. Install the host dependencies with the bundled target for your
+        distro:
       </p>
       <ul class="doc-list">
-        <li><code>make</code> — the build is driven entirely by Makefiles</li>
-        <li><code>arch-install-scripts</code> — for pacstrap bootstrapping</li>
-        <li><code>squashfs-tools</code> — for creating the compressed root filesystem</li>
-        <li><code>parted</code> and <code>e2fsprogs</code>, <code>dosfstools</code> — for partitioning and filesystem creation</li>
-        <li><code>podman</code> — for enabling systemd units inside the chroot</li>
-        <li>An Arch Linux host system (required for pacstrap)</li>
-        <li>A USB drive (4 GB or larger recommended)</li>
+        <li><code>make deps</code> — Arch (and derivatives) or Fedora/RHEL</li>
+        <li><code>make deps-debian</code> — Debian or Ubuntu</li>
       </ul>
+      <p class="doc-text">
+        These pull in everything the build and VM tooling need — <code>make</code>,
+        <code>podman</code>, <code>arch-install-scripts</code>, <code>squashfs-tools</code>,
+        <code>parted</code>, <code>e2fsprogs</code>, <code>dosfstools</code>,
+        <code>qemu</code>, and <code>libvirt</code>.
+      </p>
 
       <h3>Cloning and Building</h3>
       <pre><code>git clone https://gitea.com/town-os/install.git
@@ -206,13 +214,16 @@ make image</code></pre>
 
       <h3>Writing the Image</h3>
       <p class="doc-text">
-        Once the image is built, write it to your USB drive using <code>dd</code>:
+        The simplest way is <code>make flash</code>, which builds the image if it is
+        stale and writes it to a USB device. To do it by hand, note that the build
+        produces a dated, arch-suffixed file (e.g.
+        <code>town-os-2026-07-25-x86_64.img</code>) — write it with <code>dd</code>:
       </p>
       <pre><code># Find your USB device (e.g. /dev/sdb)
 lsblk
 
-# Write the image (replace /dev/sdX with your device)
-sudo dd if=town-os.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+# Write the image (replace the filename and /dev/sdX with your device)
+sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
       <p class="doc-text callout">
         Double-check the target device — <code>dd</code> will overwrite whatever you point it at
         without confirmation.
@@ -684,6 +695,13 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>Because it is sideloaded, allow <strong>installing unknown apps</strong> when your browser or file manager prompts.</li>
         <li>Prefer to build it yourself? Clone the repo and run <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> with the phone connected over USB and USB debugging enabled. <code>make help</code> lists every target.</li>
       </ul>
+      <p class="doc-text">To install the downloaded APK on your phone:</p>
+      <ol class="doc-list">
+        <li><strong>Get the APK onto the phone.</strong> Download it directly in the phone's browser, or copy it over from a computer via USB or <code>adb push</code>.</li>
+        <li><strong>Open the APK</strong> from your browser's downloads or a file manager. The first time, Android asks to <strong>allow installs from this source</strong> — grant it (<strong>Settings &rarr; Apps &rarr; Special access &rarr; Install unknown apps</strong>), then tap <strong>Install</strong>.</li>
+        <li><strong>Or install from a computer</strong> with the phone in USB-debugging mode: <code>adb install town-os-client-&lt;version&gt;-debug.apk</code>.</li>
+        <li>Open <strong>Town OS</strong> from your app drawer once it finishes installing.</li>
+      </ol>
 
       <h3>Before You Connect</h3>
       <ul class="doc-list">
@@ -722,7 +740,20 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
       <p class="doc-text">
         Launches a QEMU VM with KVM acceleration, 4 IDE drives for storage testing,
         and bridge networking. The VM boots from the USB image and behaves identically
-        to a physical installation.
+        to a physical installation. Use <code>make qemu-fg</code> to run it in the
+        foreground with the serial console attached.
+      </p>
+
+      <h3>Booting a Physical USB (qemu-usb)</h3>
+      <pre><code>make qemu-usb USB_DEV=/dev/sdX</code></pre>
+      <p class="doc-text">
+        Boots QEMU in the foreground straight from a flashed physical USB stick instead
+        of a built image — handy for confirming that a stick you just wrote actually boots.
+        The device is opened <strong>read-only</strong> (snapshot), so guest writes are
+        discarded and the real USB is never modified; the four virtual data disks are still
+        attached for storage testing. This target does not build anything. On an x86_64 host,
+        <code>TARGET=aarch64</code> (or <code>rpi</code>) boots the stick under full-system
+        emulation, so a foreign-arch image can be tested without the matching hardware.
       </p>
 
       <h3>VirtualBox</h3>
@@ -746,10 +777,11 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
             <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>IMAGE_SIZE</code></td><td>8G</td><td>Size of the USB image</td></tr>
-            <tr><td><code>VM_DISK_SIZE</code></td><td>20G</td><td>Size of each virtual disk</td></tr>
-            <tr><td><code>VM_MEMORY</code></td><td>4096</td><td>VM memory in MB</td></tr>
-            <tr><td><code>VM_BRIDGE</code></td><td>br0</td><td>Host bridge interface for networking</td></tr>
+            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>Size of the USB image</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>Size of each virtual disk</td></tr>
+            <tr><td><code>VM_MEMORY</code></td><td>4G</td><td>VM memory</td></tr>
+            <tr><td><code>VM_CPUS</code></td><td>4</td><td>vCPUs for the VM</td></tr>
+            <tr><td><code>VM_BRIDGE</code></td><td>virbr0</td><td>Host bridge interface for networking</td></tr>
           </tbody>
         </table>
       </div>
@@ -789,7 +821,7 @@ ssh root@town-os.local</code></pre>
   <!-- RAID and ZFS -->
   <section class="section alt-section">
     <div class="container">
-      <h2 class="section-title" id="raid-and-zfs">RAID Installation</h2>
+      <h2 class="section-title" id="raid-installation">RAID Installation</h2>
       <p class="doc-text">
         Disk provisioning is handled interactively by
         <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
