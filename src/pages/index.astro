@@ -3,10 +3,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const base = import.meta.env.BASE_URL;
 
 const previewScreenshots = [
-  { file: 'dashboard.webp', title: 'Dashboard' },
-  { file: 'packages.webp', title: 'Packages' },
-  { file: 'installation.webp', title: 'Installation' },
-  { file: 'services.webp', title: 'Services' },
+  { file: 'dashboard.webp', w: 2400, h: 1187, title: 'Dashboard' },
+  { file: 'packages.webp', w: 2400, h: 1191, title: 'Packages' },
+  { file: 'installation.webp', w: 2400, h: 1189, title: 'Installation' },
+  { file: 'services.webp', w: 2400, h: 1186, title: 'Services' },
 ];
 ---
 
@@ -32,7 +32,7 @@ const previewScreenshots = [
   <!-- Hero -->
   <section class="hero">
     <div class="hero-bg">
-      <img src={`${base}images/banner.webp`} alt="" aria-hidden="true" />
+      <img src={`${base}images/banner.webp`} alt="" aria-hidden="true" width="1500" height="483" />
     </div>
     <div class="container hero-content">
       <h1>Your Cloud in Your Closet</h1>
@@ -71,6 +71,8 @@ const previewScreenshots = [
             <img
               src={`${base}images/screenshots/${shot.file}`}
               alt={shot.title}
+              width={shot.w}
+              height={shot.h}
               loading="lazy"
               decoding="async"
             />

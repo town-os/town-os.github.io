@@ -88,7 +88,9 @@ const base = import.meta.env.BASE_URL;
         </p>
         <p class="data-warning-text">
           Only boot Town OS on a dedicated machine with no data you want to keep, or use
-          the <a href="#building-vms">VM instructions</a> to try it safely first.
+          the <a href="#building-vms">VM instructions</a> to try it safely first — including
+          <a href="#qemu-usb"><code>make qemu-usb</code></a>, which boots the stick you just
+          wrote inside QEMU (read-only) without touching any real disk.
         </p>
       </div>
 
@@ -123,7 +125,7 @@ const base = import.meta.env.BASE_URL;
       </p>
       <ul class="doc-list">
         <li><strong>Network configuration</strong> — ttyforce detects available interfaces. If a wired connection with link is present, it advances automatically. Otherwise it presents WiFi network selection with signal strength, security info, and WPA2/WPA3 password entry.</li>
-        <li><strong>Disk provisioning</strong> — ttyforce groups detected disks by type and size, then automatically selects the appropriate RAID level: single drive for 1 disk, RAID1 (mirror) for 2, or RAID5 (striped with parity) for 3 or more. All storage uses btrfs.</li>
+        <li><strong>Disk provisioning</strong> — ttyforce groups detected disks by type and size, then automatically selects the appropriate <a href="#raid-installation">RAID level</a>: single drive for 1 disk, RAID1 (mirror) for 2, or RAID5 (striped with parity) for 3 or more. All storage uses btrfs.</li>
         <li><strong>SSH key import</strong> — you can enter GitHub usernames to import public SSH keys for secure remote access.</li>
       </ul>
       <p class="doc-text">
@@ -329,7 +331,7 @@ sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=
         <li>Checking your router's DHCP client list for a device named "town-os"</li>
       </ul>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/dashboard-internal-ip.webp`} alt="Town OS dashboard showing External IP and Internal IP with copy buttons" loading="lazy" />
+        <img src={`${base}images/screenshots/dashboard-internal-ip.webp`} alt="Town OS dashboard showing External IP and Internal IP with copy buttons" width="2296" height="866" loading="lazy" />
       </div>
       <p class="doc-text">
         For DNS to work reliably, your Town OS machine should have a static IP address
@@ -431,7 +433,8 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
 
       <h3>Publishing Services in DNS</h3>
       <p class="doc-text">
-        By default every installed package service is published in DNS under its network's TLD
+        By default every installed package service is published in DNS under its
+        <a href="#networks">network</a>'s TLD
         so you can reach it by name. Under <strong>DNS &rarr; Services</strong> you can toggle
         publishing per service — an unpublished service keeps running but is no longer resolvable
         by name. Each service's fully-qualified name follows the pattern
@@ -552,7 +555,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         (admin only).
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/networks-panel.webp`} alt="The Networks page listing the built-in home network with its TLD, subnet, peer count, and a Remote access toggle, plus a Create Network button" loading="lazy" decoding="async" />
+        <img src={`${base}images/screenshots/networks-panel.webp`} alt="The Networks page listing the built-in home network with its TLD, subnet, peer count, and a Remote access toggle, plus a Create Network button" width="1920" height="891" loading="lazy" decoding="async" />
       </div>
 
       <h3>The Default Network</h3>
@@ -562,7 +565,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li><strong>Uses the <code>.home</code> TLD</strong>, which comes from the <code>dns_tld</code> setting.</li>
       </ul>
 
-      <h3>Creating a Network for Remote Access</h3>
+      <h3 id="creating-a-network">Creating a Network for Remote Access</h3>
       <p class="doc-text">
         Click <strong>Create Network</strong> and give it a name (for example <code>office</code>)
         and, optionally, a TLD (it defaults to the network name). Town OS then:
@@ -573,7 +576,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>Runs a per-network DNS resolver on the overlay so joined devices can resolve that network's names.</li>
       </ul>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/networks-create.webp`} alt="The Create Network dialog with Name and TLD fields, noting the TLD defaults to the network name" loading="lazy" decoding="async" />
+        <img src={`${base}images/screenshots/networks-create.webp`} alt="The Create Network dialog with Name and TLD fields, noting the TLD defaults to the network name" width="798" height="540" loading="lazy" decoding="async" />
       </div>
       <p class="doc-text">
         The <strong>Remote access</strong> switch on each row brings the WireGuard interface up or
@@ -620,10 +623,12 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         reconnect until it is enrolled again.
       </p>
 
-      <h3>Installing Packages on a Network</h3>
+      <h3 id="installing-packages-on-a-network">Installing Packages on a Network</h3>
       <p class="doc-text">
-        The install dialog (and the Pages dialog) includes a <strong>Network</strong> selector.
-        Whichever network you choose determines the service's DNS name and TLS certificate — a
+        The install dialog (and the <a href="#pages">Pages</a> dialog) includes a
+        <strong>Network</strong> selector.
+        Whichever network you choose determines the service's DNS name and
+        <a href="#trusting-the-ca">TLS certificate</a> — a
         package installed on <code>office</code> resolves under <code>.office</code> and its
         certificate is issued for that name. Services on a non-default network are dual-homed: they
         resolve to the overlay address for tunnelled peers and to the LAN address for local
@@ -631,7 +636,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         that network's TLD.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/networks-install.webp`} alt="The Install jitsi dialog with a Network selector at the top labeled 'The network this package is served on', above the package's configuration questions" loading="lazy" decoding="async" />
+        <img src={`${base}images/screenshots/networks-install.webp`} alt="The Install jitsi dialog with a Network selector at the top labeled 'The network this package is served on', above the package's configuration questions" width="768" height="625" loading="lazy" decoding="async" />
       </div>
       <p class="doc-text">
         For example, installing Jitsi on a network with the <code>fart</code> TLD publishes it at
@@ -640,7 +645,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         device on the network.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="The Dashboard's Installed Services list showing jitsi with a link to https://jitsi.default.fart/" loading="lazy" decoding="async" />
+        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="The Dashboard's Installed Services list showing jitsi with a link to https://jitsi.default.fart/" width="1546" height="414" loading="lazy" decoding="async" />
       </div>
 
       <DiagramFlow title="Remote Access over a Network">
@@ -674,11 +679,11 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
 
       <div class="phone-shots">
         <figure class="phone-shot">
-          <img src={`${base}images/screenshots/android-login.webp`} alt="Town OS Android client login screen — a Connect to a box card with box address, admin username, and password fields" loading="lazy" decoding="async" />
+          <img src={`${base}images/screenshots/android-login.webp`} alt="Town OS Android client login screen — a Connect to a box card with box address, admin username, and password fields" width="1080" height="2424" loading="lazy" decoding="async" />
           <figcaption>Logging in to a box</figcaption>
         </figure>
         <figure class="phone-shot">
-          <img src={`${base}images/screenshots/android-connection.webp`} alt="Town OS Android client connection screen — Disconnected status with Connect and Forget this network buttons, above a DNS resolver settings card" loading="lazy" decoding="async" />
+          <img src={`${base}images/screenshots/android-connection.webp`} alt="Town OS Android client connection screen — Disconnected status with Connect and Forget this network buttons, above a DNS resolver settings card" width="1080" height="2424" loading="lazy" decoding="async" />
           <figcaption>Managing the connection and DNS</figcaption>
         </figure>
       </div>
@@ -705,7 +710,7 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
 
       <h3>Before You Connect</h3>
       <ul class="doc-list">
-        <li><strong>Create a network first.</strong> The app can only join networks that carry a WireGuard overlay — the built-in <code>home</code> network is LAN-only and won't appear. See <a href="#networks">Networks and Remote Access</a> to create one.</li>
+        <li><strong>Create a network first.</strong> The app can only join networks that carry a WireGuard overlay — the built-in <code>home</code> network is LAN-only and won't appear. See <a href="#creating-a-network">Creating a Network for Remote Access</a>.</li>
         <li><strong>Have an administrator account ready.</strong> Enrolling a device is an admin action, so the app signs in with admin credentials.</li>
       </ul>
 
@@ -731,62 +736,80 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
     <div class="container">
       <h2 class="section-title" id="building-vms">Building VMs from USB Images</h2>
       <p class="doc-text">
-        The install repository includes scripts for launching Town OS in virtual machines,
-        which is useful for testing and development without a physical USB drive.
+        The <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        repository includes scripts for launching Town OS in virtual machines, which is useful
+        for testing and development — either from an image you
+        <a href="#building-the-usb-image">built from source</a> or straight from a
+        <a href="#qemu-usb">physical USB stick you already flashed</a>.
+        <code>make help</code> lists every target and variable.
       </p>
 
-      <h3>QEMU</h3>
-      <pre><code>make qemu</code></pre>
+      <h3 id="qemu">QEMU</h3>
+      <pre><code>make qemu-fg</code></pre>
       <p class="doc-text">
-        Launches a QEMU VM with KVM acceleration, 4 IDE drives for storage testing,
-        and bridge networking. The VM boots from the USB image and behaves identically
-        to a physical installation. Use <code>make qemu-fg</code> to run it in the
-        foreground with the serial console attached.
+        Builds the image if it is stale, then launches a QEMU VM in the <strong>foreground</strong>
+        with the serial console attached, KVM acceleration, and four virtual data disks for storage
+        testing. This is the target to reach for: you watch the boot and the installer directly in
+        your terminal, and Ctrl-C stops the VM. Use <code>make qemu</code> if you would rather it run
+        in the background (attach later with <a href="#serial-console"><code>make serial</code></a>),
+        and <code>make rebuild-qemu</code> to stop, clean, rebuild, and relaunch in one step.
+      </p>
+      <p class="doc-text">
+        The VM attaches to the libvirt <code>default</code> NAT network on <code>virbr0</code> and is
+        pinned to <code>VM_IP</code> (<code>192.168.122.50</code> by default), so give each
+        concurrently running VM its own address.
+      </p>
+      <p class="doc-text">
+        Because the guest is NAT'd, <code>VM_LAN=1</code> (the default) relays the control API
+        (<code>5309</code>), the UI (<code>80</code>/<code>443</code>), ssh
+        (<code>2222</code>), and the WireGuard UDP ports from the host's LAN address into the
+        guest — that is what lets a phone running the
+        <a href="#android-app">Android client</a> reach a VM. Set <code>VM_LAN=0</code> to turn
+        the relays off.
       </p>
 
-      <h3>Booting a Physical USB (qemu-usb)</h3>
+      <h3 id="qemu-usb">Booting a Physical USB (qemu-usb)</h3>
       <pre><code>make qemu-usb USB_DEV=/dev/sdX</code></pre>
       <p class="doc-text">
         Boots QEMU in the foreground straight from a flashed physical USB stick instead
         of a built image — handy for confirming that a stick you just wrote actually boots.
         The device is opened <strong>read-only</strong> (snapshot), so guest writes are
         discarded and the real USB is never modified; the four virtual data disks are still
-        attached for storage testing. This target does not build anything. On an x86_64 host,
+        attached for storage testing. This target does not build anything — clone the install
+        repository, flash a stick with <code>install.sh</code> or <code>make flash</code>, then
+        point <code>USB_DEV</code> at it. On an x86_64 host,
         <code>TARGET=aarch64</code> (or <code>rpi</code>) boots the stick under full-system
         emulation, so a foreign-arch image can be tested without the matching hardware.
       </p>
 
-      <h3>VirtualBox</h3>
-      <pre><code>make virtualbox</code></pre>
-      <p class="doc-text">
-        Creates a VirtualBox VM with bridged networking and converts the raw disk image
-        to VDI format. Bridged mode lets the VM appear as a regular device on your network.
-      </p>
+      <h3 id="stopping-vms">Stopping and Cleaning Up</h3>
+      <pre><code># Stop the VM
+make stop
 
-      <h3>Auto-Detection</h3>
-      <pre><code>make run</code></pre>
-      <p class="doc-text">
-        Automatically detects your hypervisor — prefers QEMU if available, falls back
-        to VirtualBox.
-      </p>
+# Stop VMs and delete the image and virtual disks
+make clean</code></pre>
 
-      <h3>Environment Variables</h3>
+      <h3 id="vm-environment-variables">Environment Variables</h3>
       <div class="table-wrapper">
         <table>
           <thead>
             <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>Size of the USB image</td></tr>
-            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>Size of each virtual disk</td></tr>
+            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>Sparse build size of the USB image — the image is shrunk afterwards</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>Size of each of the four virtual data disks (read from <code>vm_disk_size</code> in <code>town-os.yaml</code>)</td></tr>
             <tr><td><code>VM_MEMORY</code></td><td>4G</td><td>VM memory</td></tr>
-            <tr><td><code>VM_CPUS</code></td><td>4</td><td>vCPUs for the VM</td></tr>
+            <tr><td><code>VM_CPUS</code></td><td>4</td><td>vCPUs for the VM — QEMU's default of 1 starves rolodex's worker pool</td></tr>
             <tr><td><code>VM_BRIDGE</code></td><td>virbr0</td><td>Host bridge interface for networking</td></tr>
+            <tr><td><code>VM_NAME</code></td><td>town-os</td><td>VM name, also used to find and stop it</td></tr>
+            <tr><td><code>VM_IP</code></td><td>192.168.122.50</td><td>libvirt DHCP reservation — give each concurrently running VM its own address</td></tr>
+            <tr><td><code>VM_LAN</code></td><td>1</td><td>Relay the NAT'd guest's ports to the host's LAN address; <code>0</code> disables</td></tr>
+            <tr><td><code>USB_DEV</code></td><td>—</td><td>Physical block device for <code>make flash</code> (write) and <code>make qemu-usb</code> (read-only boot)</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h3>Serial Console</h3>
+      <h3 id="serial-console">Serial Console</h3>
       <pre><code># Attach to the VM serial console
 make serial
 
@@ -795,24 +818,25 @@ socat -,rawer,escape=0x1d unix-connect:/tmp/town-os-serial.sock
 
 # Detach with Ctrl-]</code></pre>
 
-      <h3>Finding the VM</h3>
+      <h3 id="finding-the-vm">Finding the VM</h3>
       <pre><code># Get the VM's IP address
 make vm-ip
 
-# Or connect via mDNS
+# Or connect via mDNS from the host
 ssh root@town-os.local</code></pre>
 
       <DiagramFlow title="VM Networking">
-        <DiagramBox label="Host Machine" sub="br0 bridge interface" variant="neutral">
-          <DiagramTag>QEMU / VirtualBox</DiagramTag>
+        <DiagramBox label="Host Machine" sub="virbr0 — libvirt default network" variant="neutral">
+          <DiagramTag>QEMU</DiagramTag>
         </DiagramBox>
-        <DiagramArrow label="bridge" />
+        <DiagramArrow label="NAT" />
         <DiagramBox label="Town OS VM" sub="Full Town OS stack" variant="purple">
+          <DiagramTag variant="purple">192.168.122.50</DiagramTag>
           <DiagramTag variant="teal">eth0</DiagramTag>
         </DiagramBox>
-        <DiagramArrow label="network" />
-        <DiagramBox label="Local Network" sub="LAN devices can reach VM" variant="teal">
-          <DiagramTag variant="teal">mDNS: town-os.local</DiagramTag>
+        <DiagramArrow label="VM_LAN relay" />
+        <DiagramBox label="Local Network" sub="Phones and LAN devices reach the VM" variant="teal">
+          <DiagramTag variant="teal">5309 · 80 · 443 · WireGuard</DiagramTag>
         </DiagramBox>
       </DiagramFlow>
     </div>
@@ -910,7 +934,7 @@ ssh root@town-os.local</code></pre>
         username and password — this account has full control over the system.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/create-account.webp`} alt="Create account screen" loading="lazy" />
+        <img src={`${base}images/screenshots/create-account.webp`} alt="Create account screen" width="2400" height="1183" loading="lazy" />
       </div>
 
       <h3>Dashboard</h3>
@@ -919,7 +943,7 @@ ssh root@town-os.local</code></pre>
         service cards with status indicators, quick actions, and system health at a glance.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/dashboard.webp`} alt="Dashboard overview" loading="lazy" />
+        <img src={`${base}images/screenshots/dashboard.webp`} alt="Dashboard overview" width="2400" height="1187" loading="lazy" />
       </div>
 
       <h3>Browsing and Installing Packages</h3>
@@ -929,13 +953,13 @@ ssh root@town-os.local</code></pre>
         fill in hostnames, ports, and other configuration, then click install.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/packages.webp`} alt="Package browser" loading="lazy" />
+        <img src={`${base}images/screenshots/packages.webp`} alt="Package browser" width="2400" height="1191" loading="lazy" />
       </div>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/installation.webp`} alt="Package installation prompts" loading="lazy" />
+        <img src={`${base}images/screenshots/installation.webp`} alt="Package installation prompts" width="2400" height="1189" loading="lazy" />
       </div>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/install-details.webp`} alt="Installation details" loading="lazy" />
+        <img src={`${base}images/screenshots/install-details.webp`} alt="Installation details" width="2400" height="1184" loading="lazy" />
       </div>
 
       <h3>Managing Services</h3>
@@ -944,7 +968,7 @@ ssh root@town-os.local</code></pre>
         Status indicators show whether each service is running, stopped, or in an error state.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/services.webp`} alt="Service management" loading="lazy" />
+        <img src={`${base}images/screenshots/services.webp`} alt="Service management" width="2400" height="1186" loading="lazy" />
       </div>
 
       <h3>Viewing Logs</h3>
@@ -953,7 +977,7 @@ ssh root@town-os.local</code></pre>
         You can filter by service, priority level, and search for specific text.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/logs.webp`} alt="Log viewer" loading="lazy" />
+        <img src={`${base}images/screenshots/logs.webp`} alt="Log viewer" width="2400" height="1188" loading="lazy" />
       </div>
 
       <h3>Storage Management</h3>
@@ -962,7 +986,7 @@ ssh root@town-os.local</code></pre>
         disk usage across your storage pool.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/storage.webp`} alt="Storage management" loading="lazy" />
+        <img src={`${base}images/screenshots/storage.webp`} alt="Storage management" width="2400" height="1190" loading="lazy" />
       </div>
 
       <h3>Monitoring</h3>
@@ -972,7 +996,7 @@ ssh root@town-os.local</code></pre>
         built-in dashboard is the default, with an optional Grafana upgrade available.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/monitoring.webp`} alt="Monitoring dashboards" loading="lazy" />
+        <img src={`${base}images/screenshots/monitoring.webp`} alt="Monitoring dashboards" width="2400" height="1188" loading="lazy" />
       </div>
 
       <h3>Settings and Audit Log</h3>
@@ -982,10 +1006,10 @@ ssh root@town-os.local</code></pre>
         configuration modifications — so you always know what changed and when.
       </p>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/settings.webp`} alt="Settings" loading="lazy" />
+        <img src={`${base}images/screenshots/settings.webp`} alt="Settings" width="2400" height="1186" loading="lazy" />
       </div>
       <div class="screenshot-ref">
-        <img src={`${base}images/screenshots/auditlog.webp`} alt="Audit log" loading="lazy" />
+        <img src={`${base}images/screenshots/auditlog.webp`} alt="Audit log" width="2400" height="1188" loading="lazy" />
       </div>
 
     </div>
@@ -999,7 +1023,7 @@ ssh root@town-os.local</code></pre>
         Beyond containerized packages, Town OS has built-in <strong>static site hosting</strong>,
         always on and managed under <strong>Dashboard &rarr; Pages</strong>. Each page is served
         by a shared web server behind the ingress and gets a DNS name and TLS certificate under
-        its network's TLD, just like a package.
+        its <a href="#networks">network</a>'s TLD, just like a package.
       </p>
 
       <h3>Content Sources</h3>
@@ -1105,9 +1129,9 @@ notes:
         (auto-generated when left blank), <code>boolean</code> (rendered as a checkbox),
         <code>oauth</code> (a <strong>Connect</strong> button that runs a provider's device-flow to
         obtain a token), and any question can be marked <code>optional: true</code> to allow it to
-        be left blank. See the <a href={`${base}packaging/`}>Packaging Format</a> reference for the
-        full list. At install time the operator also picks which
-        <a href="#networks">network</a> the package is served on.
+        be left blank. See <a href={`${base}packaging/#questions`}>Questions</a> in the Packaging
+        Format reference for the full list. At install time the operator also picks which
+        <a href="#installing-packages-on-a-network">network</a> the package is served on.
       </p>
 
       <h3>Template System</h3>
@@ -1132,8 +1156,8 @@ notes:
         <code>repositories.json</code> directly:
       </p>
       <pre><code>[
-  ["default", "https://github.com/town-os/default-packages"],
-  ["my-packages", "https://github.com/myuser/my-packages"]
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
 ]</code></pre>
 
       <DiagramFlow title="Package Lifecycle">
@@ -1337,7 +1361,8 @@ make dev</code></pre>
 
       <h3>Gathering Logs with the API</h3>
       <p class="doc-text">
-        Town OS exposes journal logs through its REST API. You can use
+        Town OS exposes journal logs through its
+        <a href={`${base}api/#systemd`}>REST API</a>. You can use
         <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>
         to connect to the API and generate a summary of recent errors:
       </p>
@@ -1364,7 +1389,7 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
         <li><strong>Reproduction steps</strong> — what you did to trigger the problem, step by step</li>
         <li><strong>Town OS version</strong> — the build date or commit hash from the boot screen</li>
         <li><strong>Storage backend</strong> — btrfs, btrfs-mdadm, or ZFS, and how many disks</li>
-        <li><strong>Environment</strong> — physical hardware, QEMU, or VirtualBox; RAM and disk sizes</li>
+        <li><strong>Environment</strong> — physical hardware or QEMU; RAM and disk sizes</li>
       </ul>
 
       <DiagramFlow title="Bug Reporting Flow">
