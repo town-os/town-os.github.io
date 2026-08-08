@@ -386,6 +386,31 @@ sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=
         </table>
       </div>
 
+      <h3>Turn Off Browser-Based DNS</h3>
+      <p class="doc-text">
+        <strong>Most browsers ship their own DNS resolver and bypass your router entirely.</strong>
+        Firefox's DNS over HTTPS (DoH) and the equivalent "secure DNS" features in
+        Chrome and Edge send lookups straight to a public provider such as Cloudflare
+        or NextDNS, so Town OS never sees the query and your package names come back as
+        "server not found" even though the rest of the network resolves them fine.
+        Turn this off on every device that should reach your services by name:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Firefox</strong> — <strong>Settings &rarr; Privacy &amp; Security &rarr; DNS over HTTPS</strong>, choose <strong>Off</strong>. (<strong>Default Protection</strong> can also silently enable DoH, so pick Off rather than leaving it on the default.)</li>
+        <li><strong>Chrome</strong> — <strong>Settings &rarr; Privacy and security &rarr; Security</strong>, turn off <strong>Use secure DNS</strong>.</li>
+        <li><strong>Edge</strong> — <strong>Settings &rarr; Privacy, search, and services &rarr; Security</strong>, turn off <strong>Use secure DNS to specify how to look up network addresses</strong>.</li>
+        <li><strong>Brave, Vivaldi, Opera</strong> — same setting as Chrome, under <strong>Privacy and security &rarr; Security</strong>.</li>
+        <li><strong>Safari</strong> — no built-in DoH; it uses the system resolver. Check that no DNS profile is installed under <strong>System Settings &rarr; General &rarr; VPN, DNS &amp; Device Management</strong>.</li>
+      </ul>
+      <p class="doc-text">
+        The same applies to any system-wide encrypted DNS you may have configured —
+        Android's <strong>Private DNS</strong>, iOS/macOS DNS profiles, or a local
+        <code>systemd-resolved</code>/<code>dnscrypt</code> setup. Any of these will
+        override the DNS server your router hands out. If you want encrypted upstream
+        DNS, leave it to Town OS: rolodex can use DoH/DoT upstream itself while still
+        answering your local names (see <a href="#resolution-mode">Choosing a Resolution Mode</a> below).
+      </p>
+
       <h3>Verify It Works</h3>
       <p class="doc-text">
         After your device picks up the new DNS settings, verify that rolodex is handling
@@ -405,7 +430,7 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         and handling DNS for your network.
       </p>
 
-      <h3>Choosing a Resolution Mode</h3>
+      <h3 id="resolution-mode">Choosing a Resolution Mode</h3>
       <p class="doc-text">
         Names that don't belong to one of your networks are resolved according to the
         <strong>resolution mode</strong>, which you set under
