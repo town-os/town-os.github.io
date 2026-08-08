@@ -443,18 +443,117 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         <li><strong>Forward</strong> — always sends unmatched queries to upstream resolvers (Google Public DNS by default). This is the classic forwarding behavior.</li>
       </ul>
 
-      <h3>Blocking Ads and Malicious Domains</h3>
+      <h3 id="blocklists">Blocking Malicious Domains</h3>
       <p class="doc-text">
-        rolodex can screen queries against <strong>DNSBL</strong> (domain blocklists) and
-        <strong>RBL</strong> (IP blocklists) providers, giving you network-wide ad and threat
-        blocking without a separate Pi-hole. Manage these under
-        <strong>DNS &rarr; Blocklists</strong>. Town OS never downloads or caches blocklist
-        feeds — providers are queried on demand as regular DNS zones.
+        <strong>rolodex can screen every query against public blocklists, giving you
+        network-wide threat blocking without a separate Pi-hole.</strong> Manage this under
+        <strong>DNS &rarr; Blocklists</strong>. There are two kinds of provider, and they
+        work on different things:
       </p>
       <ul class="doc-list">
-        <li><strong>Provider zones</strong> — enable a category (DNSBL or RBL), then add provider zones. One-click suggestions include well-known lists such as Spamhaus (<code>dbl.spamhaus.org</code>, <code>zen.spamhaus.org</code>), SURBL, URIBL, SpamCop, and Barracuda; you can also add any custom zone. Each provider has its own on/off switch.</li>
-        <li><strong>Local entries</strong> — block a specific domain or IP by hand. Blocking a domain returns <code>NXDOMAIN</code> for forward lookups; you can note a reason for each entry.</li>
+        <li><strong>DNSBL</strong> (domain blocklist) — matches the <em>name</em> being looked up. This is the side that affects ordinary browsing.</li>
+        <li><strong>RBL</strong> (Realtime Blackhole List) — matches an <em>IP address</em>, and only on reverse DNS lookups.</li>
       </ul>
+      <p class="doc-text">
+        Both are <strong>disabled by default with an empty provider list</strong>, and both are
+        queried on demand: Town OS never downloads, parses, or pre-caches a blocklist feed.
+        Nothing is checked until you turn a category on and add at least one zone.
+      </p>
+
+      <h4>How a DNSBL Lookup Works</h4>
+      <p class="doc-text">
+        <strong>The name being resolved is prepended to the provider's zone and looked up as an
+        ordinary DNS query.</strong> Resolving <code>badsite.example</code> with
+        <code>dbl.spamhaus.org</code> enabled issues a query for
+        <code>badsite.example.dbl.spamhaus.org</code>.
+      </p>
+      <ul class="doc-list">
+        <li><strong>An answer means listed</strong> — providers reply with an address record (typically <code>127.0.0.x</code>) for a listed name. rolodex then returns <code>NXDOMAIN</code> to the device that asked.</li>
+        <li><strong>NXDOMAIN means clean</strong> — resolution continues normally. A provider that errors out or times out is treated as <em>not</em> listed, so an unreachable blocklist never takes your network offline.</li>
+        <li><strong>Blocklists beat the outside world, never your own records</strong> — the check runs after local and package records (so <code>gitea.default.home</code> always resolves) but before the upstream cache and the forwarder, so a listed name is refused even if a forwarded answer was already cached.</li>
+        <li><strong>Matching is per name, not per suffix</strong> — <code>doubleclick.net</code> being listed does not block <code>stats.g.doubleclick.net</code> unless the provider lists that name too. Taking out an entire domain over one listed host is your call to make, not the feed's.</li>
+        <li><strong>Results are cached briefly</strong> — a listing for the provider's TTL, a clean result for five minutes.</li>
+      </ul>
+
+      <h4>DNSBL Providers</h4>
+      <p class="doc-text">
+        These are the one-click quick-adds in the dashboard. Each is still operating, free, and
+        answers a self-recursing resolver with no registration step — which is exactly what a
+        Town OS box is. You can also type in any other zone.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Provider</th><th>Zone</th><th>What it targets</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus DBL</strong></td><td><code>dbl.spamhaus.org</code></td><td>The most widely used domain list. Domains observed in spam, plus phishing, malware-hosting, and botnet command-and-control domains. Broadest coverage of the five.</td></tr>
+            <tr><td><strong>SURBL</strong></td><td><code>multi.surbl.org</code></td><td>A combined list of domains appearing in unsolicited message bodies — phishing sites, malware, compromised sites, and abused redirectors and URL shorteners.</td></tr>
+            <tr><td><strong>URIBL</strong></td><td><code>black.uribl.com</code></td><td>URIs found in spam message bodies. The <code>black</code> zone is the conservative one: domains actively appearing in spam, with a low false-positive tolerance.</td></tr>
+            <tr><td><strong>NordSpam DBL</strong></td><td><code>dbl.nordspam.com</code></td><td>Domains seen in spam, sourced independently of the lists above — useful mainly as a second opinion rather than a primary list.</td></tr>
+            <tr><td><strong>Spam Eating Monkey</strong></td><td><code>uribl.spameatingmonkey.net</code></td><td>Domains extracted from spam URIs, including newly registered and short-lived throwaway domains.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>How an RBL Lookup Works</h4>
+      <p class="doc-text">
+        <strong>The IP address is reversed and prepended to the provider's zone.</strong>
+        Checking <code>192.168.1.100</code> against <code>zen.spamhaus.org</code> issues a query
+        for <code>100.1.168.192.zen.spamhaus.org</code>. IPv6 addresses are expanded to nibbles
+        and reversed the same way. Answer means listed, <code>NXDOMAIN</code> means clean, and
+        results are cached exactly as the DNSBL ones are.
+      </p>
+      <p class="doc-text">
+        <strong>The catch: RBL zones are only consulted for IPs found in reverse DNS
+        queries</strong> (<code>in-addr.arpa</code> and <code>ip6.arpa</code>), and ordinary web
+        browsing barely generates those. These lists exist to let a mail server reject a
+        connecting sender, and that is where they earn their keep. On a household router they
+        are close to a no-op — the DNSBL side above is what actually affects browsing. Enable
+        them if you run a mail service behind Town OS; otherwise the domain lists are the ones
+        worth your attention.
+      </p>
+
+      <h4>RBL Providers</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Provider</th><th>Zone</th><th>What it targets</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus ZEN</strong></td><td><code>zen.spamhaus.org</code></td><td>Four Spamhaus lists in one query: <strong>SBL</strong> (verified spam sources), <strong>CSS</strong> (snowshoe spam operations), <strong>XBL</strong> (compromised and infected machines, open proxies), and <strong>PBL</strong> (dynamic and end-user ranges that should never send mail directly).</td></tr>
+            <tr><td><strong>SpamCop</strong></td><td><code>bl.spamcop.net</code></td><td>IPs reported by SpamCop's user reporting network. Listings expire automatically once reports stop, so it reacts fast and forgets fast.</td></tr>
+            <tr><td><strong>PSBL</strong></td><td><code>psbl.surriel.com</code></td><td>The Passive Spam Block List: IPs caught hitting spamtrap addresses, with automatic expiry. Deliberately conservative and low-volume.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Lists That Are Deliberately Not Offered</h4>
+      <p class="doc-text">
+        <strong>Three well-known zones are left off the quick-add list on purpose</strong>, because
+        each fails <em>silently</em> — you would see a configured provider and assume you were
+        protected. You can still add them by hand if you know what you are doing.
+      </p>
+      <ul class="doc-list">
+        <li><strong>SORBS</strong> (<code>dnsbl.sorbs.net</code>) — decommissioned on 5 June 2024 and its zones emptied. It answers, it just never lists anything: permanent no-op that reads as protection.</li>
+        <li><strong>Barracuda</strong> (<code>b.barracudacentral.org</code>) — free, but requires registering the querying IP first. An unregistered box may work for a while and then be cut off without notice.</li>
+        <li><strong>UCEPROTECT levels 2 and 3</strong> — list entire netblocks and ASNs, so one bad neighbour on your ISP blocks the whole ISP.</li>
+      </ul>
+
+      <h4>Local Entries and Allow Lists</h4>
+      <ul class="doc-list">
+        <li><strong>Local entries</strong> (<strong>DNS &rarr; Blocklists</strong>) — block a specific domain or IP by hand, with a reason recorded alongside it. A domain entry returns <code>NXDOMAIN</code> for forward lookups and takes effect immediately. This is checked before any external provider, and is how you block one specific host without signing up to a whole feed.</li>
+        <li><strong>Allow lists</strong> (<strong>DNS &rarr; Allow Lists</strong>) — your escape hatch from a false positive. An allowlisted name short-circuits the entire name-based check: it is tested against neither the DNSBL providers nor your local entries, and no provider query is issued for it at all. Unlike blocking, allowing <em>is</em> suffix-matched — exempting <code>vendor.example</code> also exempts <code>cdn.vendor.example</code>. Entries are names only, never IPs, so the reverse-IP RBL path is untouched by them.</li>
+      </ul>
+
+      <h4>What to Expect</h4>
+      <p class="doc-text">
+        <strong>These feeds are built for email, not for advertising.</strong> They are excellent
+        at phishing, malware, and spam payload domains, and mediocre at ads and trackers — that
+        job belongs to downloadable hosts-style feeds, which Town OS deliberately does not
+        ingest. Nothing is fetched on a schedule, nothing is parsed, and nothing is cached behind
+        your back. If you want a particular ad or tracker domain gone, add it as a local entry.
+      </p>
 
       <h3>Publishing Services in DNS</h3>
       <p class="doc-text">
@@ -1663,6 +1762,13 @@ curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</cod
   h3 {
     margin-top: 2.75rem;
     margin-bottom: 1rem;
+  }
+
+  h4 {
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
   }
 
   .callout {
