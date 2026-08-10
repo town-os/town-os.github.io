@@ -1,0 +1,1837 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DiagramFlow from '../../components/diagrams/DiagramFlow.astro';
+import DiagramBox from '../../components/diagrams/DiagramBox.astro';
+import DiagramArrow from '../../components/diagrams/DiagramArrow.astro';
+import DiagramStack from '../../components/diagrams/DiagramStack.astro';
+import DiagramLayer from '../../components/diagrams/DiagramLayer.astro';
+import DiagramTag from '../../components/diagrams/DiagramTag.astro';
+import { localizePath } from '../../i18n/ui';
+const base = import.meta.env.BASE_URL;
+const L = (path: string) => localizePath(path, 'zh-Hans');
+---
+
+<BaseLayout title="用户指南 — Town OS" lang="zh-Hans">
+  <section class="section">
+    <div class="container">
+      <h1>用户指南</h1>
+      <p class="page-lead">
+        一份实用的 Town OS 上手指南——从写入 U 盘一直讲到报告缺陷。
+        无论你是第一次使用，还是正在开发软件包的开发者，
+        这份指南都涵盖了你入门所需的全部内容。
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#quick-start">快速上手</a></li>
+          <li><a href="#building-the-usb-image">从源码构建 U 盘镜像</a></li>
+          <li><a href="#sledgehammer">Sledgehammer 启动项</a></li>
+          <li><a href="#dns-setup">在路由器上设置 DNS</a></li>
+          <li><a href="#trusting-the-ca">信任证书颁发机构</a></li>
+          <li><a href="#networks">网络与远程访问</a></li>
+          <li><a href="#android-app">Android 上的 Town OS</a></li>
+          <li><a href="#building-vms">用 U 盘镜像构建虚拟机</a></li>
+          <li><a href="#raid-installation">RAID 安装</a></li>
+          <li><a href="#using-the-ui">使用用户界面</a></li>
+          <li><a href="#pages">托管静态网站</a></li>
+          <li><a href="#updating">更新 Town OS</a></li>
+          <li><a href="#building-a-package">制作软件包</a></li>
+          <li><a href="#self-hosting-ideas">可以自托管的东西</a></li>
+          <li><a href="#dev-environment">开发环境与测试套件</a></li>
+          <li><a href="#reporting-bugs">报告缺陷</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section quickstart-section">
+    <div class="container">
+      <h2 class="section-title" id="quick-start">快速上手</h2>
+      <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
+        几分钟内就能让 Town OS 在一台闲置电脑上跑起来。你只需要一个 U 盘
+        （USB-C，4 GB 或更大）和一台用来写入的 Linux 电脑。
+      </p>
+
+      <h3>1. 写入 U 盘</h3>
+      <p class="doc-text">
+        在任意一台装有 <code>podman</code>、<code>curl</code>、<code>bzip2</code>、
+        <code>dd</code>、<code>lsblk</code> 和 <code>tar</code> 的 Linux 机器上运行安装脚本——
+        <strong>Podman 是必需的</strong>，因为脚本要用它来拉取安装器镜像
+        （而且必须能正常工作，光装上还不够）。脚本会下载最新的 Town OS 镜像
+        并直接写入 U 盘。
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code></pre>
+      <p class="doc-text">
+        脚本会扫描已连接的 USB 设备，列出设备名称和容量供你选择。确认之后，
+        它会一次性地把压缩镜像流式解压并写入该设备。整个过程视网速快慢，
+        大约需要几分钟。
+      </p>
+
+      <p class="doc-text">
+        <strong>树莓派（4 / 400 / CM4、5 / CM5）：</strong>传入 <code>RPI=1</code>，
+        即可把原生启动的树莓派镜像写入 SD 卡、U 盘或 NVMe，而不是标准的 PC 镜像：
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && RPI=1 bash install.sh</code></pre>
+      <p class="doc-text">
+        树莓派镜像始终是 64 位 Arm，并且不经过 UEFI 启动，因此即便你在 x86_64 机器上
+        运行安装脚本也没问题。树莓派会直接从插入的卡或驱动器启动，没有启动菜单；
+        如果要用 Pi 5 的 NVMe 启动，请确认引导程序 EEPROM 的启动顺序中包含 NVMe
+        （用 <code>rpi-eeprom-config</code> 设置）。
+      </p>
+
+      <div class="data-warning">
+        <div class="data-warning-badge">数据销毁警告</div>
+        <p class="data-warning-text">
+          Town OS 会<strong>格式化并使用所有检测到的本地存储设备</strong>
+          （NVMe、SATA、SAS、SD 卡）。在一台机器上启动 Town OS，将会
+          <strong>永久销毁每一块内置硬盘上的全部现有数据</strong>。
+        </p>
+        <p class="data-warning-text">
+          请只在一台没有任何你想保留的数据的专用机器上启动 Town OS；或者先按
+          <a href="#building-vms">虚拟机说明</a>安全地试用——包括
+          <a href="#qemu-usb"><code>make qemu-usb</code></a>，它会在 QEMU 中以只读方式
+          启动你刚写好的 U 盘，完全不碰任何真实硬盘。
+        </p>
+      </div>
+
+      <h3>2. 从 U 盘启动</h3>
+      <p class="doc-text">
+        把 U 盘插到目标电脑上并从它启动。你可能需要在开机时按某个键才能进入启动菜单——
+        常见的按键有 <strong>F12</strong>、<strong>F2</strong>、<strong>Esc</strong> 或
+        <strong>Del</strong>，具体取决于你的硬件。
+      </p>
+
+      <h3>3. 首次启动：使用 sledgehammer</h3>
+      <p class="doc-text">
+        如果目标机器此前用作他用，请在第一次启动时从启动菜单中
+        <strong>选择 sledgehammer 启动项</strong>。sledgehammer 会擦除所有检测到的存储设备，
+        确保 Town OS 从一块完全干净的白板开始。这样可以避免先前操作系统遗留的
+        分区表、文件系统或 RAID 元数据带来的问题。
+      </p>
+      <p class="doc-text">
+        sledgehammer 完成后，机器会自动重启，Town OS 随即进行全新的存储配置。
+        完整说明请见 <a href="#sledgehammer">Sledgehammer 启动项</a>。
+      </p>
+
+      <h3>4. 启动时会发生什么</h3>
+      <p class="doc-text">
+        Town OS 会从 U 盘完整加载进内存，然后启动
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>——
+        一个交互式的文本界面安装程序，直接在这台机器的控制台上引导你完成配置。
+      </p>
+      <ul class="doc-list">
+        <li><strong>网络配置</strong>——ttyforce 会检测可用的网络接口。如果有已连接的有线网络，它会自动继续；否则会列出 WiFi 网络供你选择，显示信号强度、加密方式，并支持输入 WPA2/WPA3 密码。</li>
+        <li><strong>磁盘配置</strong>——ttyforce 按类型和容量对检测到的磁盘分组，然后自动选择合适的 <a href="#raid-installation">RAID 级别</a>：1 块盘用单盘模式，2 块盘用 RAID1（镜像），3 块及以上用 RAID5（带校验的条带）。所有存储都使用 btrfs。</li>
+        <li><strong>导入 SSH 公钥</strong>——你可以输入 GitHub 用户名来导入公钥，以便安全地远程访问。</li>
+      </ul>
+      <p class="doc-text">
+        配置完成后系统会重启，ttyforce 切换到 getty 模式——在控制台上实时显示服务健康状况、
+        系统指标和日志输出。从这里你可以登录、重新配置网络，或触发一次 sledgehammer 擦除。
+      </p>
+
+      <h3>5. 创建账户，开始使用</h3>
+      <p class="doc-text">
+        在同一网络上的任意设备上打开浏览器，访问
+        <code>http://town-os.local</code>。如果打不开，请在路由器的 DHCP 客户端列表里
+        找到名为「town-os」的设备，直接使用它的 IP 地址。系统会提示你创建一个管理员账户。
+        登录之后，你就可以在仪表盘上安装软件包、管理存储和配置服务了。
+      </p>
+
+      <h3>6. 把路由器的 DNS 指向 Town OS</h3>
+      <p class="doc-text">
+        Town OS 自带 <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>，
+        它是一个 DNS 服务器，负责解析软件包的主机名，并把其他查询转发给上游。
+        要让网络中的每台设备都自动使用它，请给 Town OS 机器分配一个静态 IP
+        （或 DHCP 保留地址），并把路由器的 <strong>首选 DNS 服务器</strong> 设为该地址。
+        各品牌的具体操作和验证步骤见 <a href="#dns-setup">在路由器上设置 DNS</a>。
+      </p>
+    </div>
+  </section>
+
+  <!-- Creating the USB Drive -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-the-usb-image">从源码构建 U 盘镜像</h2>
+      <p class="doc-text">
+        Town OS 的 U 盘镜像由
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        仓库构建。构建过程会生成一个可启动镜像，其根文件系统为 squashfs，分区表为 GPT。
+      </p>
+
+      <h3>先决条件</h3>
+      <p class="doc-text">
+        你需要一台 Linux 主机和一个 U 盘（4 GB 或更大）。构建使用 Arch Linux 的工具链
+        （<code>pacstrap</code>、<code>mkinitcpio</code>、<code>arch-chroot</code>），
+        但你<strong>不需要</strong>运行 Arch——在其他发行版上，<code>make image</code>
+        会自动在同架构的 Arch 容器中执行构建。请用对应你发行版的目标安装主机依赖：
+      </p>
+      <ul class="doc-list">
+        <li><code>make deps</code>——Arch（及其衍生版）或 Fedora/RHEL</li>
+        <li><code>make deps-debian</code>——Debian 或 Ubuntu</li>
+      </ul>
+      <p class="doc-text">
+        它们会安装构建和虚拟机工具所需的一切——<code>make</code>、
+        <code>podman</code>、<code>arch-install-scripts</code>、<code>squashfs-tools</code>、
+        <code>parted</code>、<code>e2fsprogs</code>、<code>dosfstools</code>、
+        <code>qemu</code> 和 <code>libvirt</code>。
+      </p>
+
+      <h3>克隆与构建</h3>
+      <pre><code>git clone https://gitea.com/town-os/install.git
+cd install
+make image</code></pre>
+      <p class="doc-text">
+        运行 <code>make</code> 或 <code>make image</code> 即可构建完整的 U 盘镜像。
+        该过程会下载基础系统、安装 Town OS 组件、把所有内容压缩成 squashfs 文件系统，
+        并组装出带 GPT 分区表的最终磁盘镜像。
+      </p>
+
+      <h3>分区与 squashfs</h3>
+      <p class="doc-text">
+        生成的镜像采用 GPT 布局，包含：
+      </p>
+      <ul class="doc-list">
+        <li>一个 BIOS 引导分区（1 MiB），用于传统 BIOS 启动</li>
+        <li>一个 EFI 系统分区（64 MiB，FAT32），用于 UEFI 启动</li>
+        <li>一个数据分区（ext4），存放 squashfs 根文件系统和 GRUB</li>
+      </ul>
+      <p class="doc-text">
+        启动时，Town OS 会把 squashfs 挂载为只读的下层，并在其上叠加一层 tmpfs。
+        这意味着操作系统完全在内存中运行——U 盘本身只在启动时被读取。
+        所有运行期的改动都发生在内存中，重启后即被丢弃，每次都还你一块干净的白板。
+      </p>
+
+      <h3>写入镜像</h3>
+      <p class="doc-text">
+        最简单的方式是 <code>make flash</code>：镜像过期时会自动重新构建，然后写入 USB 设备。
+        如果要手动操作，请注意构建产物带有日期和架构后缀（例如
+        <code>town-os-2026-07-25-x86_64.img</code>）——用 <code>dd</code> 写入即可：
+      </p>
+      <pre><code># 找到你的 USB 设备（例如 /dev/sdb）
+lsblk
+
+# 写入镜像（把文件名和 /dev/sdX 替换成你自己的设备）
+sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+      <p class="doc-text callout">
+        请再三确认目标设备——<code>dd</code> 会不加确认地覆盖你所指定的任何设备。
+      </p>
+
+      <DiagramFlow title="启动流程">
+        <DiagramBox label="U 盘" sub="GPT 分区表" variant="purple">
+          <DiagramTag variant="purple">EFI 系统分区</DiagramTag>
+          <DiagramTag variant="purple">squashfs 根</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="启动" />
+        <DiagramStack>
+          <DiagramLayer variant="top">运行中的系统</DiagramLayer>
+          <DiagramLayer variant="teal" badge="可读写">tmpfs 叠加层</DiagramLayer>
+          <DiagramLayer variant="purple" badge="只读">squashfs</DiagramLayer>
+        </DiagramStack>
+        <DiagramArrow />
+        <DiagramBox label="内存" sub="操作系统完全在内存中运行" variant="teal" />
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Sledgehammer Boot Option -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="sledgehammer">Sledgehammer 启动项</h2>
+      <p class="doc-text">
+        Town OS 的 U 盘中包含一个 <strong>sledgehammer</strong> 启动项，它会擦除所有检测到的
+        存储设备，把系统重置为干净状态。当你想从头开始时，它很有用——例如测试完毕之后、
+        重新部署到新硬件之前，或者存储已经损坏的时候。
+      </p>
+
+      <h3>它会做什么</h3>
+      <p class="doc-text">
+        当你在启动时选择 sledgehammer 选项，Town OS 会：
+      </p>
+      <ul class="doc-list">
+        <li>检测所有本地存储设备（NVMe、SATA/SAS、SD 卡）——与正常启动时使用的检测逻辑相同</li>
+        <li>擦除每个检测到的设备上的分区表和文件系统</li>
+        <li>重启系统，随后像首次启动那样重新完成存储配置</li>
+      </ul>
+      <p class="doc-text callout">
+        sledgehammer 会销毁所有检测到的存储设备上的全部数据。U 盘本身不受影响——
+        只影响内置磁盘。使用此选项前，请确认你需要的数据都已备份。
+      </p>
+
+      <h3>如何使用</h3>
+      <ol class="doc-list">
+        <li>把 Town OS 的 U 盘插入目标机器并从它启动</li>
+        <li>在启动菜单中选择 <strong>sledgehammer</strong> 条目，而不是默认启动项</li>
+        <li>系统会擦除所有检测到的存储并自动重启</li>
+        <li>下次启动时，Town OS 会依据你的 <code>town-os.yaml</code> 配置从零开始设置存储</li>
+      </ol>
+
+      <h3>什么时候用</h3>
+      <ul class="doc-list">
+        <li><strong>恢复出厂状态</strong>——让系统回到刚刚部署时那样的干净状态</li>
+        <li><strong>更换存储后端</strong>——从 btrfs 切换到 ZFS（或反向切换）需要先清空现有存储</li>
+        <li><strong>存储损坏</strong>——如果文件系统已经损坏到无法修复，sledgehammer 能给你一个干净的起点</li>
+        <li><strong>重新部署</strong>——把硬件改用于另一套 Town OS 配置</li>
+      </ul>
+
+      <DiagramFlow title="Sledgehammer 重置流程">
+        <DiagramBox label="启动菜单" sub="选择 sledgehammer" variant="neutral">
+          <DiagramTag>sledgehammer</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="擦除" />
+        <DiagramBox label="清空存储" sub="擦除所有检测到的磁盘" variant="purple">
+          <DiagramTag variant="purple">NVMe</DiagramTag>
+          <DiagramTag variant="purple">SATA</DiagramTag>
+          <DiagramTag variant="purple">SD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="重启" />
+        <DiagramBox label="全新配置" sub="从零开始配置存储" variant="teal">
+          <DiagramTag variant="teal">town-os.yaml</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- DNS Setup -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns-setup">在路由器上设置 DNS</h2>
+      <p class="doc-text">
+        Town OS 内置了 <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>，
+        这个 DNS 服务器为你的软件包管理权威区域，并转发上游查询。要把它用作整个网络的
+        DNS 服务器，你需要让路由器把 Town OS 机器的 IP 地址作为 DNS 服务器下发给网络中的设备。
+        这样每台设备都会自动使用 rolodex 解析 DNS——无需逐台配置。
+      </p>
+
+      <h3>找到 Town OS 的 IP 地址</h3>
+      <p class="doc-text">
+        你需要知道 Town OS 机器的局域网 IP 地址。可以通过以下方式找到：
+      </p>
+      <ul class="doc-list">
+        <li>首次启动配置完成后，登录 <code>http://town-os.local</code> 的仪表盘，取其中显示的<strong>内部 IP</strong>——这个地址就是要用作 DNS 服务器的地址</li>
+        <li>如果你用的是虚拟机，运行 <code>make vm-ip</code></li>
+        <li>在路由器的 DHCP 客户端列表里查找名为「town-os」的设备</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard-internal-ip.webp`} alt="Town OS 仪表盘显示外部 IP 与内部 IP，并带有复制按钮" width="2296" height="866" loading="lazy" />
+      </div>
+      <p class="doc-text">
+        要让 DNS 稳定工作，Town OS 机器应当拥有静态 IP 地址，或在路由器上设置 DHCP 保留。
+        如果 IP 变了，整个网络的 DNS 都会失效。
+      </p>
+
+      <h3>分配静态 IP 或 DHCP 保留</h3>
+      <p class="doc-text">
+        大多数路由器都允许你根据 MAC 地址为特定设备保留 IP。这项设置通常位于
+        <strong>局域网设置</strong>、<strong>DHCP</strong> 或 <strong>地址保留</strong> 中。
+        在客户端列表里找到 Town OS 机器，把它当前的 IP 保留下来即可。
+      </p>
+      <p class="doc-text">
+        如果你的路由器不支持 DHCP 保留，也可以在 <code>town-os.yaml</code> 中添加配置，
+        直接在 Town OS 机器上设置静态 IP。
+      </p>
+
+      <h3>在路由器中修改 DNS 服务器</h3>
+      <p class="doc-text">
+        不同品牌的路由器操作细节各异，但大致流程是一样的：
+      </p>
+      <ol class="doc-list">
+        <li>登录路由器的管理界面（通常是 <code>192.168.1.1</code> 或 <code>192.168.0.1</code>）</li>
+        <li>找到 <strong>DHCP 设置</strong>、<strong>局域网设置</strong> 或 <strong>DNS 设置</strong> 部分</li>
+        <li>把 <strong>首选 DNS 服务器</strong> 改成 Town OS 机器的 IP 地址</li>
+        <li>可以再设置一个 <strong>备用 DNS 服务器</strong> 作为兜底（例如 <code>1.1.1.1</code> 或 <code>8.8.8.8</code>）——当 Town OS 无法访问时会用它</li>
+        <li>保存并应用设置</li>
+      </ol>
+      <p class="doc-text">
+        保存之后，网络中的设备会在下一次续租 DHCP 时获得新的 DNS 服务器。
+        你也可以断开并重新连接网络，或者重启设备来立即生效。
+      </p>
+
+      <h3>常见路由器界面</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>路由器品牌</th><th>DNS 设置所在位置</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ASUS（华硕）</td><td>内部网络 → DHCP 服务器 → DNS 服务器</td></tr>
+            <tr><td>TP-Link</td><td>DHCP → DHCP 设置 → 首选 DNS</td></tr>
+            <tr><td>Netgear（网件）</td><td>Internet → 域名服务器（DNS）地址</td></tr>
+            <tr><td>Linksys</td><td>连接 → 本地网络 → DHCP 服务器 → 静态 DNS</td></tr>
+            <tr><td>UniFi</td><td>设置 → 网络 →（你的网络）→ DHCP Name Server</td></tr>
+            <tr><td>pfSense / OPNsense</td><td>Services → DHCP Server → DNS Servers</td></tr>
+            <tr><td>OpenWrt</td><td>网络 → 接口 → LAN → DHCP 服务器 → 高级设置 → DHCP-Options：<code>6,&lt;town-os-ip&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>关闭浏览器自带的 DNS</h3>
+      <p class="doc-text">
+        <strong>大多数浏览器都自带 DNS 解析器，会完全绕过你的路由器。</strong>
+        Firefox 的 DNS over HTTPS（DoH），以及 Chrome 和 Edge 中对应的「安全 DNS」功能，
+        都会把查询直接发给 Cloudflare、NextDNS 之类的公共服务商，因此 Town OS 根本看不到
+        这些查询，你的软件包域名就会显示「找不到服务器」，哪怕网络中其他设备都解析正常。
+        请在每一台需要按名称访问你服务的设备上关掉它：
+      </p>
+      <ul class="doc-list">
+        <li><strong>Firefox</strong>——<strong>设置 &rarr; 隐私与安全 &rarr; DNS over HTTPS</strong>，选择<strong>关闭</strong>。（<strong>默认保护</strong>也可能悄悄启用 DoH，所以请明确选「关闭」，不要保留默认值。）</li>
+        <li><strong>Chrome</strong>——<strong>设置 &rarr; 隐私和安全 &rarr; 安全</strong>，关闭<strong>使用安全 DNS</strong>。</li>
+        <li><strong>Edge</strong>——<strong>设置 &rarr; 隐私、搜索和服务 &rarr; 安全性</strong>，关闭<strong>使用安全 DNS 指定如何查找网站的网络地址</strong>。</li>
+        <li><strong>Brave、Vivaldi、Opera</strong>——与 Chrome 相同，位于<strong>隐私和安全 &rarr; 安全</strong>下。</li>
+        <li><strong>Safari</strong>——没有内置 DoH，使用系统解析器。请到<strong>系统设置 &rarr; 通用 &rarr; VPN 与设备管理</strong>确认没有安装 DNS 描述文件。</li>
+      </ul>
+      <p class="doc-text">
+        你可能配置过的任何系统级加密 DNS 也是同理——Android 的<strong>私人 DNS</strong>、
+        iOS/macOS 的 DNS 描述文件，或本地的 <code>systemd-resolved</code>/<code>dnscrypt</code>
+        配置。这些都会覆盖路由器下发的 DNS 服务器。如果你想要加密的上游 DNS，交给 Town OS 就好：
+        rolodex 自己就能对上游使用 DoH/DoT，同时仍然解析你的本地名称
+        （见下文<a href="#resolution-mode">选择解析模式</a>）。
+      </p>
+
+      <h3>验证是否生效</h3>
+      <p class="doc-text">
+        当设备获取到新的 DNS 设置后，验证一下 rolodex 是否真的在处理你的 DNS 查询：
+      </p>
+      <pre><code># 查看你的机器正在使用哪个 DNS 服务器
+nslookup example.com
+
+# 或者直接向 Town OS 查询
+dig @&lt;town-os-ip&gt; example.com
+
+# 查询软件包域名（前提是你已经安装了软件包）。
+# 名称形如 &lt;name&gt;.&lt;repo&gt;.&lt;tld&gt; —— .home 是默认网络的 TLD
+dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
+      <p class="doc-text">
+        如果 <code>example.com</code> 能正确解析，说明 rolodex 已经在工作，
+        并在为你的网络处理 DNS。
+      </p>
+
+      <h3 id="resolution-mode">选择解析模式</h3>
+      <p class="doc-text">
+        不属于你任何一个网络的名称，会按照<strong>解析模式</strong>来处理；
+        该模式在仪表盘的 <strong>设置 &rarr; DNS 解析</strong> 中设定。共有三种模式：
+      </p>
+      <ul class="doc-list">
+        <li><strong>自动（推荐）</strong>——默认模式。先尝试从根服务器开始迭代解析，失败后依次回退到 DoH/DoT、本地转发器，最后是公共解析器，并沿用最近一次成功的层级。这样在网络条件允许时保留递归解析的隐私性，在过滤出站 DNS 的网络中也能优雅降级。</li>
+        <li><strong>仅递归</strong>——全部从根服务器迭代解析，不做任何回退。可以保证查询绝不会交给第三方解析器，但在封锁或劫持出站 53 端口的网络（酒店、门户认证网络、某些 ISP）中，所有外部名称都会解析失败。</li>
+        <li><strong>转发</strong>——始终把未匹配的查询发给上游解析器（默认是 Google Public DNS）。这就是传统的转发行为。</li>
+      </ul>
+
+      <h3 id="blocklists">拦截恶意域名</h3>
+      <p class="doc-text">
+        <strong>rolodex 可以用公共黑名单筛查每一次查询，让你无需另装 Pi-hole
+        就能获得全网范围的威胁拦截。</strong>相关设置在 <strong>DNS &rarr; 黑名单</strong> 中管理。
+        黑名单提供方分为两类，作用对象各不相同：
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNSBL</strong>（域名黑名单）——匹配被查询的<em>名称</em>。真正影响日常上网的是这一侧。</li>
+        <li><strong>RBL</strong>（实时黑洞列表）——匹配 <em>IP 地址</em>，而且只在反向 DNS 查询时生效。</li>
+      </ul>
+      <p class="doc-text">
+        两者都<strong>默认关闭，且提供方列表为空</strong>，并且都是按需查询的：
+        Town OS 从不下载、解析或预缓存任何黑名单数据源。在你启用某一类并至少添加一个区域之前，
+        什么都不会被检查。
+      </p>
+
+      <h4>DNSBL 查询是如何工作的</h4>
+      <p class="doc-text">
+        <strong>被解析的名称会被拼接到提供方的区域之前，然后作为一次普通的 DNS 查询发出。</strong>
+        在启用 <code>dbl.spamhaus.org</code> 的情况下解析 <code>badsite.example</code>，
+        实际会发出对 <code>badsite.example.dbl.spamhaus.org</code> 的查询。
+      </p>
+      <ul class="doc-list">
+        <li><strong>有应答即代表已列入</strong>——对于被列入的名称，提供方会返回一条地址记录（通常是 <code>127.0.0.x</code>）。rolodex 随后向发起查询的设备返回 <code>NXDOMAIN</code>。</li>
+        <li><strong>NXDOMAIN 即代表干净</strong>——解析照常继续。出错或超时的提供方一律视为<em>未</em>列入，因此一个无法访问的黑名单绝不会让你的网络断线。</li>
+        <li><strong>黑名单胜过外部世界，但绝不胜过你自己的记录</strong>——检查发生在本地记录和软件包记录之后（所以 <code>gitea.default.home</code> 始终能解析），但在上游缓存和转发器之前，因此即便转发得到的应答已被缓存，被列入的名称仍会被拒绝。</li>
+        <li><strong>按名称匹配，而非按后缀</strong>——<code>doubleclick.net</code> 被列入并不会连带拦截 <code>stats.g.doubleclick.net</code>，除非提供方也列入了那个名称。要不要因为一个主机而封掉整个域名，是你的决定，不该由数据源替你做主。</li>
+        <li><strong>结果会短暂缓存</strong>——命中按提供方的 TTL 缓存，未命中缓存五分钟。</li>
+      </ul>
+
+      <h4>DNSBL 提供方</h4>
+      <p class="doc-text">
+        以下是仪表盘中可一键添加的选项。它们都仍在运营、免费，并且会应答自行递归的解析器、
+        无需注册——而 Town OS 正是这样一台设备。你也可以手动输入任何其他区域。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>提供方</th><th>区域</th><th>针对的目标</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus DBL</strong></td><td><code>dbl.spamhaus.org</code></td><td>使用最广泛的域名列表。收录在垃圾邮件中出现的域名，以及钓鱼、托管恶意软件和僵尸网络指挥控制的域名。五者之中覆盖面最广。</td></tr>
+            <tr><td><strong>SURBL</strong></td><td><code>multi.surbl.org</code></td><td>汇总出现在垃圾信息正文中的域名——钓鱼站点、恶意软件、被入侵的网站，以及被滥用的跳转服务和短链接。</td></tr>
+            <tr><td><strong>URIBL</strong></td><td><code>black.uribl.com</code></td><td>在垃圾邮件正文中出现的 URI。<code>black</code> 区域偏保守：只收录确实活跃于垃圾邮件中的域名，对误报的容忍度很低。</td></tr>
+            <tr><td><strong>NordSpam DBL</strong></td><td><code>dbl.nordspam.com</code></td><td>在垃圾邮件中出现的域名，数据来源独立于上述列表——主要适合作为第二意见，而不是主力列表。</td></tr>
+            <tr><td><strong>Spam Eating Monkey</strong></td><td><code>uribl.spameatingmonkey.net</code></td><td>从垃圾邮件 URI 中提取的域名，包括新注册的以及用完即弃的短命域名。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>RBL 查询是如何工作的</h4>
+      <p class="doc-text">
+        <strong>IP 地址会被反转，然后拼接到提供方的区域之前。</strong>
+        用 <code>zen.spamhaus.org</code> 检查 <code>192.168.1.100</code>，实际发出的查询是
+        <code>100.1.168.192.zen.spamhaus.org</code>。IPv6 地址会展开为半字节并以同样方式反转。
+        有应答即代表已列入，<code>NXDOMAIN</code> 代表干净，缓存方式与 DNSBL 完全一致。
+      </p>
+      <p class="doc-text">
+        <strong>但要注意：RBL 区域只在反向 DNS 查询（<code>in-addr.arpa</code> 和
+        <code>ip6.arpa</code>）中查到的 IP 上生效</strong>，而普通的网页浏览几乎不会产生这类查询。
+        这些列表的存在意义，是让邮件服务器拒绝某个发起连接的发件方，那才是它们真正发挥价值的地方。
+        在家用路由器上，它们几乎等同于无操作——真正影响上网的是上面的 DNSBL 那一侧。
+        如果你在 Town OS 后面运行邮件服务，那就启用它们；否则值得你关注的是域名列表。
+      </p>
+
+      <h4>RBL 提供方</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>提供方</th><th>区域</th><th>针对的目标</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus ZEN</strong></td><td><code>zen.spamhaus.org</code></td><td>一次查询涵盖四个 Spamhaus 列表：<strong>SBL</strong>（已核实的垃圾邮件源）、<strong>CSS</strong>（雪鞋式垃圾邮件团伙）、<strong>XBL</strong>（被入侵和感染的机器、开放代理）与 <strong>PBL</strong>（本就不该直接发信的动态和终端用户地址段）。</td></tr>
+            <tr><td><strong>SpamCop</strong></td><td><code>bl.spamcop.net</code></td><td>由 SpamCop 用户举报网络上报的 IP。举报停止后条目会自动过期，因此反应快、遗忘也快。</td></tr>
+            <tr><td><strong>PSBL</strong></td><td><code>psbl.surriel.com</code></td><td>Passive Spam Block List：被垃圾邮件诱捕地址抓到的 IP，条目会自动过期。刻意保持保守，收录量不大。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>刻意不提供的列表</h4>
+      <p class="doc-text">
+        <strong>有三个知名区域被刻意排除在一键添加列表之外</strong>，因为它们都会<em>无声地</em>失效——
+        你会看到已配置的提供方，于是误以为自己受到了保护。如果你清楚自己在做什么，仍然可以手动添加。
+      </p>
+      <ul class="doc-list">
+        <li><strong>SORBS</strong>（<code>dnsbl.sorbs.net</code>）——已于 2024 年 6 月 5 日停止服务，区域也被清空。它照样应答，只是永远不会列出任何东西：一个看起来像保护的永久空操作。</li>
+        <li><strong>Barracuda</strong>（<code>b.barracudacentral.org</code>）——免费，但需要先注册发起查询的 IP。未注册的机器可能先能用一阵子，然后被无预警地切断。</li>
+        <li><strong>UCEPROTECT 第 2、3 级</strong>——按整个网段和 ASN 收录，因此你的 ISP 上出了一个坏邻居，整个 ISP 都会被拦下。</li>
+      </ul>
+
+      <h4>本地条目与白名单</h4>
+      <ul class="doc-list">
+        <li><strong>本地条目</strong>（<strong>DNS &rarr; 黑名单</strong>）——手动拦截某个特定域名或 IP，并在旁边记录理由。域名条目会让正向查询返回 <code>NXDOMAIN</code>，且立即生效。这项检查排在所有外部提供方之前，也正是你在不订阅整个数据源的情况下、拦掉某一台特定主机的方式。</li>
+        <li><strong>白名单</strong>（<strong>DNS &rarr; 白名单</strong>）——误报时的逃生出口。被列入白名单的名称会直接跳过整个基于名称的检查：既不与 DNSBL 提供方比对，也不与你的本地条目比对，更不会为它发出任何提供方查询。与拦截不同，放行<em>是</em>按后缀匹配的——放行 <code>vendor.example</code> 也会一并放行 <code>cdn.vendor.example</code>。条目只能是名称，绝不能是 IP，因此反向 IP 的 RBL 路径不受影响。</li>
+      </ul>
+
+      <h4>该抱什么预期</h4>
+      <p class="doc-text">
+        <strong>这些数据源是为电子邮件而生的，不是为广告拦截。</strong>它们在钓鱼、恶意软件和
+        垃圾邮件载荷域名上表现出色，在广告和追踪器上则平平——那是可下载的 hosts 式数据源的活儿，
+        而 Town OS 刻意不去摄取它们。没有任何定时抓取、没有任何解析、也没有任何在你背后进行的缓存。
+        如果你想让某个广告或追踪域名消失，把它加为本地条目即可。
+      </p>
+
+      <h3>在 DNS 中发布服务</h3>
+      <p class="doc-text">
+        默认情况下，每个已安装的软件包服务都会在其
+        <a href="#networks">网络</a>的 TLD 下发布到 DNS 中，这样你就能按名称访问它。
+        在 <strong>DNS &rarr; 服务</strong> 中，你可以逐个切换服务是否发布——
+        未发布的服务照常运行，只是不能再按名称解析。每个服务的完全限定名称遵循
+        <code>&lt;name&gt;.&lt;repo&gt;.&lt;tld&gt;</code> 的形式（对默认网络而言，该 TLD 为
+        <code>.home</code>）。
+      </p>
+
+      <DiagramFlow title="DNS 流程">
+        <DiagramBox label="设备" sub="手机、笔记本等" variant="neutral">
+          <DiagramTag>DNS 查询</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="DHCP" />
+        <DiagramBox label="路由器" sub="下发 Town OS 作为 DNS" variant="neutral">
+          <DiagramTag>DNS = Town OS IP</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="转发" />
+        <DiagramBox label="Town OS" sub="rolodex DNS 服务器" variant="purple">
+          <DiagramTag variant="teal">权威区域</DiagramTag>
+          <DiagramTag variant="teal">上游转发</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+
+  <!-- Trusting the CA -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="trusting-the-ca">信任证书颁发机构</h2>
+      <p class="doc-text">
+        Town OS 通过
+        <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+        内置的证书颁发机构，为你的内部服务签发 TLS 证书。要让浏览器显示锁形图标而不是警告，
+        每台设备都需要先信任一次 <strong>Rolodex 根 CA</strong>。
+        获取它有三种方式 &mdash; 挑一个适合该设备的即可。
+      </p>
+
+      <h3>方式一：通过 DNS 获取（DNS 能用的地方都能用）</h3>
+      <p class="doc-text">
+        Rolodex 会把 CA 证书链<em>发布在 DNS 里</em>，因此任何能解析你区域的设备都可以取到
+        CA &mdash; 不需要访问注册门户。根证书和各区域的中间证书以
+        <code>CERT</code> 记录（RFC&nbsp;4398）形式发布在 <code>_ca.&lt;zone&gt;</code>，
+        并在 <code>_rolodex-ca.&lt;zone&gt;</code> 提供分块的 <code>TXT</code> 回退：
+      </p>
+      <pre><code># 查看已发布的 CA 记录
+dig @&lt;town-os-ip&gt; CERT _ca.example.home
+
+# 把根 CA 提取为 PEM 文件（根证书就是自签名的那张）
+dig @&lt;town-os-ip&gt; +short CERT _ca.example.home</code></pre>
+      <p class="doc-text">
+        在浏览器中使用这些记录，最简单的办法是
+        <strong>Rolodex 浏览器扩展</strong>（位于 rolodex 仓库的
+        <code>extension/</code> 目录，可通过 <code>chrome://extensions</code> 或 Firefox 的
+        <code>about:debugging</code> 以解压方式加载）。打开弹出窗口的
+        <strong>CA via DNS</strong> 部分，填入你的 DoH 地址
+        （<code>https://&lt;town-os-ip&gt;/dns-query</code>）和区域，它就会通过 DNS-over-HTTPS
+        取回证书链，优先使用 CERT 记录并在必要时自动回退到 TXT；如果你提供主机名，
+        它还会用已发布的 DANE TLSA 记录进行校验，并提供根证书、中间证书和完整链的 PEM 下载。
+      </p>
+
+      <h3>方式二：通过注册门户获取</h3>
+      <p class="doc-text">
+        在受信任的网络上，访问注册门户
+        （默认为 <code>https://&lt;town-os-ip&gt;:8500</code>）并点击
+        <strong>Download root CA (PEM)</strong>。上面提到的扩展以及
+        <code>rolodex-ca-ui</code> 本地控制台也能完成同样的事。
+      </p>
+
+      <h3>方式三：通过命令行获取</h3>
+      <pre><code># 通过管理 CLI（打印根证书 + 中间证书的 PEM）
+rolodex-dns-cli ensure-zone-ca --zone example.home
+
+# 或者直接抓取门户的下载
+curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pre>
+
+      <h3>在设备上安装根 CA</h3>
+      <p class="doc-text">
+        拿到 <code>rolodex-root-ca.pem</code> 之后，把它加入信任存储：
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>平台</th><th>操作方式</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Firefox</td><td>设置 &rarr; 隐私与安全 &rarr; 证书 &rarr; 查看证书 &rarr; 证书颁发机构 &rarr; 导入（勾选&ldquo;信任由此 CA 来标识网站&rdquo;）</td></tr>
+            <tr><td>Chrome / Edge（桌面版）</td><td>使用操作系统的信任存储 &mdash; 按下面的系统条目安装，然后重启浏览器</td></tr>
+            <tr><td>macOS</td><td>双击 PEM 文件加入「钥匙串访问」，然后在 SSL 项下设为&ldquo;始终信任&rdquo;</td></tr>
+            <tr><td>Linux（Fedora/RHEL）</td><td><code>sudo cp rolodex-root-ca.pem /etc/pki/ca-trust/source/anchors/ &amp;&amp; sudo update-ca-trust</code></td></tr>
+            <tr><td>Linux（Debian/Ubuntu）</td><td><code>sudo cp rolodex-root-ca.pem /usr/local/share/ca-certificates/rolodex.crt &amp;&amp; sudo update-ca-certificates</code></td></tr>
+            <tr><td>Windows</td><td>双击 &rarr; 安装证书 &rarr; 本地计算机 &rarr; &ldquo;受信任的根证书颁发机构&rdquo;</td></tr>
+            <tr><td>Android</td><td>设置 &rarr; 安全 &rarr; 加密与凭据 &rarr; 安装证书 &rarr; CA 证书</td></tr>
+            <tr><td>iOS</td><td>打开 PEM 文件（隔空投送或邮件），安装描述文件，然后在设置 &rarr; 通用 &rarr; 关于本机 &rarr; 证书信任设置中启用</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        通过 Rolodex 的 ACME 端点签发的服务器会提供
+        <code>叶证书 + 中间证书</code> 的证书链，可用这张根证书验证。支持 DANE 的客户端
+        还可以用 rolodex 在签发时自动发布的 <code>TLSA</code> 记录来额外验证中间证书。
+      </p>
+    </div>
+  </section>
+
+  <!-- Networks and Remote Access -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="networks">网络与远程访问</h2>
+      <p class="doc-text">
+        Town OS 把你的服务按<strong>网络</strong>分组。每台设备开箱就带有一个名为
+        <code>home</code> 的内置网络——它仅限局域网，解析 <code>.home</code> 下的名称，
+        并且没有隧道。要从家门之外安全地访问你的服务，请再创建别的网络：
+        每一个都是一层 <strong>WireGuard 覆盖网络</strong>，配有自己的 DNS 顶级域，
+        在 <strong>仪表盘 &rarr; 网络</strong> 中管理（仅限管理员）。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-panel.webp`} alt="网络页面列出内置的 home 网络及其 TLD、子网、对端数量和「远程访问」开关，旁边是「创建网络」按钮" width="1920" height="891" loading="lazy" decoding="async" />
+      </div>
+
+      <h3>默认网络</h3>
+      <ul class="doc-list">
+        <li><strong>始终存在，无法删除。</strong><code>home</code> 网络会自动创建，除非你另选其他网络，否则软件包都会落在这里。</li>
+        <li><strong>仅限本地。</strong>它没有 WireGuard 传输层——<code>.home</code> 名称只在你的局域网内解析，并且刻意不向远程对端开放。</li>
+        <li><strong>使用 <code>.home</code> 顶级域</strong>，该值来自 <code>dns_tld</code> 设置。</li>
+      </ul>
+
+      <h3 id="creating-a-network">创建用于远程访问的网络</h3>
+      <p class="doc-text">
+        点击<strong>创建网络</strong>，给它起个名字（例如 <code>office</code>），
+        并可选地指定一个 TLD（默认与网络名相同）。随后 Town OS 会：
+      </p>
+      <ul class="doc-list">
+        <li>生成一个 WireGuard 接口，其覆盖网子网由 <code>10.64.0.0/10</code> 范围内确定性地推导得出，本机占用 <code>.1</code> 地址。</li>
+        <li>占用该网络的 TLD（TLD 在每台设备上唯一——若创建的网络使用了别的网络已占用的 TLD，会被拒绝）。</li>
+        <li>在覆盖网上运行一个该网络专属的 DNS 解析器，使加入的设备能解析该网络的名称。</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-create.webp`} alt="创建网络对话框，包含名称和 TLD 字段，并说明 TLD 默认与网络名相同" width="798" height="540" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        每一行上的<strong>远程访问</strong>开关用于启用或关闭该 WireGuard 接口。
+        关闭它会切断远程访问，但容器仍在运行，本地依然可以访问。
+      </p>
+
+      <h3>为设备办理登记</h3>
+      <p class="doc-text">
+        打开某个网络的<strong>对端</strong>对话框，输入设备名称，点击
+        <strong>添加对端</strong>。Town OS 会返回一份可直接导入的 WireGuard 配置——
+        把它粘贴到手机或笔记本上的 WireGuard 应用中即可。
+      </p>
+      <p class="doc-text callout">
+        <strong>请立刻复制这份配置。</strong>它包含一把刚生成、从不留存的私钥——
+        之后无法再取回，弄丢了就只能重新登记该设备。
+      </p>
+      <p class="doc-text">
+        生成的配置会把设备的 DNS 指向本机的覆盖网地址，因此隧道一旦建立，
+        你网络中的名称就会自动解析。普通设备请让<strong>运行 rolodex DNS</strong>
+        开关保持关闭；只有当某个对端自身运行着你希望转发过去的 rolodex DNS 服务器时才启用它。
+      </p>
+
+      <h3>仅限 WireGuard 的账户</h3>
+      <p class="doc-text">
+        如果你想让别人自行登记他们的设备，又不想把整个仪表盘交给他们，可以创建一个
+        <strong>仅限 WireGuard 的账户</strong>（创建用户界面上的一个复选框）。这类账户：
+      </p>
+      <ul class="doc-list">
+        <li><strong>被限定在一个或多个特定网络上</strong>——只能在这些网络上登记对端，且永远不能用于 <code>home</code> 网络。</li>
+        <li><strong>默认拒绝</strong>：它可以认证、登记和续期自己的对端、获取 CA，但控制面上的其他事情一概不能做。</li>
+        <li>登记的是<strong>会过期的对端</strong>。每次登记都带有一个有效期（默认 2 小时，可在 <strong>设置 &rarr; WireGuard 对端有效期</strong> 中调整），必须续期才能保持连接；被弃用的设备会自动过期。由管理员添加的对端则是永久的。</li>
+      </ul>
+
+      <h3>查看与断开对端</h3>
+      <p class="doc-text">
+        网络页面上的<strong>已连接对端</strong>面板会列出所有网络中已登记的每一个对端，
+        并显示实时握手状态、覆盖网 IP、已传输数据量和到期时间。要强制切断某台设备，
+        使用<strong>断开连接</strong>——它会移除该对端、立即拆除隧道并吊销其密钥，
+        因此该设备在重新登记之前无法再连上来。
+      </p>
+
+      <h3 id="installing-packages-on-a-network">在指定网络上安装软件包</h3>
+      <p class="doc-text">
+        安装对话框（以及 <a href="#pages">页面</a> 对话框）里有一个 <strong>网络</strong> 选择器。
+        你选择的网络决定了该服务的 DNS 名称和
+        <a href="#trusting-the-ca">TLS 证书</a>——安装在 <code>office</code> 上的软件包会在
+        <code>.office</code> 下解析，证书也按该名称签发。非默认网络上的服务是双栖的：
+        对隧道对端解析为覆盖网地址，对本地客户端解析为局域网地址。把软件包重装到另一个网络上，
+        会把它的 DNS 和证书一并迁到那个网络的 TLD 下。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-install.webp`} alt="安装 jitsi 的对话框，顶部有标注为「此软件包提供服务所在的网络」的网络选择器，下方是该软件包的配置提问" width="768" height="625" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        举个例子，把 Jitsi 安装在 TLD 为 <code>fart</code> 的网络上，它会发布在
+        <code>jitsi.default.fart</code>。运行起来之后，该服务会以可点击链接的形式出现在你的
+        <strong>仪表盘</strong>上，网络中的任何设备都能直接打开。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="仪表盘的「已安装服务」列表显示 jitsi，并附带指向 https://jitsi.default.fart/ 的链接" width="1546" height="414" loading="lazy" decoding="async" />
+      </div>
+
+      <DiagramFlow title="通过网络进行远程访问">
+        <DiagramBox label="你的设备" sub="手机或笔记本" variant="neutral">
+          <DiagramTag>WireGuard</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="隧道" />
+        <DiagramBox label="Town OS" sub="覆盖网 + DNS" variant="purple">
+          <DiagramTag variant="purple">office 子网</DiagramTag>
+          <DiagramTag variant="teal">.office 顶级域</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="解析" />
+        <DiagramBox label="你的服务" sub="可按名称访问" variant="teal">
+          <DiagramTag variant="teal">gitea.default.office</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Town OS on Android -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="android-app">Android 上的 Town OS</h2>
+      <p class="doc-text">
+        <a href="https://github.com/town-os/android-client" target="_blank" rel="noopener">Town OS
+        Android 客户端</a>会通过 WireGuard 把你的手机接入其中一个
+        <a href="#networks">网络</a>，并配置好 DNS，让你的服务在任何地方都能按名称解析。
+        它是一个完整的 WireGuard 客户端，会替你把手机登记为对端；不需要手动复制任何配置文件。
+      </p>
+
+      <div class="phone-shots">
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-login.webp`} alt="Town OS Android 客户端登录界面——「连接到一台设备」卡片，含设备地址、管理员用户名和密码字段" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>登录到一台设备</figcaption>
+        </figure>
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-connection.webp`} alt="Town OS Android 客户端连接界面——显示「已断开」状态，含「连接」和「忘记此网络」按钮，下方是 DNS 解析器设置卡片" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>管理连接与 DNS</figcaption>
+        </figure>
+      </div>
+
+      <h3>安装应用</h3>
+      <p class="doc-text">
+        该应用以 APK 形式在项目的
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">发布页面</a>
+        分发——它不在 Play 商店，也不在 F-Droid 上。
+      </p>
+      <ul class="doc-list">
+        <li>请下载 <strong>debug 版 APK</strong>（<code>town-os-client-&lt;version&gt;-debug.apk</code>）。同一发行版中的 <code>-unsigned.apk</code> 无法直接安装——项目没有提供签名密钥，所以要拿的是 debug 版。</li>
+        <li>需要 <strong>Android 8.0（Oreo）或更高版本</strong>。</li>
+        <li>由于是旁加载安装，当浏览器或文件管理器提示时，请允许<strong>安装未知应用</strong>。</li>
+        <li>更愿意自己构建？克隆仓库，在手机通过 USB 连接并开启 USB 调试的情况下运行 <code>make deps &amp;&amp; make debug &amp;&amp; make install</code>。<code>make help</code> 会列出所有目标。</li>
+      </ul>
+      <p class="doc-text">把下载好的 APK 安装到手机上：</p>
+      <ol class="doc-list">
+        <li><strong>先把 APK 传到手机上。</strong>可以直接用手机浏览器下载，也可以通过 USB 或 <code>adb push</code> 从电脑传过去。</li>
+        <li>从浏览器的下载列表或文件管理器中<strong>打开这个 APK</strong>。第一次时 Android 会请求<strong>允许来自此来源的安装</strong>——请予以授权（<strong>设置 &rarr; 应用 &rarr; 特殊权限 &rarr; 安装未知应用</strong>），然后点击<strong>安装</strong>。</li>
+        <li><strong>或者从电脑安装</strong>，让手机处于 USB 调试模式：<code>adb install town-os-client-&lt;version&gt;-debug.apk</code>。</li>
+        <li>安装完成后，从应用抽屉中打开 <strong>Town OS</strong>。</li>
+      </ol>
+
+      <h3>连接之前</h3>
+      <ul class="doc-list">
+        <li><strong>先创建一个网络。</strong>应用只能加入带有 WireGuard 覆盖层的网络——内置的 <code>home</code> 网络仅限局域网，因此不会出现在列表中。参见<a href="#creating-a-network">创建用于远程访问的网络</a>。</li>
+        <li><strong>准备好一个管理员账户。</strong>登记设备属于管理员操作，所以应用需要用管理员凭据登录。</li>
+      </ul>
+
+      <h3>连接到网络</h3>
+      <ol class="doc-list">
+        <li><strong>登录你的设备。</strong>输入它的地址——纯 IP、<code>IP:端口</code>，或完整 URL（默认端口为 <code>5309</code>）——以及你的管理员用户名和密码。</li>
+        <li><strong>加入一个网络。</strong>应用会列出你可以加入的网络，并显示各自的 TLD、子网和对端数量。给设备起个名字（默认使用你手机的型号），然后点击<strong>加入</strong>。WireGuard 密钥对在手机上生成，只有公钥会发送给设备，因此你的私钥绝不离开手机。</li>
+        <li><strong>连接。</strong>点击<strong>连接</strong>，并同意 Android 的<em>连接请求</em>（VPN）提示。应用会建立隧道，并把该网络的 TLD 装为搜索域，因此 <code>gitea</code> 和 <code>gitea.default.&lt;tld&gt;</code> 都能解析。</li>
+        <li>现在你可以从任何地方按名称访问这个网络了。用<strong>断开连接</strong>关闭隧道，或用<strong>忘记此网络</strong>删除已保存的登记信息。</li>
+      </ol>
+
+      <h3>疑难排解</h3>
+      <ul class="doc-list">
+        <li><strong>隧道已连上，但名称解析不了。</strong>通常的罪魁祸首是 Android 的严格<strong>私人 DNS</strong>。如果它被设为某个指定的服务商主机名，Android 会把所有查询都发到那里并忽略隧道，于是 Town OS 的名称就会「找不到」。请把<strong>设置 &rarr; 网络和互联网 &rarr; 私人 DNS</strong> 改为<strong>自动</strong>或<strong>关闭</strong>。应用会检测到这一情况，并显示带有直达该设置快捷方式的警告。（自动模式没有问题，不会触发警告。）</li>
+        <li><strong>还是不行？</strong>在应用的 DNS 卡片中，把<strong>解析器覆盖</strong>设为该设备的局域网地址——应用会把它经由隧道路由，因此分离视图 DNS 依然有效。</li>
+        <li><strong>设备重启后被登出。</strong>Town OS 会在重启时清除所有会话；重新登录即可。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Building VMs -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-vms">用 U 盘镜像构建虚拟机</h2>
+      <p class="doc-text">
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        仓库中包含用于在虚拟机里启动 Town OS 的脚本，这在测试和开发时很有用——
+        既可以用你<a href="#building-the-usb-image">从源码构建</a>的镜像，也可以直接用
+        <a href="#qemu-usb">已经写好的实体 U 盘</a>。
+        <code>make help</code> 会列出所有目标和变量。
+      </p>
+
+      <h3 id="qemu">QEMU</h3>
+      <pre><code>make qemu-fg</code></pre>
+      <p class="doc-text">
+        镜像过期时会先重新构建，然后在<strong>前台</strong>启动一台 QEMU 虚拟机，
+        附带串口控制台、KVM 加速，以及四块用于存储测试的虚拟数据盘。
+        这是你首选的目标：你可以在终端里直接看着启动过程和安装程序，按 Ctrl-C 即可停止虚拟机。
+        如果你希望它在后台运行，请改用 <code>make qemu</code>
+        （稍后用 <a href="#serial-console"><code>make serial</code></a> 连接），
+        而 <code>make rebuild-qemu</code> 则一步完成停止、清理、重建和重新启动。
+      </p>
+      <p class="doc-text">
+        虚拟机接入 libvirt 的 <code>default</code> NAT 网络（<code>virbr0</code>），
+        并固定到 <code>VM_IP</code>（默认 <code>192.168.122.50</code>），
+        因此同时运行多台虚拟机时，请给每台分配各自的地址。
+      </p>
+      <p class="doc-text">
+        由于客户机处于 NAT 之后，<code>VM_LAN=1</code>（默认值）会把控制 API
+        （<code>5309</code>）、界面（<code>80</code>/<code>443</code>）、ssh
+        （<code>2222</code>）和 WireGuard 的 UDP 端口，从宿主机的局域网地址中继进客户机——
+        正是这一点让运行 <a href="#android-app">Android 客户端</a>的手机能够访问虚拟机。
+        设置 <code>VM_LAN=0</code> 可关闭这些中继。
+      </p>
+
+      <h3 id="qemu-usb">从实体 U 盘启动（qemu-usb）</h3>
+      <pre><code>make qemu-usb USB_DEV=/dev/sdX</code></pre>
+      <p class="doc-text">
+        直接从已写好的实体 U 盘（而非构建出的镜像）在前台启动 QEMU——
+        很适合用来确认刚写好的 U 盘确实能启动。设备以<strong>只读</strong>方式打开（快照模式），
+        因此客户机的写入都会被丢弃，真实 U 盘绝不会被修改；四块虚拟数据盘仍会挂载以便测试存储。
+        这个目标不构建任何东西——请先克隆 install 仓库，用 <code>install.sh</code> 或
+        <code>make flash</code> 写一个 U 盘，然后把 <code>USB_DEV</code> 指向它。
+        在 x86_64 宿主机上，<code>TARGET=aarch64</code>（或 <code>rpi</code>）会以全系统模拟
+        方式启动该 U 盘，因此没有对应硬件也能测试异架构镜像。
+      </p>
+
+      <h3 id="stopping-vms">停止与清理</h3>
+      <pre><code># 停止虚拟机
+make stop
+
+# 停止虚拟机并删除镜像和虚拟磁盘
+make clean</code></pre>
+
+      <h3 id="vm-environment-variables">环境变量</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>变量</th><th>默认值</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>U 盘镜像构建时的稀疏大小——镜像随后会被收缩</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>四块虚拟数据盘各自的大小（取自 <code>town-os.yaml</code> 中的 <code>vm_disk_size</code>）</td></tr>
+            <tr><td><code>VM_MEMORY</code></td><td>4G</td><td>虚拟机内存</td></tr>
+            <tr><td><code>VM_CPUS</code></td><td>4</td><td>虚拟机的 vCPU 数量——QEMU 默认的 1 个会让 rolodex 的工作线程池吃不饱</td></tr>
+            <tr><td><code>VM_BRIDGE</code></td><td>virbr0</td><td>用于联网的宿主机桥接接口</td></tr>
+            <tr><td><code>VM_NAME</code></td><td>town-os</td><td>虚拟机名称，也用于查找和停止它</td></tr>
+            <tr><td><code>VM_IP</code></td><td>192.168.122.50</td><td>libvirt 的 DHCP 保留地址——同时运行多台虚拟机时请各自分配</td></tr>
+            <tr><td><code>VM_LAN</code></td><td>1</td><td>把 NAT 客户机的端口中继到宿主机的局域网地址；<code>0</code> 表示关闭</td></tr>
+            <tr><td><code>USB_DEV</code></td><td>—</td><td>用于 <code>make flash</code>（写入）和 <code>make qemu-usb</code>（只读启动）的实体块设备</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="serial-console">串口控制台</h3>
+      <pre><code># 连接到虚拟机的串口控制台
+make serial
+
+# 或者手动通过 socat 连接
+socat -,rawer,escape=0x1d unix-connect:/tmp/town-os-serial.sock
+
+# 用 Ctrl-] 断开</code></pre>
+
+      <h3 id="finding-the-vm">找到虚拟机</h3>
+      <pre><code># 获取虚拟机的 IP 地址
+make vm-ip
+
+# 或者从宿主机通过 mDNS 连接
+ssh root@town-os.local</code></pre>
+
+      <DiagramFlow title="虚拟机网络">
+        <DiagramBox label="宿主机" sub="virbr0 —— libvirt 默认网络" variant="neutral">
+          <DiagramTag>QEMU</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="NAT" />
+        <DiagramBox label="Town OS 虚拟机" sub="完整的 Town OS 栈" variant="purple">
+          <DiagramTag variant="purple">192.168.122.50</DiagramTag>
+          <DiagramTag variant="teal">eth0</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="VM_LAN 中继" />
+        <DiagramBox label="局域网" sub="手机和局域网设备可访问虚拟机" variant="teal">
+          <DiagramTag variant="teal">5309 · 80 · 443 · WireGuard</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- RAID and ZFS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="raid-installation">RAID 安装</h2>
+      <p class="doc-text">
+        磁盘配置由
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
+        在首次启动时交互式地完成。所有存储都使用 btrfs。
+      </p>
+
+      <h3>自动选择 RAID 级别</h3>
+      <p class="doc-text">
+        ttyforce 会检测可用磁盘，按传输类型（NVMe、SATA 等）和相近容量分组，
+        然后根据磁盘数量自动选择 RAID 级别：
+      </p>
+      <ul class="doc-list">
+        <li><strong>1 块盘</strong>——single 模式（无冗余）</li>
+        <li><strong>2 块盘</strong>——RAID 1（btrfs 镜像）</li>
+        <li><strong>3 块及以上</strong>——RAID 5（btrfs 带校验的条带）</li>
+      </ul>
+      <p class="doc-text">
+        默认挂载点是 <code>/town-os</code>。ttyforce 会创建
+        <code>@etc</code> 和 <code>@var</code> 子卷，以配合 overlayfs 实现持久化。
+      </p>
+
+      <h3>磁盘检测</h3>
+      <p class="doc-text">
+        ttyforce 会自动检测可用的存储设备。它能识别 NVMe 硬盘、SATA/SAS 硬盘和 SD 卡，
+        同时排除启动用的 USB 设备以及任何可移动介质。这套检测逻辑确保 Town OS
+        绝不会碰它自己启动所用的那块盘。
+      </p>
+
+      <h3>叠加文件系统</h3>
+      <p class="doc-text">
+        无论使用哪种存储后端，Town OS 都通过 overlay 挂载来持久化
+        <code>/var</code> 和 <code>/etc</code>。下层来自 squashfs 根文件系统，
+        上层则位于 RAID/ZFS 存储上。这样一来，系统配置和服务数据能跨重启保留，
+        而基础操作系统始终保持不可变。
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">存储架构</div>
+        <div class="flex flex-col gap-3">
+          <!-- Disk types -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="NVMe" sub="高速固态盘" variant="neutral" />
+            <DiagramBox label="SATA / SAS" sub="机械盘或固态盘" variant="neutral" />
+            <DiagramBox label="SD 卡" sub="可移动" variant="neutral" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr; <span class="text-town-muted text-xs">检测</span></span></div>
+          <!-- RAID layer -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="btrfs single" sub="1 块盘" variant="purple" />
+            <DiagramBox label="btrfs RAID 1" sub="2 块盘（镜像）" variant="purple" />
+            <DiagramBox label="btrfs RAID 5" sub="3 块及以上（校验）" variant="purple" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr;</span></div>
+          <!-- Output -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="子卷" sub="按软件包划分的存储" variant="teal">
+              <DiagramTag variant="teal">pkg-a</DiagramTag>
+              <DiagramTag variant="teal">pkg-b</DiagramTag>
+            </DiagramBox>
+            <DiagramBox label="Overlay 挂载" sub="持久化的系统目录" variant="teal">
+              <DiagramTag variant="teal">/var</DiagramTag>
+              <DiagramTag variant="teal">/etc</DiagramTag>
+            </DiagramBox>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Using the UI -->
+  <section class="section ui-section">
+    <div class="container">
+      <h2 class="section-title" id="using-the-ui">使用用户界面</h2>
+      <p class="doc-text">
+        Town OS 提供了一个简洁的网页仪表盘来管理你的服务器。启动完成后，
+        打开浏览器访问 Town OS 机器的 IP 地址，或者
+        <code>http://town-os.local</code>。
+      </p>
+
+      <h3>首次启动：创建账户</h3>
+      <p class="doc-text">
+        首次启动时，系统会提示你创建一个管理员账户。选好用户名和密码——
+        这个账户对系统拥有完全控制权。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/create-account.webp`} alt="创建账户界面" width="2400" height="1183" loading="lazy" />
+      </div>
+
+      <h3>仪表盘</h3>
+      <p class="doc-text">
+        仪表盘展示系统总览——已安装的软件包以服务卡片形式呈现，附带状态指示、
+        快捷操作，以及一目了然的系统健康状况。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard.webp`} alt="仪表盘总览" width="2400" height="1187" loading="lazy" />
+      </div>
+
+      <h3>浏览与安装软件包</h3>
+      <p class="doc-text">
+        「软件包」视图让你可以搜索可用的软件包、查看详情，并在引导式提问的辅助下安装它们。
+        每个软件包的提问都会呈现为一张表单——填好主机名、端口和其他配置，然后点击安装。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/packages.webp`} alt="软件包浏览器" width="2400" height="1191" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/installation.webp`} alt="软件包安装提问" width="2400" height="1189" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/install-details.webp`} alt="安装详情" width="2400" height="1184" loading="lazy" />
+      </div>
+
+      <h3>管理服务</h3>
+      <p class="doc-text">
+        已安装的服务可以在「服务」视图中启动、停止和重启。
+        状态指示会显示每个服务是正在运行、已停止，还是处于错误状态。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/services.webp`} alt="服务管理" width="2400" height="1186" loading="lazy" />
+      </div>
+
+      <h3>查看日志</h3>
+      <p class="doc-text">
+        「日志」视图提供实时的 journal 输出，并支持过滤和 grep。
+        你可以按服务、优先级筛选，也可以搜索特定文本。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/logs.webp`} alt="日志查看器" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>存储管理</h3>
+      <p class="doc-text">
+        查看和管理 btrfs 子卷、为每个软件包配置配额，
+        并监控整个存储池的磁盘使用情况。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/storage.webp`} alt="存储管理" width="2400" height="1190" loading="lazy" />
+      </div>
+
+      <h3>监控</h3>
+      <p class="doc-text">
+        Town OS 内置了基于 Prometheus 和 Node Exporter 的监控，
+        可以持续跟踪系统指标、服务健康状况和资源使用。默认使用轻量的内置仪表盘，
+        也可以选择升级到 Grafana。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/monitoring.webp`} alt="监控仪表盘" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>设置与审计日志</h3>
+      <p class="doc-text">
+        「设置」页面用于配置全系统的选项。「审计日志」会记录每一项管理操作——
+        安装、卸载、服务状态变更和配置修改——因此你随时都清楚什么被改动过、何时改的。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/settings.webp`} alt="设置" width="2400" height="1186" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/auditlog.webp`} alt="审计日志" width="2400" height="1188" loading="lazy" />
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Hosting Static Sites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pages">托管静态网站</h2>
+      <p class="doc-text">
+        除了容器化的软件包，Town OS 还内置了<strong>静态网站托管</strong>，
+        它始终在线，并在 <strong>仪表盘 &rarr; 页面</strong> 中管理。每个页面都由入口后的
+        一个共享 Web 服务器提供服务，并像软件包一样，在其
+        <a href="#networks">网络</a>的 TLD 下获得 DNS 名称和 TLS 证书。
+      </p>
+
+      <h3>内容来源</h3>
+      <p class="doc-text">
+        创建页面时，你需要选定一个<strong>名称</strong>、一个<strong>域名</strong>
+        （默认与名称相同）、一个<strong>网络</strong>（默认为 <code>home</code>），
+        以及三种内容来源之一：
+      </p>
+      <ul class="doc-list">
+        <li><strong>上传归档</strong>——上传你网站的 tar 包。在你上传归档之前，页面会保持待处理状态。</li>
+        <li><strong>Git 仓库</strong>——从仓库 URL 克隆。你可以指定分支（默认为 <code>main</code>），这对发布在 <code>gh-pages</code> 上的站点很方便。</li>
+        <li><strong>容器镜像</strong>——从 OCI 镜像中提取某个目录。</li>
+      </ul>
+      <p class="doc-text">
+        git 和容器类型的页面是异步准备的——表格中会显示
+        <strong>准备中…</strong> 标记，最终变为「活动」或「错误」。对 git 和容器页面，
+        用<strong>重新构建</strong>拉取最新内容；对归档页面，则改为上传新的 tar 包。
+      </p>
+
+      <h3>页面是如何提供服务的</h3>
+      <p class="doc-text">
+        每个页面都位于自己的存储子卷上，并直接通过 80 端口以 HTTP 提供服务，
+        而软件包服务则会把 80 端口重定向到 HTTPS。由于页面同样归属某个网络，
+        它的名称会在该网络的 TLD 下解析，可从你的局域网访问；如果该网络是 WireGuard
+        覆盖网，你已登记的远程设备也能访问。
+      </p>
+    </div>
+  </section>
+
+  <!-- Updating Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="updating">更新 Town OS</h2>
+      <p class="doc-text">
+        Town OS 可以在仪表盘上就地更新核心服务。在
+        <strong>系统管理</strong>页面，<strong>刷新核心服务</strong>按钮会拉取最新的容器镜像
+        并重启每一个核心服务——其中也包括系统控制器本身，这正是这台设备自我更新的方式。
+      </p>
+
+      <h3>刷新过程中会发生什么</h3>
+      <ul class="doc-list">
+        <li>镜像会按依赖顺序拉取并重启服务：先是系统控制器（这样在它重启自己之前，新镜像已经就绪），然后是 DNS，最后是其余部分。</li>
+        <li>控制器重启时你的登录会话会被有意重置，因此刷新进行期间，仪表盘会暂缓平时的会话检查，而不是把你弹回登录页。</li>
+        <li>进度以五阶段步骤条呈现：<strong>启动系统控制器</strong> &rarr; <strong>启动 DNS</strong> &rarr; <strong>启动系统服务</strong> &rarr; <strong>重启软件包</strong>（每个已安装的软件包一行）&rarr; <strong>就绪</strong>。</li>
+        <li>刷新完成后，仪表盘会显示一个<strong>重新加载</strong>按钮，而不是在你操作时自作主张地刷新页面。</li>
+      </ul>
+      <p class="doc-text">
+        正常启动时的配置界面上也会出现同样的五个阶段，因此你可以逐个软件包地观察启动进度。
+      </p>
+    </div>
+  </section>
+
+  <!-- Building a Package -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-a-package">制作软件包</h2>
+      <p class="doc-text">
+        Town OS 的软件包是描述如何运行容器化服务的 YAML 文件。
+        完整规范请参阅<a href={L('packaging/')}>打包格式</a>参考文档。
+        本节讲的是实际的工作流程。
+      </p>
+
+      <h3>仓库结构</h3>
+      <p class="doc-text">
+        软件包仓库就是一个带有 <code>packages/</code> 目录的 git 仓库。
+        每个软件包各占一个子目录，其中存放带版本号的 YAML 定义：
+      </p>
+      <pre><code>my-packages/
+  packages/
+    my-app/
+      1.0.yaml
+      2.0.yaml</code></pre>
+
+      <h3>编写软件包定义</h3>
+      <p class="doc-text">
+        一个最小的软件包只需要 <code>image</code> 字段。典型的软件包还会包含描述、
+        网络、卷和面向用户的提问：
+      </p>
+      <pre><code>image: myapp:latest
+description: My custom application
+supplies: ["http"]
+network:
+  external:
+    "@port@": "8080"
+volumes:
+  data:
+    mountpoint: /app/data
+    quota: 5gb
+questions:
+  port:
+    query: "What external port should this app use?"
+    type: port
+    default: "9000"
+notes:
+  URL:
+    value: "http://@LOCAL_EXTERNAL_HOST@:@port@"
+    type: url</code></pre>
+      <p class="doc-text">
+        除了自由文本和 <code>port</code>，提问还支持几种类型：<code>secret</code>
+        （留空时自动生成）、<code>boolean</code>（渲染为复选框）、
+        <code>oauth</code>（一个<strong>连接</strong>按钮，会走服务商的设备流来获取令牌），
+        而且任何提问都可以标记为 <code>optional: true</code> 以允许留空。
+        完整列表见打包格式参考中的<a href={`${L('packaging/')}#questions`}>提问</a>一节。
+        安装时，操作者还会选择该软件包在哪个<a href="#installing-packages-on-a-network">网络</a>上提供服务。
+      </p>
+
+      <h3>模板系统</h3>
+      <p class="doc-text">
+        使用 <code>@variable@</code> 语法来引用提问的回答和内置变量
+        （<code>@LOCAL_EXTERNAL_HOST@</code>、<code>@LOCAL_INTERNAL_HOST@</code>）。
+        模板可用于环境变量、端口映射、配额和说明项的取值中。
+      </p>
+
+      <h3>本地测试</h3>
+      <p class="doc-text">
+        用<a href="#dev-environment">开发环境</a>来测试你的软件包。
+        把仓库放在磁盘上，通过界面或 <code>repositories.json</code> 添加它，
+        然后安装你的软件包。开发环境提供了完整的 Town OS 栈以供测试。
+      </p>
+
+      <h3>添加仓库</h3>
+      <p class="doc-text">
+        可以通过界面（<strong>软件包 → 仓库 → 添加仓库</strong>）把你的软件包仓库
+        添加到 Town OS，也可以直接编辑 <code>repositories.json</code>：
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+
+      <DiagramFlow title="软件包生命周期">
+        <DiagramBox label="YAML 定义" sub="镜像、卷、提问" variant="purple">
+          <DiagramTag variant="purple">1.0.yaml</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="安装" />
+        <DiagramBox label="配置提问" sub="用户回答问题" variant="neutral">
+          <DiagramTag>主机名</DiagramTag>
+          <DiagramTag>端口</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="部署" />
+        <DiagramBox label="运行中的容器" sub="服务已启动并挂载卷" variant="teal">
+          <DiagramTag variant="teal">@variable@ &rarr; 取值</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Self-Hosting Ideas -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="self-hosting-ideas">可以自托管的东西</h2>
+      <p class="doc-text">
+        Town OS 天生就能运行任何以容器镜像形式发布的软件。下面是一些可以让你上手的点子——
+        其中不少已经收录在
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">默认软件包仓库</a>中，
+        而任何容器镜像都可以用一份简单的 YAML 定义打包进来。
+      </p>
+
+      <div class="idea-grid">
+        <div class="idea-card">
+          <h3>影音娱乐</h3>
+          <ul>
+            <li><strong>Plex</strong> / <strong>Jellyfin</strong>——把你的电影和剧集库串流到任何设备</li>
+            <li><strong>Navidrome</strong>——个人音乐流媒体服务器</li>
+            <li><strong>Calibre-web</strong>——管理和阅读你的电子书收藏</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>代码与协作</h3>
+          <ul>
+            <li><strong>Gitea</strong> / <strong>Forgejo</strong>——轻量的自托管 Git</li>
+            <li><strong>GitLab</strong>——完整的 DevOps 平台</li>
+            <li><strong>Nextcloud</strong>——文件、日历、通讯录等等</li>
+            <li><strong>Wiki.js</strong> / <strong>BookStack</strong>——文档与知识库</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>沟通</h3>
+          <ul>
+            <li><strong>Jitsi Meet</strong>——私有视频会议</li>
+            <li><strong>Matrix / Synapse</strong>——联邦式加密聊天</li>
+            <li><strong>Mattermost</strong> / <strong>Rocket.Chat</strong>——团队沟通</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>游戏服务器</h3>
+          <ul>
+            <li><strong>Valheim</strong>、<strong>Minecraft</strong>、<strong>Terraria</strong>、<strong>Satisfactory</strong> 专用服务器</li>
+            <li>通过 GloriousEggroll 容器支持 Proton/Steam</li>
+            <li>任何以 Linux 可执行文件或容器形式发布的游戏服务器</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>家庭自动化</h3>
+          <ul>
+            <li><strong>Home Assistant</strong>——智能家居控制中枢</li>
+            <li><strong>Node-RED</strong>——可视化自动化流程</li>
+            <li><strong>Mosquitto</strong>——面向物联网设备的 MQTT 代理</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>隐私与安全</h3>
+          <ul>
+            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong>——全网范围的广告拦截</li>
+            <li><strong>WireGuard</strong> / <strong>OpenVPN</strong>——用于远程访问的 VPN 服务器</li>
+            <li><strong>Vaultwarden</strong>——自托管的密码管理器</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>效率工具</h3>
+          <ul>
+            <li><strong>Paperless-ngx</strong>——文档管理与 OCR</li>
+            <li><strong>Immich</strong>——自托管的照片和视频管理</li>
+            <li><strong>Planka</strong> / <strong>Wekan</strong>——看板与项目管理</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dev Environment -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dev-environment">开发环境与测试套件</h2>
+      <p class="doc-text">
+        Town OS 的开发环境使用 Podman 容器在本地运行完整的技术栈。
+        这是测试改动、开发软件包和运行测试套件最快的方式。
+      </p>
+
+      <h3>先决条件</h3>
+      <ul class="doc-list">
+        <li><strong>Linux</strong>——btrfs 和 Podman 的 rootful 容器需要它</li>
+        <li><strong>Podman</strong>——容器运行时（rootful 模式，需要 sudo）</li>
+        <li><strong>Go 1.25+</strong>——用于后端 API 服务器</li>
+        <li><strong>Bun</strong>——用于前端构建和开发服务器</li>
+        <li><strong>btrfs-progs</strong>——用于存储管理</li>
+        <li><strong>QEMU</strong>——qemu-system-x86_64 与 qemu-img，用于支持虚拟机软件包</li>
+        <li><strong>libsystemd</strong>——用于 systemd 集成的开发头文件</li>
+        <li><strong>golangci-lint</strong>——用于 Go 代码检查</li>
+        <li><strong>Python 3</strong>——用于构建和测试脚本</li>
+      </ul>
+
+      <h3>启动开发环境</h3>
+      <pre><code>git clone https://gitea.com/town-os/town-os.git
+cd town-os
+make dev</code></pre>
+      <p class="doc-text">
+        这会启动带热重载的完整开发栈。就绪之后，
+        打开终端里输出的网址即可访问 Town OS 仪表盘。
+      </p>
+
+      <h3>开发环境命令</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>命令</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>启动完整的开发环境</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>停止所有开发容器</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>跟踪开发容器的日志</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>删除开发容器和卷</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>运行测试</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>命令</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>运行单元测试</td></tr>
+            <tr><td><code>make test-integration</code></td><td>运行集成测试（需要特权 Podman）</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>运行界面集成测试</td></tr>
+            <tr><td><code>make test-full</code></td><td>运行全部测试（单元 + 集成 + 界面）</td></tr>
+            <tr><td><code>make auto-test</code></td><td>监听改动并自动重跑测试</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>集成测试</h3>
+      <p class="doc-text">
+        集成测试在一个特权 Podman 容器中运行，该容器提供真实的 btrfs 文件系统、
+        systemd，以及 Podman-in-Podman。这确保测试走的是与生产环境相同的代码路径。
+        测试容器是一次性的——每次测试都会新建，结束后清理掉。
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">开发工作流</div>
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+          <DiagramBox label="编辑器" sub="编写代码" variant="neutral">
+            <DiagramTag>Go + Bun</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="保存" />
+          <DiagramBox label="auto-test" sub="保存时自动跑测试" variant="purple">
+            <DiagramTag variant="purple">make auto-test</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="重载" />
+          <DiagramBox label="浏览器" sub="实时预览" variant="teal">
+            <DiagramTag variant="teal">localhost:5173</DiagramTag>
+          </DiagramBox>
+        </div>
+        <div class="flex justify-center mt-2">
+          <span class="text-town-muted text-xs border border-town-border rounded-full px-3 py-1">&#x21bb; 迭代 &mdash; 后端 :5309 &middot; 前端 :5173</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporting Bugs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="reporting-bugs">报告缺陷</h2>
+      <p class="doc-text">
+        发现哪里坏了？一份好的缺陷报告能让问题更快被修好。
+        下面介绍如何收集所需信息，并提交一份有效的报告。
+      </p>
+
+      <h3>用 API 收集日志</h3>
+      <p class="doc-text">
+        Town OS 通过它的 <a href={`${L('api/')}#systemd`}>REST API</a> 对外提供 journal 日志。
+        你可以用 <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>
+        连接该 API，并生成一份近期错误的摘要：
+      </p>
+      <pre><code># 从 Town OS 获取 error 优先级的 journal 条目
+curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</code></pre>
+      <p class="doc-text">
+        或者用 Claude Code 交互式地总结错误：
+      </p>
+      <pre><code># Claude Code 提示词示例：
+"Connect to the Town OS API at http://town-os.local:5309
+ and fetch the last 100 error-priority journal entries from
+ /api/systemd/logs/tail. Summarize the errors, group them
+ by service, and suggest likely causes."</code></pre>
+
+      <h3>提交 issue</h3>
+      <p class="doc-text">
+        请在 Town OS 的 Gitea 实例上提交 issue：
+        <a href="https://gitea.com/town-os/town-os/issues" target="_blank" rel="noopener">gitea.com/town-os/town-os/issues</a>。
+      </p>
+
+      <h3>应当包含哪些内容</h3>
+      <ul class="doc-list">
+        <li><strong>日志摘要</strong>——错误日志输出，或 Claude Code 生成的近期错误摘要</li>
+        <li><strong>复现步骤</strong>——你是怎么一步步触发这个问题的</li>
+        <li><strong>Town OS 版本</strong>——启动界面上显示的构建日期或提交哈希</li>
+        <li><strong>存储后端</strong>——btrfs、btrfs-mdadm 还是 ZFS，以及硬盘数量</li>
+        <li><strong>运行环境</strong>——实体硬件还是 QEMU；内存和磁盘容量</li>
+      </ul>
+
+      <DiagramFlow title="缺陷报告流程">
+        <DiagramBox label="发现问题" sub="有东西坏了" variant="neutral">
+          <DiagramTag>&#x26a0; 错误</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="curl API" />
+        <DiagramBox label="收集日志" sub="获取 journal 条目" variant="purple">
+          <DiagramTag variant="purple">:5309/api/systemd/logs</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="总结" />
+        <DiagramBox label="归纳摘要" sub="按服务分组" variant="purple">
+          <DiagramTag variant="teal">Claude Code</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="提交" />
+        <DiagramBox label="在 Gitea 上提交" sub="创建含细节的 issue" variant="teal">
+          <DiagramTag variant="teal">&#x2713; 已报告</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <script>
+    document.querySelectorAll('pre').forEach((pre) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-copy-wrapper';
+      pre.parentNode!.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      const clipboardIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+      const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.innerHTML = `${clipboardIcon}<span>复制</span>`;
+      btn.setAttribute('aria-label', '复制到剪贴板');
+      wrapper.appendChild(btn);
+
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = (code || pre).textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+          btn.innerHTML = `${checkIcon}<span>已复制！</span>`;
+          setTimeout(() => { btn.innerHTML = `${clipboardIcon}<span>复制</span>`; }, 2000);
+        });
+      });
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .container {
+    padding: 0 6rem;
+  }
+
+  .section.alt-section,
+  .quickstart-section {
+    background: linear-gradient(
+      to right,
+      var(--color-bg) 0,
+      var(--color-bg) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% + 600px),
+      var(--color-bg) calc(50% + 600px),
+      var(--color-bg) 100%
+    );
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .quickstart-section {
+    position: relative;
+  }
+
+  .quickstart-section::after {
+    content: '';
+    position: absolute;
+    left: max(0px, calc(50% - 600px));
+    right: max(0px, calc(50% - 600px));
+    bottom: 0;
+    height: 2px;
+    background: var(--color-primary-dim);
+    pointer-events: none;
+  }
+
+  .data-warning {
+    background: #2a0f0f;
+    border: 2px solid #993333;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .data-warning-badge {
+    display: inline-block;
+    background: #993333;
+    color: #d0d0d0;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    padding: 0.35rem 1.25rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .data-warning-text {
+    color: #cc5555;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+    max-width: 800px;
+  }
+
+  .data-warning-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .data-warning-text strong {
+    color: #bb4444;
+  }
+
+  .data-warning-text a {
+    color: var(--color-accent);
+  }
+
+  :global(.code-copy-wrapper) {
+    position: relative;
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  :global(.code-copy-wrapper pre) {
+    margin: 0;
+  }
+
+  pre {
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  h3 + :global(.code-copy-wrapper),
+  h3 + pre {
+    margin-top: 1rem;
+  }
+
+  :global(.code-copy-btn) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: rgba(91, 76, 158, 0.55);
+    color: var(--color-text);
+    border: 1px solid rgba(124, 107, 191, 0.6);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.3;
+  }
+
+  :global(.code-copy-btn svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  :global(.code-copy-wrapper:hover .code-copy-btn),
+  :global(.code-copy-btn:focus-visible) {
+    opacity: 1;
+    background: var(--color-primary);
+    border-color: var(--color-primary-light);
+  }
+
+  :global(.code-copy-btn:hover) {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary-light);
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.75rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 2.75rem;
+    margin-bottom: 1rem;
+  }
+
+  h4 {
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+  }
+
+  .callout {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* UI section — center text and screenshots */
+  .ui-section .doc-text,
+  .ui-section .doc-list {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ui-section h3 {
+    text-align: center;
+  }
+
+  .ui-section .section-title {
+    text-align: center;
+  }
+
+  /* Screenshots */
+  .screenshot-ref {
+    margin: 1rem auto 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 800px;
+  }
+
+  .screenshot-ref img {
+    display: block;
+    width: 100%;
+  }
+
+  /* Phone screenshots — narrow, side by side */
+  .phone-shots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.5rem auto 2rem;
+    max-width: 800px;
+  }
+
+  .phone-shot {
+    flex: 0 1 300px;
+    max-width: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-bg-card);
+  }
+
+  .phone-shot img {
+    display: block;
+    width: 100%;
+  }
+
+  .phone-shot figcaption {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Self-hosting idea grid */
+  .idea-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .idea-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .idea-card:hover {
+    border-color: var(--color-primary-dim);
+  }
+
+  .idea-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--color-accent);
+    font-size: 1.1rem;
+  }
+
+  .idea-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .idea-card li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .idea-card li strong {
+    color: var(--color-text);
+  }
+
+  @media (max-width: 1024px) {
+    .container {
+      padding: 0 2.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
+    .toc ul {
+      columns: 1;
+    }
+
+    .idea-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

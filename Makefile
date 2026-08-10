@@ -13,6 +13,9 @@ help: ## Show this help
 serve: ## Start the dev server on 0.0.0.0
 	bun run astro dev --host 0.0.0.0
 
+check-i18n: ## Verify every page is translated and locale style blocks match English
+	@./scripts/check-i18n.sh
+
 # Install everything the other targets need: Node + npm (system package manager),
 # Bun (preferred runtime, via its official installer), and the project's npm
 # dependencies (astro, tailwind, ...). Works on Arch/Manjaro (pacman) and Debian/Ubuntu (apt).
@@ -45,4 +48,4 @@ deps: ## Install Node, npm, Bun and project dependencies (Arch/Manjaro & Debian)
 	fi; \
 	echo ">> Dependencies ready. Run 'make serve' to start the dev server."
 
-.PHONY: help serve deps
+.PHONY: help serve deps check-i18n

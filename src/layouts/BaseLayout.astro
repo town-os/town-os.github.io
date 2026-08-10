@@ -1,47 +1,164 @@
 ---
+import '../styles/tailwind.css';
+import {
+  defaultLang,
+  getLangFromUrl,
+  languages,
+  localeCodes,
+  localizePath,
+  prefixedLocales,
+  stripLang,
+  useTranslations,
+  type Lang,
+} from '../i18n/ui';
+
 interface Props {
   title: string;
   description?: string;
+  lang?: Lang;
 }
 
-const { title, description = 'Town OS — Your Cloud in Your Closet. A self-hosted platform that runs entirely from a USB drive.' } = Astro.props;
-import '../styles/tailwind.css';
+const urlLang = getLangFromUrl(Astro.url);
+const { title, lang = urlLang, description } = Astro.props;
+const t = useTranslations(lang);
+const desc = description ?? t('site.description');
+
 const base = import.meta.env.BASE_URL;
+/** Current page without base or locale prefix, e.g. `guide/` — used by the switcher. */
+const pagePath = stripLang(Astro.url);
+const L = (path: string) => localizePath(path, lang);
+
+const ogLocales: Record<Lang, string> = {
+  en: 'en_US',
+  'zh-Hans': 'zh_CN',
+  'zh-Hant': 'zh_TW',
+};
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang={lang}>
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content={description} />
+  <meta name="description" content={desc} />
   <meta property="og:title" content={title} />
-  <meta property="og:description" content={description} />
+  <meta property="og:description" content={desc} />
   <meta property="og:image" content={`${base}images/banner.png`} />
+  <meta property="og:locale" content={ogLocales[lang]} />
   <link rel="icon" type="image/png" href={`${base}favicon.png`} />
+  {localeCodes.map((code) => (
+    <link
+      rel="alternate"
+      hreflang={code}
+      href={new URL(localizePath(pagePath, code), Astro.site).href}
+    />
+  ))}
+  <link
+    rel="alternate"
+    hreflang="x-default"
+    href={new URL(localizePath(pagePath, defaultLang), Astro.site).href}
+  />
   <title>{title}</title>
+  <script is:inline define:vars={{ base, prefixedLocales, localeCodes, defaultLang }}>
+    // Send visitors to their preferred language before anything paints.
+    // A stored preference (set by the language switcher) always wins; otherwise
+    // the browser's Accept-Language order decides, once per session.
+    (function () {
+      var KEY = 'town-os:lang';
+      var AUTO = 'town-os:lang-auto';
+      var path = window.location.pathname;
+      if (path.indexOf(base) !== 0) return;
+
+      var rest = path.slice(base.length);
+      var segment = rest.split('/')[0];
+      var current = prefixedLocales.indexOf(segment) !== -1 ? segment : defaultLang;
+      if (current !== defaultLang) rest = rest.slice(current.length + 1);
+
+      var target = null;
+      try {
+        target = window.localStorage.getItem(KEY);
+      } catch (e) {}
+
+      if (!target) {
+        var seen = null;
+        try {
+          seen = window.sessionStorage.getItem(AUTO);
+        } catch (e) {}
+        if (seen) return;
+        try {
+          window.sessionStorage.setItem(AUTO, '1');
+        } catch (e) {}
+
+        var prefs = navigator.languages && navigator.languages.length
+          ? navigator.languages
+          : [navigator.language || ''];
+        for (var i = 0; i < prefs.length; i++) {
+          var pref = (prefs[i] || '').toLowerCase();
+          if (pref.indexOf('zh') === 0) {
+            // zh-TW / zh-HK / zh-MO / any -Hant tag means Traditional.
+            target = /hant|tw|hk|mo/.test(pref) ? 'zh-Hant' : 'zh-Hans';
+            break;
+          }
+          if (pref.indexOf('en') === 0) {
+            target = defaultLang;
+            break;
+          }
+          // Any other language: keep looking — we have nothing better to offer.
+        }
+      }
+
+      if (!target || target === current || localeCodes.indexOf(target) === -1) return;
+      var next = base + (target === defaultLang ? '' : target + '/') + rest;
+      window.location.replace(next + window.location.search + window.location.hash);
+    })();
+  </script>
 </head>
 <body>
   <header class="site-header">
     <nav class="container nav">
       <div class="nav-brand-group">
-        <a href={`${base}`} class="nav-brand">
+        <a href={L('')} class="nav-brand">
           <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="32" height="32" />
           <span>Town OS</span>
         </a>
-        <a href={`${base}#install`} class="try-badge">Try it out</a>
+        <a href={`${L('')}#install`} class="try-badge">{t('nav.try')}</a>
       </div>
-      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+      <button class="nav-toggle" aria-label={t('nav.toggle')} aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
       <ul class="nav-links">
-        <li><a href={`${base}`}>Home</a></li>
-        <li><a href={`${base}guide/`}>Guide</a></li>
-        <li><a href={`${base}concepts/`}>Concepts</a></li>
-        <li><a href={`${base}packaging/`}>Packaging</a></li>
-        <li><a href={`${base}api/`}>API</a></li>
-        <li><a href={`${base}screenshots/`}>Screenshots</a></li>
-        <li><a href={`${base}community/`}>Community</a></li>
-        <li><a href={`${base}repositories/`} class="btn btn-outline btn-sm">Source Code</a></li>
+        <li><a href={L('')}>{t('nav.home')}</a></li>
+        <li><a href={L('guide/')}>{t('nav.guide')}</a></li>
+        <li><a href={L('concepts/')}>{t('nav.concepts')}</a></li>
+        <li><a href={L('packaging/')}>{t('nav.packaging')}</a></li>
+        <li><a href={L('api/')}>{t('nav.api')}</a></li>
+        <li><a href={L('screenshots/')}>{t('nav.screenshots')}</a></li>
+        <li><a href={L('community/')}>{t('nav.community')}</a></li>
+        <li><a href={L('repositories/')} class="btn btn-outline btn-sm">{t('nav.source')}</a></li>
+        <li class="lang-item">
+          <details class="lang-switcher">
+            <summary aria-label={t('lang.label')} title={t('lang.label')}>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="9"></circle>
+                <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9S14.5 18.3 12 21c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z"></path>
+              </svg>
+              <span>{languages[lang].short}</span>
+            </summary>
+            <ul class="lang-menu">
+              {localeCodes.map((code) => (
+                <li>
+                  <a
+                    href={localizePath(pagePath, code)}
+                    hreflang={code}
+                    lang={code}
+                    data-set-lang={code}
+                    aria-current={code === lang ? 'true' : undefined}
+                    class={code === lang ? 'lang-current' : undefined}
+                  >{languages[code].label}</a>
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
       </ul>
     </nav>
   </header>
@@ -56,13 +173,25 @@ const base = import.meta.env.BASE_URL;
         <img src={`${base}images/logos/logo-48.png`} alt="Town OS" width="24" height="24" />
         <span>Town OS</span>
       </div>
-      <p class="footer-tagline">Your Cloud in Your Closet</p>
+      <p class="footer-tagline">{t('footer.tagline')}</p>
       <div class="footer-links">
-        <a href="https://gitea.com/town-os/town-os" target="_blank" rel="noopener">Gitea</a>
-        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">Packages</a>
-        <a href="https://github.com/town-os" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://gitea.com/town-os/town-os" target="_blank" rel="noopener">{t('footer.gitea')}</a>
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">{t('footer.packages')}</a>
+        <a href="https://github.com/town-os" target="_blank" rel="noopener">{t('footer.github')}</a>
       </div>
-      <p class="footer-license">Licensed under GNU Affero GPL 3.0</p>
+      <div class="footer-langs">
+        {localeCodes.map((code) => (
+          <a
+            href={localizePath(pagePath, code)}
+            hreflang={code}
+            lang={code}
+            data-set-lang={code}
+            aria-current={code === lang ? 'true' : undefined}
+            class={code === lang ? 'lang-current' : undefined}
+          >{languages[code].label}</a>
+        ))}
+      </div>
+      <p class="footer-license">{t('footer.license')}</p>
     </div>
   </footer>
 
@@ -74,6 +203,31 @@ const base = import.meta.env.BASE_URL;
         const expanded = toggle.getAttribute('aria-expanded') === 'true';
         toggle.setAttribute('aria-expanded', String(!expanded));
         links.classList.toggle('open');
+      });
+    }
+
+    // Picking a language pins it: the choice is remembered and the automatic
+    // Accept-Language redirect stops overriding it.
+    document.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement | null;
+      const link = target?.closest?.('[data-set-lang]') as HTMLElement | null;
+      if (!link) return;
+      try {
+        localStorage.setItem('town-os:lang', link.dataset.setLang!);
+        sessionStorage.setItem('town-os:lang-auto', '1');
+      } catch (e) {
+        /* storage unavailable — the link still navigates */
+      }
+    });
+
+    // Close the language dropdown on outside click or Escape.
+    const switcher = document.querySelector('.lang-switcher') as HTMLDetailsElement | null;
+    if (switcher) {
+      document.addEventListener('click', (event) => {
+        if (!switcher.contains(event.target as Node)) switcher.open = false;
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') switcher.open = false;
       });
     }
   </script>
@@ -176,6 +330,79 @@ const base = import.meta.env.BASE_URL;
     color: var(--color-accent);
   }
 
+  /* Language switcher */
+  .lang-item {
+    position: relative;
+  }
+
+  .lang-switcher summary {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    list-style: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    transition: color 0.2s, border-color 0.2s;
+  }
+
+  .lang-switcher summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .lang-switcher summary:hover,
+  .lang-switcher[open] summary {
+    color: var(--color-accent);
+    border-color: var(--color-primary-dim);
+  }
+
+  .lang-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    z-index: 200;
+    min-width: 10rem;
+    list-style: none;
+    margin: 0;
+    padding: 0.35rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .lang-menu a {
+    display: block;
+    padding: 0.45rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+
+  .lang-menu a:hover {
+    background: var(--color-primary-dim);
+    color: var(--color-text);
+  }
+
+  .lang-menu .lang-current {
+    color: var(--color-accent);
+  }
+
+  @media (max-width: 768px) {
+    .lang-item {
+      position: static;
+    }
+
+    .lang-menu {
+      position: static;
+      margin-top: 0.5rem;
+      box-shadow: none;
+    }
+  }
 
   @media (max-width: 768px) {
     .nav-toggle {
@@ -235,6 +462,25 @@ const base = import.meta.env.BASE_URL;
   .footer-links a {
     color: var(--color-text-muted);
     font-size: 0.9rem;
+  }
+
+  .footer-langs {
+    display: flex;
+    gap: 1.25rem;
+  }
+
+  .footer-langs a {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+  }
+
+  .footer-langs a:hover {
+    color: var(--color-accent);
+  }
+
+  .footer-langs .lang-current {
+    color: var(--color-accent);
+    font-weight: 600;
   }
 
   .footer-license {

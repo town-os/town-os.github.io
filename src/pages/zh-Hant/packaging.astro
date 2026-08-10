@@ -1,0 +1,1125 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="封裝格式 — Town OS" lang="zh-Hant">
+  <section class="section">
+    <div class="container">
+      <h1>封裝格式</h1>
+      <p class="page-lead">
+        Town OS 的套件是一份 YAML 定義，描述如何執行一個容器化服務，
+        包含它的映像檔、網路、儲存，以及面向使用者的設定問答。
+        套件也可以執行虛擬機器，或透過 Proton 執行 Windows 應用程式。
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#repository-structure">儲存庫結構</a></li>
+          <li><a href="#package-definition">套件定義</a></li>
+          <li><a href="#top-level-fields">頂層欄位</a></li>
+          <li><a href="#image-field">image 欄位</a></li>
+          <li><a href="#supplies-tags">supplies 標籤</a></li>
+          <li><a href="#network-configuration">網路設定</a></li>
+          <li><a href="#volumes">磁碟區</a></li>
+          <li><a href="#archives">封存檔</a></li>
+          <li><a href="#git-sources">Git 來源</a></li>
+          <li><a href="#questions">問答</a></li>
+          <li><a href="#templates">範本</a></li>
+          <li><a href="#notes">註記</a></li>
+          <li><a href="#dependencies">相依關係</a></li>
+          <li><a href="#template-system">範本系統</a></li>
+          <li><a href="#vm-runtime">虛擬機器執行環境</a></li>
+          <li><a href="#proton-runtime">Proton 執行環境</a></li>
+          <li><a href="#compilation">編譯</a></li>
+          <li><a href="#response-persistence">回答的保存</a></li>
+          <li><a href="#installation-workflow">安裝流程</a></li>
+          <li><a href="#uninstallation">解除安裝</a></li>
+          <li><a href="#install-preview">安裝預覽</a></li>
+          <li><a href="#featured-packages">精選套件</a></li>
+          <li><a href="#importing-repositories">匯入套件庫</a></li>
+          <li><a href="#validation-rules">驗證規則</a></li>
+          <li><a href="#style-guidelines">風格指引</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="repository-structure">儲存庫結構</h2>
+      <p class="doc-text">
+        套件庫就是任何一個含有 <code>packages/</code> 目錄的 git 儲存庫。
+        任何人都可以建立——替家人、朋友或客製化部署放你自己的套件。
+        結構很簡單：
+      </p>
+      <pre><code>packages/
+  &lt;package-name&gt;/
+    &lt;version&gt;.yaml
+featured.json          # 選用
+
+# 範例：
+packages/
+  nginx/
+    1.0.yaml
+    2.0.yaml
+  postgres/
+    1.0.yaml
+featured.json</code></pre>
+      <p class="doc-text">
+        <code>packages/</code> 下的每個套件目錄都含有一個以上帶版本號的 YAML 檔。
+        版本以句點分段比較——數字段以數值比較，其餘則以字典序比較。儲存系統支援在版本之間升級，
+        也支援暫時解除安裝後再還原。Town OS 內附一個
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">預設套件庫</a>，
+        但你可以視需要加入任意多個額外的套件庫。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="package-definition">套件定義</h2>
+      <p class="doc-text">一份包含所有可用欄位的完整容器套件定義：</p>
+      <pre><code>image:
+  url: nginx:1.26-alpine
+description: Lightweight high-performance web server and reverse proxy
+supplies: ["http"]
+command: ["optional", "command", "override"]
+environment:
+  NGINX_HOST: "@hostname@"
+network:
+  external:
+    "@port@": "80"
+  internal:
+    "5432": "5432"
+  domains:
+    - "@hostname@"
+volumes:
+  html:
+    mountpoint: /usr/share/nginx/html
+    quota: 2gb
+    uid: 1000
+    gid: 1000
+  data:
+    mountpoint: /data
+    archive: seed-data.tar.gz
+questions:
+  hostname:
+    query: "What hostname should nginx serve?"
+    type: hostname
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"
+archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html
+git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: data
+templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      version: &#123;&#123; .Package.Version &#125;&#125;
+notes:
+  URL:
+    value: "http://@hostname@:@port@"
+    type: url
+  Support:
+    value: "+1 (555) 123-4567"
+    type: phone</code></pre>
+      <p class="doc-text">
+        <code>image</code> 欄位也接受簡寫的字串形式：<code>image: nginx:1.26-alpine</code>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="top-level-fields">頂層欄位</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填（容器執行環境）。</strong>容器映像檔參照。可以是字串，也可以是帶 <code>url</code> 與選用 <code>type</code> 的物件。與 <code>vm</code> 互斥。</td></tr>
+            <tr><td><code>description</code></td><td>這個套件的簡短易讀說明。</td></tr>
+            <tr><td><code>supplies</code></td><td>此套件所提供能力的語意標籤清單（例如 <code>["database"]</code>、<code>["http"]</code>）。</td></tr>
+            <tr><td><code>command</code></td><td>選用的容器指令覆寫。與 <code>proton</code> 互斥。</td></tr>
+            <tr><td><code>environment</code></td><td>傳給容器的環境變數。鍵必須符合 <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>。值中可包含 <code>@variable@</code> 範本標記。</td></tr>
+            <tr><td><code>network</code></td><td>連接埠對應與網域設定。</td></tr>
+            <tr><td><code>volumes</code></td><td>具名磁碟區及其掛載設定。</td></tr>
+            <tr><td><code>questions</code></td><td>安裝期間顯示的互動式問題。名稱必須是英數字（<code>^[a-zA-Z0-9]+$</code>）。</td></tr>
+            <tr><td><code>archives</code></td><td>封存擷取規格，用於從容器映像檔預先填入磁碟區。</td></tr>
+            <tr><td><code>git_sources</code></td><td>要複製進磁碟區的 git 儲存庫。</td></tr>
+            <tr><td><code>templates</code></td><td>以 Go <code>text/template</code> 算繪、並在安裝時寫入磁碟區的檔案範本。</td></tr>
+            <tr><td><code>notes</code></td><td>安裝後顯示的鍵值資訊。支援範本替換。</td></tr>
+            <tr><td><code>vm</code></td><td>虛擬機器設定。與 <code>image</code> 及 <code>proton</code> 互斥。</td></tr>
+            <tr><td><code>proton</code></td><td>透過 Proton 執行 Windows 應用程式的設定。與 <code>vm</code> 及 <code>command</code> 互斥。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        執行環境有兩種型別：<strong>container</strong>（預設）與 <strong>vm</strong>。
+        套件為容器執行環境指定 <code>image</code> 或 <code>proton</code>，
+        為虛擬機器執行環境指定 <code>vm</code>。Proton 是容器執行環境的一種特化——
+        它底層同樣使用 Podman，但會自動產生指令，並從另一個容器映像檔擷取 Windows 應用程式的檔案。
+        這些欄位彼此互斥：一個套件必須剛好包含
+        <code>image</code>/<code>proton</code> 或 <code>vm</code> 其中之一。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="image-field">image 欄位</h2>
+      <p class="doc-text">
+        <code>image</code> 欄位指出要執行的容器映像檔。它接受兩種寫法：
+      </p>
+      <pre><code># 物件寫法
+image:
+  url: nginx:1.26-alpine
+  type: oci                # 選用，預設為 "oci"
+
+# 簡寫字串寫法
+image: nginx:1.26-alpine</code></pre>
+      <p class="doc-text">
+        簡短的映像檔名稱會在編譯期間自動正規化：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>輸入</th><th>正規化為</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nginx</code></td><td><code>docker.io/library/nginx:latest</code></td></tr>
+            <tr><td><code>myuser/myapp</code></td><td><code>docker.io/myuser/myapp:latest</code></td></tr>
+            <tr><td><code>ghcr.io/org/app</code></td><td><code>ghcr.io/org/app:latest</code></td></tr>
+            <tr><td><code>nginx:1.26-alpine</code></td><td><code>docker.io/library/nginx:1.26-alpine</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>type</code> 唯一有效的值是 <code>oci</code>（預設值）。映像檔 URL 只能包含
+        英數字、<code>@</code>、<code>.</code>、<code>_</code>、<code>:</code>、
+        <code>/</code> 與 <code>-</code>——shell 特殊字元會被拒絕。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="supplies-tags">supplies 標籤</h2>
+      <p class="doc-text">
+        <code>supplies</code> 欄位宣告套件提供了哪些能力，以便分類與篩選。
+        標籤是自由格式的字串——以下這些是慣用的：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>標籤</th><th>用於</th><th>範例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>http</code></td><td>網頁伺服器、CMS 平台、網頁應用程式</td><td>nginx、wordpress、gitea</td></tr>
+            <tr><td><code>database</code></td><td>關聯式與 NoSQL 資料庫</td><td>postgres、mysql、mongo</td></tr>
+            <tr><td><code>cache</code></td><td>快取與鍵值儲存</td><td>redis、memcached、valkey</td></tr>
+            <tr><td><code>search</code></td><td>搜尋與分析引擎</td><td>elasticsearch、opensearch、solr</td></tr>
+            <tr><td><code>messaging</code></td><td>訊息代理與佇列</td><td>rabbitmq、nats、kafka</td></tr>
+            <tr><td><code>monitoring</code></td><td>指標、警示與視覺化</td><td>prometheus、grafana、telegraf</td></tr>
+            <tr><td><code>storage</code></td><td>物件儲存與檔案代管</td><td>minio、registry、nextcloud</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="network-configuration">網路設定</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>network.external</code></td><td>直接開放在主機上的連接埠對應。鍵是主機連接埠，值是容器連接埠。兩者都是 <code>"port"</code> 字串，並可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>network.internal</code></td><td>只能從該套件自己的網路（以及共用的 HTTP 入口）連到的連接埠對應。鍵是主機側／轉送的連接埠，值是容器連接埠。</td></tr>
+            <tr><td><code>network.domains</code></td><td>選用清單，列出面向網際網路的額外 FQDN，HTTP 入口會為它們取得公開受信任的（Let&rsquo;s Encrypt / ACME）憑證。可包含 <code>@variable@</code> 範本。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        連接埠值在範本替換之後必須是 1 到 65535 之間的整數。
+        用不到的話，請整個省略 <code>external</code>、<code>internal</code> 或 <code>domains</code>——不要寫成空的對應或清單。
+      </p>
+      <p class="doc-text">
+        連接埠項目的<strong>鍵</strong>可以是數字連接埠字串
+        （<code>"2222": "22"</code>），也可以是符合
+        <code>^[a-zA-Z][a-zA-Z0-9_]*$</code> 的<strong>語意名稱</strong>（<code>http: "3000"</code>）。
+        替連接埠命名之後，上層套件就能依角色參照它（<code>@dep_KEY_port_http@</code>）而不必寫號碼；
+        而對特殊名稱 <code>http</code> 而言，這也表示讓該連接埠加入下面介紹的共用 HTTP 入口。
+      </p>
+
+      <h3>HTTP 入口（名為 <code>http</code> 的連接埠）</h3>
+      <p class="doc-text">
+        Town OS 執行著一個共用的 <strong><code>:443</code> 入口</strong>，
+        它為每個套件終結 TLS，並反向代理到該套件的純 HTTP 容器連接埠。
+        套件只要把某個 <strong>internal</strong> 連接埠命名為
+        <code>http</code>，就加入了這個入口：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"      # 容器的純 HTTP 連接埠</code></pre>
+      <p class="doc-text">這麼做之後：</p>
+      <ul class="doc-list">
+        <li>
+          服務可透過 <code>https://&lt;PACKAGE_DNS&gt;/</code> 連上——
+          <strong>網址中不帶連接埠。</strong>沒有主機連接埠需要選；也不要再把 HTTP 連接埠
+          對應到 <code>external</code> 之下。
+        </li>
+        <li>
+          入口會為 <code>&lt;PACKAGE_DNS&gt;</code>（例如
+          <code>gitea.default.home</code>）提供一張<strong>本地受信任的終端憑證</strong>
+          （由內建的 Rolodex CA 簽發），而且 Rolodex 會<strong>在 <code>_443</code>
+          上發布 DANE <code>TLSA</code> 記錄</strong>，讓支援 DANE 的用戶端可以釘選該憑證。
+        </li>
+        <li>
+          由於入口占用了 <code>:443</code>，應用程式產生的任何網址都必須是
+          <strong>不帶連接埠的 HTTPS</strong>。請據此設定應用程式的對外網址（例如
+          gitea 的 <code>GITEA__server__ROOT_URL: "https://@PACKAGE_DNS@/"</code>），
+          並讓應用程式在容器內繼續以純 HTTP 監聽。
+        </li>
+      </ul>
+      <p class="doc-text">
+        非 HTTP 的通訊協定（SSH、資料庫等）<strong>不可</strong>使用
+        <code>http</code> 這個名稱——它們不是 HTTP，入口無法為其終結 TLS。
+        請改用數字對應原樣轉送：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"          # 由 :443 入口承接，終結 TLS
+    "@sshport@": "22"     # 純 TCP 轉送，絕不包上 TLS</code></pre>
+
+      <h3>面向網際網路的名稱（<code>domains</code>）</h3>
+      <p class="doc-text">
+        預設情況下，入口只服務本地受信任的 <code>&lt;PACKAGE_DNS&gt;</code> 名稱。
+        若還想以<strong>公開受信任</strong>的憑證把服務開放到公開網際網路，請把真正的 FQDN 列在
+        <code>network.domains</code> 之下，並把該名稱的公開 DNS 指向這台主機。
+        入口會為列出的每個網域取得 ACME（Let&rsquo;s Encrypt）憑證：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"
+  domains:
+    - git.example.com</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="volumes">磁碟區</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mountpoint</code></td><td><strong>必填。</strong>此磁碟區在容器內掛載的絕對路徑（必須以 <code>/</code> 開頭）。</td></tr>
+            <tr><td><code>quota</code></td><td>選用的容量上限（例如 <code>512mb</code>、<code>2gb</code>、<code>1tb</code>）。支援 <code>mb</code>、<code>gb</code>、<code>tb</code> 後綴。可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>archive</code></td><td>選用的封存檔名，用來預先填入此磁碟區。</td></tr>
+            <tr><td><code>git</code></td><td>選用的 git 儲存庫 URL，會被複製進此磁碟區。</td></tr>
+            <tr><td><code>uid</code></td><td>選用的數字使用者 ID，用於磁碟區擁有權。</td></tr>
+            <tr><td><code>gid</code></td><td>選用的數字群組 ID，用於磁碟區擁有權。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        磁碟區名稱必須以英數字開頭，且只能包含英數字、句點、連字號與底線
+        （樣式：<code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code>）。
+        若套件沒有磁碟區，請整個省略 <code>volumes</code>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="archives">封存檔</h2>
+      <p class="doc-text">
+        <code>archives</code> 欄位會在安裝時把容器映像檔中的檔案擷取到磁碟區裡：
+      </p>
+      <pre><code>archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填。</strong>要從中擷取檔案的容器映像檔。</td></tr>
+            <tr><td><code>directory</code></td><td><strong>必填。</strong>容器映像檔中要擷取的絕對路徑。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>擷取目標磁碟區的名稱，必須是本套件中已定義的磁碟區。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        若目標磁碟區在安裝或調節時是空的，Podman 會拉取映像檔、建立一個暫時容器，
+        並把指定的目錄複製進該磁碟區。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="git-sources">Git 來源</h2>
+      <p class="doc-text">
+        <code>git_sources</code> 欄位會把 git 儲存庫複製進磁碟區：
+      </p>
+      <pre><code>git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: config</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>url</code></td><td><strong>必填。</strong>git 儲存庫 URL（http、https 或 ssh）。可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>branch</code></td><td>要複製的分支。可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>複製目標磁碟區的名稱，必須是本套件中已定義的磁碟區。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="questions">問答</h2>
+      <p class="doc-text">
+        問答定義了套件安裝期間顯示的互動式提示。使用者的回答會取代定義中各處的
+        <code>@name@</code> 範本標記。
+      </p>
+      <pre><code>questions:
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>query</code></td><td><strong>必填。</strong>顯示給使用者的提示文字。</td></tr>
+            <tr><td><code>type</code></td><td>選用的驗證型別。自由文字請省略。</td></tr>
+            <tr><td><code>default</code></td><td>選用的預設值，作為建議提供給使用者。</td></tr>
+            <tr><td><code>optional</code></td><td>設為 <code>true</code> 即允許此問題留白。其餘每個問題都必須給出非空的回答。</td></tr>
+            <tr><td><code>oauth</code></td><td><strong><code>type: oauth</code> 時必填，且只在該型別下有效。</strong>安裝對話框為取得權杖所執行的裝置流程。</td></tr>
+            <tr><td><code>show_if</code></td><td>指向同一套件中的某個 <code>boolean</code> 問題。在那個核取方塊被勾選之前，本問題在安裝對話框中會隱藏；未勾選時它會編譯成空字串（並免除必填檢查）&mdash; 讓套件能把一組進階選項收在一個開關之後。被參照的問題必須存在、必須是布林型別，且本身不能是條件式問題。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>問題型別</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>型別</th><th>驗證內容</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hostname</code></td><td>以小寫字母開頭，後接小寫英數字與連字號（樣式：<code>^[a-z][a-z0-9-]*$</code>）。留白時自動產生 <code>&lt;package-name&gt;-&lt;4-char-hex&gt;</code>。</td></tr>
+            <tr><td><code>port</code></td><td>1 到 65535 之間的整數。留白或設為 <code>"auto"</code> 時，會在 10000-60000 範圍內自動挑一個可用的連接埠。</td></tr>
+            <tr><td><code>bytes</code></td><td>整數，或帶 <code>tb</code>、<code>gb</code>、<code>mb</code> 後綴的數值（不分大小寫）</td></tr>
+            <tr><td><code>volume</code></td><td>英數字、連字號與底線（樣式：<code>^[a-zA-Z0-9-_]+$</code>）</td></tr>
+            <tr><td><code>archive</code></td><td>任何非空字串</td></tr>
+            <tr><td><code>secret</code></td><td>留白或設為 <code>"auto"</code> 時自動產生 64 位十六進位字串（256 位元）。也可以用明確的值覆寫。</td></tr>
+            <tr><td><code>duration</code></td><td>整數，或帶 <code>d</code>、<code>h</code>、<code>m</code>、<code>s</code> 後綴的數值（不分大小寫）。會換算成秒。</td></tr>
+            <tr><td><code>boolean</code></td><td><code>true</code>、<code>false</code>、<code>t</code>、<code>f</code>、<code>1</code> 或 <code>0</code>（不分大小寫）。正規化為字串 <code>true</code> 或 <code>false</code>。在安裝對話框中呈現為核取方塊；未作答的問題會取 <code>default</code>，若未宣告預設值則取 <code>false</code>。</td></tr>
+            <tr><td><code>oauth</code></td><td>不靠打字輸入，而是從安裝對話框執行 OAuth 裝置流程所取得的權杖。呈現為一個<strong>連線</strong>按鈕；回傳的權杖就是答案。其儲存與顯示方式與 <code>secret</code> 相同。</td></tr>
+            <tr><td><em>（省略）</em></td><td>任何字串——不做驗證</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>布林問題</h3>
+      <p class="doc-text">
+        <code>boolean</code> 問題會顯示為核取方塊而非文字欄位，其答案會以字面字串
+        <code>true</code> 或 <code>false</code> 替換進去。由於沒勾選同樣是一個真實的答案，
+        帶 <code>default: "true"</code> 的問題也可以被使用者關掉——明確的
+        <code>false</code> 會勝過預設值。
+      </p>
+      <pre><code>environment:
+  REGISTRATION_OPEN: "@open@"
+  METRICS_ENABLED: "@metrics@"
+questions:
+  open:
+    query: "Allow open registration?"
+    type: boolean          # 未作答 -&gt; "false"
+  metrics:
+    query: "Enable metrics?"
+    type: boolean
+    default: "true"        # 未作答 -&gt; "true"</code></pre>
+      <p class="doc-text">
+        檔案範本看到的也是正規化之後的值，因此
+        <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> 會算繪成 <code>true</code> 或
+        <code>false</code>，並且可以用
+        <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code> 判斷。
+      </p>
+
+      <h3>選填問題</h3>
+      <p class="doc-text">
+        除非宣告了 <code>optional: true</code>，否則每個問題都必須給出非空的回答。
+        少了它，那些應用程式確實可以不要的設定——SMTP 轉送、API 金鑰——就沒有誠實的表達方式：
+        作者只好編一個佔位的預設值，然後祈禱操作者會把它改掉。
+      </p>
+      <pre><code>environment:
+  SMTP_HOST: "@smtp_host@"
+  SMTP_PORT: "@smtp_port@"
+questions:
+  smtp_host:
+    query: "SMTP server hostname"
+    optional: true
+  smtp_port:
+    query: "SMTP server port"
+    type: port
+    optional: true
+    default: "587"</code></pre>
+      <p class="doc-text">
+        留白時，選填問題會在它的 <code>@marker@</code> 處替換成<strong>空字串</strong>，
+        因此應用程式看到的是一個空的變數，而不是某個沒人挑過的值。它絕不會被自動產生：
+        留白的選填 <code>secret</code> 會保持空白，而不會變成一串隨機字串，
+        讓應用程式老老實實拿去嘗試驗證。
+      </p>
+      <p class="doc-text">
+        <code>optional</code> 可以和 <code>type</code> 搭配——已作答的選填連接埠仍會依連接埠驗證，
+        而留白的則會被編譯掉、什麼都不留。它對 <code>boolean</code> 沒有意義，
+        因為核取方塊總會落在它的兩個值之一。
+      </p>
+
+      <h3>OAuth 問題</h3>
+      <p class="doc-text">
+        有些應用程式需要一份只有其廠商才能核發的憑證來設定——Plex 帳號權杖、GitHub 個人權杖——
+        而慣常的取得方式是在終端機裡跑個指令稿，再把印出來的東西貼過去。<code>oauth</code> 問題
+        改為從安裝對話框執行那套流程：操作者按下<strong>連線</strong>，在瀏覽器分頁中核准，
+        回傳的權杖就成為答案。
+      </p>
+      <p class="doc-text">
+        這裡<strong>沒有供應商登錄表</strong>。問題自帶一個 <code>oauth</code> 區塊，
+        寫明供應商自己的各個網址，因此任何具備裝置式流程的廠商，都不必改動 Town OS 就能支援。
+      </p>
+      <pre><code>environment:
+  PLEX_TOKEN: "@plextoken@"
+questions:
+  plextoken:
+    query: "Plex account"
+    type: oauth
+    oauth:
+      start:
+        method: POST
+        url: "https://plex.tv/api/v2/pins?strong=true"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      extract:
+        id: id
+        code: code
+      approve: "https://app.plex.tv/auth#?clientID=&#123;&#123;client_id&#125;&#125;&amp;code=&#123;&#123;code&#125;&#125;"
+      poll:
+        url: "https://plex.tv/api/v2/pins/&#123;&#123;id&#125;&#125;"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      token: authToken
+      interval: 2s
+      timeout: 10m</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start</code></td><td><strong>必填。</strong>開啟流程的請求：<code>method</code>（預設 <code>GET</code>）、<code>url</code>，以及選用的 <code>headers</code> 與 <code>form</code> 內容。</td></tr>
+            <tr><td><code>extract</code></td><td>要從開始回應中取出、並提供給下列各範本使用的 JSON 欄位，寫成 <code>name: json_field</code>。</td></tr>
+            <tr><td><code>approve</code></td><td><strong>必填。</strong>操作者用來核准的網址。它會在新分頁開啟，同時也會顯示成連結，以防被彈出視窗封鎖程式擋掉。</td></tr>
+            <tr><td><code>user_code</code></td><td>選用範本，用於操作者必須在核准頁面上輸入的短碼。GitHub 會給一組；Plex 不會。</td></tr>
+            <tr><td><code>poll</code></td><td><strong>必填。</strong>在核准前重複發出的請求。結構與 <code>start</code> 相同。</td></tr>
+            <tr><td><code>token</code></td><td><strong>必填。</strong>輪詢回應中存放權杖的 JSON 欄位。該欄位不存在或為 <code>null</code>，就是供應商在說&ldquo;尚未核准&rdquo;。</td></tr>
+            <tr><td><code>interval</code></td><td>輪詢頻率。預設為 <code>5s</code>；請遵守供應商公告的速率限制。</td></tr>
+            <tr><td><code>timeout</code></td><td>放棄前要持續輪詢多久。預設為 <code>5m</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        網址、標頭與表單值中的 <code>&#123;&#123;...&#125;&#125;</code> 佔位符，
+        會依 <code>extract</code> 所命名的內容解析，另外還有
+        <code>&#123;&#123;client_id&#125;&#125;</code>——這是 Town OS 為每次流程產生、
+        並在每一步都送出的隨機識別碼，Plex 正是把它的 pin 綁在這上面。
+      </p>
+      <p class="doc-text">
+        權杖是一份憑證，因此也就按憑證對待：在套件資訊面板中會被遮罩，可以複製但絕不列印。
+        它像其他回答一樣會被快取，因此重新安裝或升級時會直接重用，不必再把操作者送回供應商那邊。
+      </p>
+      <p class="doc-text">
+        由於呼叫這些網址的是系統控制器而非瀏覽器，它們必須是 <code>https</code>，
+        而且不能解析到回送、私有、連結本機或 CGNAT 位址。這項檢查會在實際建立連線時執行，
+        每一次重新導向也會再檢查一次，因此套件無法藉由某個流程，讓控制器伸手進主機自己的網路。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="templates">範本</h2>
+      <p class="doc-text">
+        <code>templates</code> 欄位定義了一些檔案，它們會以 Go <code>text/template</code> 算繪，
+        並在安裝期間寫入磁碟區。只有在目標檔案尚不存在時才會寫入，因此升級時能保留使用者的修改。
+      </p>
+      <pre><code>templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      name: &#123;&#123; .Package.Name &#125;&#125;
+      system: &#123;&#123; .System.Hostname &#125;&#125;</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>本套件中已定義的磁碟區名稱。</td></tr>
+            <tr><td><code>path</code></td><td><strong>必填。</strong>磁碟區內的相對路徑。不可以 <code>/</code> 開頭，也不可包含 <code>..</code>。</td></tr>
+            <tr><td><code>content</code></td><td><strong>必填。</strong>要算繪的 Go <code>text/template</code> 內容。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>範本資料脈絡</h3>
+      <p class="doc-text">
+        在 <code>&#123;&#123; &#125;&#125;</code> 運算式中可以使用下列資料：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>運算式</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.Responses.&lt;name&gt;</code></td><td>使用者對指定問題的回答</td></tr>
+            <tr><td><code>.Package.Name</code></td><td>套件名稱</td></tr>
+            <tr><td><code>.Package.Version</code></td><td>套件版本</td></tr>
+            <tr><td><code>.Package.Repo</code></td><td>套件庫名稱</td></tr>
+            <tr><td><code>.Package.Image</code></td><td>編譯後的容器映像檔參照</td></tr>
+            <tr><td><code>.Package.Description</code></td><td>套件描述</td></tr>
+            <tr><td><code>.System.Hostname</code></td><td>系統主機名稱</td></tr>
+            <tr><td><code>.System.ExternalIP</code></td><td>外部 IP 位址（若已知）</td></tr>
+            <tr><td><code>.System.InternalIP</code></td><td>內部／區網 IP 位址（若已知）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        範本名稱遵循與磁碟區名稱相同的規則。檔案以 <code>0600</code> 模式寫入，
+        上層目錄以 <code>0750</code> 模式建立。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="notes">註記</h2>
+      <p class="doc-text">
+        註記（notes）提供安裝後顯示的鍵值資訊。
+      </p>
+      <pre><code>notes:
+  URL:
+    value: "http://localhost:@port@"
+    type: url
+  Info:
+    value: "Default admin credentials are admin/admin"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>value</code></td><td><strong>必填。</strong>註記文字。支援 <code>@variable@</code> 範本替換。</td></tr>
+            <tr><td><code>type</code></td><td>選用的驗證型別：<code>url</code>、<code>phone</code> 或 <code>email</code>。純文字請省略。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dependencies">相依關係</h2>
+      <p class="doc-text">
+        套件可以宣告對其他套件的相依關係。相依套件會共用上層套件的 podman 網路，
+        讓同一相依樹中的容器能透過 podman 內建的 DNS，直接以容器名稱通訊。
+      </p>
+      <pre><code>dependencies:
+  db:
+    package: postgres
+    responses:
+      password: "@dbpass@"
+      user: "mattermost"
+      database: "mattermost"
+      port: "5432"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>package</code></td><td><strong>必填。</strong>要安裝的相依套件名稱。</td></tr>
+            <tr><td><code>repo</code></td><td>含有該相依套件的套件庫。預設與上層套件所在的套件庫相同。</td></tr>
+            <tr><td><code>version</code></td><td>要安裝的版本。預設為可用的最新版本。</td></tr>
+            <tr><td><code>responses</code></td><td>給該相依套件的問題回答。值支援來自上層套件問題的 <code>@variable@</code> 語法。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        上層套件在執行階段會為每個相依套件取得對應的環境變數：
+        <code>TOWNOS_DEP_&#123;KEY&#125;_HOST</code>（容器名稱）與
+        <code>TOWNOS_DEP_&#123;KEY&#125;_PORT_&#123;port&#125;</code>（容器側連接埠號）。
+        上層套件也可以在自己的環境變數值中使用 <code>@dep_KEY_host@</code> 與
+        <code>@dep_KEY_port_N@</code> 範本變數（見<a href="#template-system">範本系統</a>）。
+      </p>
+      <p class="doc-text">
+        <strong>範例：</strong>一個對 PostgreSQL 宣告了 <code>db</code> 相依關係的 Mattermost 套件，
+        可以在它的資料來源網址中參照資料庫主機：
+      </p>
+      <pre><code>environment:
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:@dbpass@@@dep_db_host@:@dep_db_port_5432@/mattermost?sslmode=disable"</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="template-system">範本系統</h2>
+      <p class="doc-text">
+        Town OS 有兩套範本系統，分別作用在編譯的不同階段。
+      </p>
+
+      <h3><code>@variable@</code> 替換</h3>
+      <p class="doc-text">
+        <code>@variable@</code> 語法會在套件編譯期間被替換，作用於所有可設定的欄位：
+        環境變數值、網路連接埠對應、網路網域、磁碟區掛載點、磁碟區配額、磁碟區的 git URL、
+        git 來源的 URL 與分支、範本的 volume 與 path 欄位、虛擬機器的映像檔與記憶體、
+        Proton 設定，以及註記值。
+      </p>
+      <p class="doc-text">
+        每個問題名稱都會成為一個變數。若要寫出字面的 <code>@</code> 字元
+        （例如 git SSH 網址 <code>git@@domain@</code>），請使用 <code>@@</code>——
+        兩個連續的 <code>@</code> 會產生一個字面的 <code>@</code>。
+      </p>
+      <p class="doc-text">
+        無法解析的變數（參照到沒有對應問題回答的名稱）會原樣保留在輸出中。
+      </p>
+
+      <h3>內建變數</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>變數</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>Town OS 主機的外部主機名稱或 IP</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>Town OS 主機的內部主機名稱或 IP</td></tr>
+            <tr><td><code>@PACKAGE_DNS@</code></td><td>此套件在內部網路上被指派的 DNS 名稱</td></tr>
+            <tr><td><code>@dep_KEY_host@</code></td><td>相依項目 KEY 的容器主機名稱（可透過共用網路上的 podman DNS 解析）。僅在套件宣告了相依關係時可用。</td></tr>
+            <tr><td><code>@dep_KEY_port_N@</code></td><td>相依項目 KEY 的容器連接埠 N。僅在套件宣告了相依關係時可用。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        內建變數會先於使用者問題的回答被替換，因此優先權較高。
+        相依範本變數（<code>@dep_*@</code>）在相依套件安裝完成後解析，並套用到上層套件的環境變數值。
+        其中 KEY 是小寫的相依鍵名，N 則是容器連接埠號。
+      </p>
+
+      <h3>Go 範本（<code>templates</code> 欄位中）</h3>
+      <p class="doc-text">
+        <code>templates</code> 欄位使用 Go <code>text/template</code> 語法
+        （<code>&#123;&#123; .Responses.name &#125;&#125;</code>）來算繪寫入磁碟區的檔案。
+        可用的資料脈絡見<a href="#templates">範本</a>一節。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-runtime">虛擬機器執行環境</h2>
+      <p class="doc-text">
+        套件可以執行虛擬機器而非容器，只要指定 <code>vm</code> 欄位來取代
+        <code>image</code>：
+      </p>
+      <pre><code>vm:
+  image: "https://example.com/my-vm.qcow2"
+  memory: 2gb
+  cpus: 2
+description: A virtual machine package</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填。</strong>虛擬機器磁碟映像檔的網址（http/https）或檔名。可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>memory</code></td><td>以位元組後綴表示的記憶體配置（例如 <code>1gb</code>、<code>512mb</code>）。預設為 <code>1gb</code>。可包含 <code>@variable@</code> 範本。</td></tr>
+            <tr><td><code>cpus</code></td><td>虛擬 CPU 數量。預設為 1。必須為非負數。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>vm</code> 欄位與 <code>image</code> 及 <code>proton</code> 互斥。
+        虛擬機器映像檔不會像容器映像檔那樣被正規化。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="proton-runtime">Proton 執行環境</h2>
+      <p class="doc-text">
+        套件可以透過指定 <code>proton</code> 欄位，以 Proton 執行 Windows 應用程式：
+      </p>
+      <pre><code>image:
+  type: oci
+proton:
+  app_image: "mycompany/windows-app:1.0"
+  app_directory: /app
+  volume: app
+  exe: /app/myapp.exe
+  args: ["-fullscreen", "-config", "/app/config.ini"]
+volumes:
+  app:
+    mountpoint: /app</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>app_image</code></td><td><strong>必填。</strong>含有該 Windows 應用程式的容器映像檔。</td></tr>
+            <tr><td><code>app_directory</code></td><td><strong>必填。</strong>應用程式所在的絕對路徑。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>本套件中已定義的磁碟區名稱。</td></tr>
+            <tr><td><code>exe</code></td><td><strong>必填。</strong>Windows 執行檔的路徑。</td></tr>
+            <tr><td><code>args</code></td><td>選用的命令列引數清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        設定了 <code>proton</code> 之後，容器指令會自動產生為
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>。容器映像檔預設取用
+        全系統的 <code>proton_image</code> 設定
+        （<code>quay.io/town/proton:latest</code>），可透過設定 <code>image</code>
+        在套件層級覆寫。<code>app_image</code> 欄位在編譯期間會依與一般容器映像檔參照
+        相同的規則正規化。<code>proton</code> 欄位與 <code>vm</code> 及
+        <code>command</code> 互斥。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="compilation">編譯</h2>
+      <p class="doc-text">
+        <strong>編譯會把套件定義與使用者的回答，轉換成一份完全解析、可直接執行的設定。</strong>
+        編譯管線包含下列步驟：
+      </p>
+      <ul class="doc-list">
+        <li>依各問題所宣告的型別驗證全部回答</li>
+        <li>套用型別專屬的驗證（連接埠範圍、主機名稱樣式、位元組剖析等）</li>
+        <li>把所有 <code>@variable@</code> 範本標記替換成解析後的值</li>
+        <li>把容器映像檔網址正規化為完整限定的參照</li>
+        <li>產出一份可供安裝、已解析的套件</li>
+      </ul>
+      <p class="doc-text">
+        對虛擬機器套件而言，記憶體字串（例如 <code>2gb</code>）會被剖析成位元組數，
+        並套用 CPU 的預設值。各欄位的驗證錯誤會一併蒐集後一起回傳，
+        因此使用者可以一次改完，而不必一個一個碰壁。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="response-persistence">回答的保存</h2>
+      <p class="doc-text">
+        <strong>回答依版本保存</strong>於
+        <code>responses/&lt;repo&gt;/&lt;pkg&gt;/&lt;version&gt;.json</code>。
+        同時也會在 <code>responses/last/&lt;repo&gt;/&lt;pkg&gt;.json</code>
+        存一份 <code>last</code> 副本，供升級以及從已解除安裝的磁碟區重新安裝時重用。
+      </p>
+      <p class="doc-text">
+        安裝成功後，last 回答會被清除。這表示如果一個套件被解除安裝、之後又重新安裝，
+        先前的答案會作為預設值提供給你。一旦新的安裝成功，快取的副本就會被移除。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="installation-workflow">安裝流程</h2>
+      <p class="doc-text">
+        <strong>安裝一個套件會走過一連串既定的步驟。</strong>
+        整個流程涵蓋從檔案準備到服務啟動的一切：
+      </p>
+      <ul class="doc-list">
+        <li>從套件庫中的套件檔案到已安裝目錄建立硬連結</li>
+        <li>保存回答（版本專屬的以及 <code>last</code> 副本）</li>
+        <li>建立磁碟區，套用配額與選用的 UID/GID 擁有權</li>
+        <li>從封存檔與 git 來源填入磁碟區（僅限容器執行環境）</li>
+        <li>套用範本（把檔案算繪進磁碟區）</li>
+        <li>產生 systemd unit（容器用 Podman，虛擬機器用 QEMU）</li>
+        <li>建立網路狀態檔</li>
+        <li>啟動服務</li>
+        <li>成功後清除 last 回答</li>
+      </ul>
+      <p class="doc-text">
+        有兩個選用旗標可控制磁碟區的行為：
+      </p>
+      <ul class="doc-list">
+        <li><code>reuse_volumes</code>——重用同一套件先前已解除安裝版本的磁碟區</li>
+        <li><code>import_from_version</code>——從指定的舊版本匯入磁碟區</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="uninstallation">解除安裝</h2>
+      <p class="doc-text">
+        <strong>解除安裝套件時，預設會保留磁碟區中的資料。</strong>
+        磁碟區只是從 <code>installed/</code> 前綴搬到 <code>uninstalled/</code> 前綴，
+        而不是被刪除。這樣重新安裝時，原有的資料仍然完整。
+      </p>
+      <p class="doc-text">
+        解除安裝流程也會移除網路狀態檔，並停止、停用並解除安裝相關的 systemd unit。
+      </p>
+      <p class="doc-text">
+        若想立即刪除磁碟區而不是保留它們，請使用 <code>purge_volumes</code> 旗標。
+        被清除的磁碟區無法復原。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="install-preview">安裝預覽</h2>
+      <p class="doc-text">
+        <strong>在真正開始安裝之前，你可以先預覽會建立哪些東西。</strong>
+        安裝預覽端點（<code>POST /packages/install-preview</code>）會回傳一份預定安裝的摘要，
+        而且不做任何變更：
+      </p>
+      <ul class="doc-list">
+        <li>將會建立的磁碟區</li>
+        <li>將會對應的連接埠</li>
+        <li>升級資訊（若是從舊版本升級）</li>
+        <li>執行環境型別（容器或虛擬機器）</li>
+        <li>該套件是否有需要回答的問題</li>
+        <li>虛擬機器套件的虛擬機器設定細節（映像檔、記憶體、CPU 數）</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="featured-packages">精選套件</h2>
+      <p class="doc-text">
+        套件庫可以在根目錄（與 <code>packages/</code> 目錄並列）放一個
+        <code>featured.json</code> 檔案，用來在介面上突顯特定套件。
+      </p>
+      <p class="doc-text">
+        該檔案內含一個由套件名稱字串組成的 JSON 陣列——不帶版本或套件庫前綴：
+      </p>
+      <pre><code>["wordpress", "nextcloud", "postgres"]</code></pre>
+      <p class="doc-text">
+        列在 <code>featured.json</code> 中的套件，會在 API 的套件清單回應中帶上
+        <code>featured: true</code>，讓介面據此加以突顯。這個檔案是選用的——
+        若不存在，就沒有任何套件被標為精選。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="importing-repositories">匯入套件庫</h2>
+      <p class="doc-text">
+        建立好套件庫之後，可以透過網頁介面或直接調整檔案系統設定，
+        把它加進你的 Town OS 執行個體。
+      </p>
+
+      <h3>透過介面</h3>
+      <p class="doc-text">
+        登入 Town OS 儀表板，前往 <strong>套件</strong>，選擇
+        <strong>套件庫</strong> 分頁，按下 <strong>新增套件庫</strong>。填入名稱、
+        git 網址與選用的憑證。按 <strong>重新整理</strong> 可立即拉取套件中繼資料。
+      </p>
+
+      <h3>透過檔案系統</h3>
+      <p class="doc-text">
+        編輯 btrfs 套件資料目錄中的 <code>repositories.json</code>。這個檔案是一個
+        由物件組成的 JSON 陣列：
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+      <p class="doc-text">
+        順序是有意義的——當套件名稱衝突時，排在後面的會覆蓋前面的。
+        私人套件庫請把憑證嵌在網址中。變更需要重新啟動服務，或在介面上按
+        <strong>重新整理</strong> 才會生效。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="validation-rules">驗證規則</h2>
+      <p class="doc-text">
+        套件驗證與編譯期間會強制執行以下限制：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>欄位</th><th>規則</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>映像檔 URL</td><td>非空；字元必須符合 <code>^[a-zA-Z0-9@][a-zA-Z0-9._:/@-]*$</code></td></tr>
+            <tr><td>映像檔 type</td><td>留空（預設為 <code>oci</code>）或 <code>oci</code></td></tr>
+            <tr><td>環境變數鍵</td><td>必須符合 <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>（POSIX 慣例）</td></tr>
+            <tr><td>問題名稱</td><td>必須符合 <code>^[a-zA-Z0-9]+$</code></td></tr>
+            <tr><td>磁碟區名稱</td><td>必須符合 <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code></td></tr>
+            <tr><td>掛載點</td><td>必須以 <code>/</code> 開頭</td></tr>
+            <tr><td>範本名稱</td><td>與磁碟區名稱規則相同</td></tr>
+            <tr><td>範本路徑</td><td>非空、相對路徑（不帶開頭的 <code>/</code>）、不含 <code>..</code> 穿越</td></tr>
+            <tr><td>封存目錄</td><td>必須是絕對路徑</td></tr>
+            <tr><td>封存／git 的 volume</td><td>必須參照該套件中已定義的磁碟區</td></tr>
+            <tr><td>Git URL</td><td>必須有有效的協定與主機（<code>file://</code> 除外）</td></tr>
+            <tr><td>虛擬機器 CPU 數</td><td>必須為非負數</td></tr>
+            <tr><td>Proton 的 app_directory</td><td>必須是絕對路徑</td></tr>
+            <tr><td>執行環境</td><td><code>image</code>/<code>proton</code>（容器）與 <code>vm</code> 之中剛好取其一</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        驗證發生在範本替換之前。含有 <code>@variable@</code> 標記的欄位，
+        會跳過路徑與網址驗證，直到編譯把範本解析完之後再檢查。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="style-guidelines">風格指引</h2>
+      <ul class="guidelines-list">
+        <li>省略空的對應（<code>environment: {}</code>、<code>internal: {}</code>、<code>volumes: {}</code>）——乾脆整個不寫。</li>
+        <li>接受自由文字的問題請省略 <code>type</code>——不要寫一個沒有值的 <code>type:</code>。</li>
+        <li>寫上 <code>description</code>，簡短說明這個套件是什麼。</li>
+        <li>當套件提供的是眾所周知的服務時，寫上帶有相應能力標籤的 <code>supplies</code>。</li>
+        <li>寫上 <code>notes</code>，包含連線網址以及任何重要的安裝後資訊。</li>
+        <li>用 <code>@variable@</code> 範本，讓使用者在安裝時自訂連接埠、主機名稱與憑證。</li>
+        <li>需要 Go 範本邏輯的設定檔請使用 <code>templates</code>——它們只會寫入一次，並保留使用者的修改。</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+  .guidelines-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .guidelines-list li {
+    margin-bottom: 0.6rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-list code {
+    font-size: 0.85em;
+  }
+</style>

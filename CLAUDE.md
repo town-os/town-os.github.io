@@ -6,11 +6,15 @@ Astro 5 static site for the Town OS project. Deployed to GitHub Pages at `https:
 
 ```
 src/
-  layouts/BaseLayout.astro    — Master layout (sticky header, footer, nav, CSS imports)
-  pages/                      — All pages (index, guide, concepts, packaging, api, screenshots, community, repositories)
+  layouts/BaseLayout.astro    — Master layout (sticky header, footer, nav, language switcher, CSS imports)
+  i18n/ui.ts                  — Locale list, shared chrome strings, path helpers
+  pages/                      — English pages (index, guide, concepts, packaging, api, screenshots, community, repositories)
+  pages/zh-Hans/              — Simplified Chinese translations (same eight filenames)
+  pages/zh-Hant/              — Traditional Chinese translations (same eight filenames)
   components/diagrams/        — Diagram components (DiagramFlow, DiagramBox, DiagramArrow, DiagramStack, DiagramLayer, DiagramTag)
   styles/global.css           — CSS variables and base styles
   styles/tailwind.css         — Tailwind theme mapping
+scripts/check-i18n.sh         — Translation completeness + style-drift check
 public/
   images/logos/               — Logo sizes from 16px to 1024px
   images/screenshots/         — UI screenshots for gallery
@@ -102,6 +106,56 @@ Tailwind mirrors these as `--color-town-*` in `tailwind.css` (used only in diagr
 - The script `podman pull`s the installer image `quay.io/town/installer:<tag>` and streams its `/town-os.img.bz2` straight to the chosen USB/SD/NVMe. The tag defaults to `release-$(uname -m)`; override the whole reference with the `TOWN_OS_INSTALLER_IMAGE` env var.
 - **Raspberry Pi:** `RPI=1` (env) or `--rpi` (arg) flashes the Pi image — it pulls the **separate** `release-aarch64-rpi` tag (the Pi image is always 64-bit Arm regardless of the flashing host) with `--platform linux/arm64`. User-facing instructions live in `src/pages/guide.astro` (Quick Start); the homepage `index.astro` command stays the PC default.
 - The installer image is built and pushed by the **`town-os/install`** repo (`make push-installer` / `make release`, optionally `RPI=1`), not by this repo.
+
+## Internationalization
+
+The site ships in three locales: English (`en`, default, unprefixed), Simplified Chinese
+(`zh-Hans`, under `/zh-Hans/`) and Traditional Chinese (`zh-Hant`, under `/zh-Hant/`).
+
+### Where things live
+- `src/i18n/ui.ts` — the locale registry (`languages`, `defaultLang`), the shared-chrome
+  string table (`ui`), and the path helpers. Everything else imports from here.
+- `localizePath(path, lang)` builds an internal href: `localizePath('guide/', 'zh-Hant')`
+  → `/zh-Hant/guide/`. **All internal links in a translated page must go through it** —
+  never hardcode `${base}guide/` in a locale page, or the reader gets bounced to English.
+- `getLangFromUrl` / `stripLang` derive the active locale and the locale-free path from
+  `Astro.url`; `BaseLayout` uses them for the switcher and the `hreflang` tags.
+- `astro.config.mjs` declares the same three locales with `prefixDefaultLocale: false`.
+
+### Language selection
+- Every page carries an inline `<head>` script that redirects before first paint. A stored
+  preference (`localStorage['town-os:lang']`) always wins; otherwise `navigator.languages`
+  decides — first `zh*` entry wins (`hant|tw|hk|mo` → `zh-Hant`, everything else →
+  `zh-Hans`), a first `en*` entry stops the search, and any other language keeps scanning.
+- Auto-detection runs **once per session** (`sessionStorage['town-os:lang-auto']`), so
+  someone who navigates back to `/guide/` by hand is not dragged away again.
+- Clicking the switcher (nav dropdown or footer row) writes the choice to `localStorage`,
+  which pins it permanently. The switcher links to the *same page* in the other locale.
+- `BaseLayout` emits `<html lang>`, `og:locale`, and `hreflang` alternates (plus
+  `x-default` → English) for all three locales on every page.
+
+### Adding or changing a page
+1. Write the English page in `src/pages/`.
+2. Add both translations at `src/pages/zh-Hans/<name>.astro` and
+   `src/pages/zh-Hant/<name>.astro`, passing `lang="zh-Hans"` / `lang="zh-Hant"` to
+   `BaseLayout` and using `localizePath` for internal links.
+3. Keep every `id="..."` anchor, image path, code sample, and CSS class **identical** to
+   the English page — only prose is translated. Anchors are shared across locales.
+4. The page's `<style>` block is **duplicated verbatim** into both locale copies. Astro
+   scopes styles per component, so a shared stylesheet would lose the scoping. Any style
+   edit to an English page must be mirrored into both translations.
+5. Add nav/footer strings to the `ui` table in `src/i18n/ui.ts`, not to the layout markup.
+6. Run `make check-i18n` (or `./scripts/check-i18n.sh`) — it fails on a missing translation
+   or on a locale page whose `<style>` block has drifted from the English original.
+
+### Translation conventions
+- `zh-Hans` uses mainland vocabulary (软件、网络、硬盘、默认、内存、卷、镜像、端口);
+  `zh-Hant` uses Taiwan vocabulary (軟體、網路、硬碟、預設、記憶體、磁碟區、映像檔、連接埠).
+  They are separate translations, not a character-by-character conversion.
+- Leave untranslated: commands, code blocks, YAML/JSON samples, API paths, field names,
+  env var names, product names, and `make` targets.
+- Prose in code comments inside `<script>` blocks (button labels like Copy/复制/複製) *is*
+  translated, since it is user-visible.
 
 ## General Rules
 - No emojis in copy unless explicitly requested

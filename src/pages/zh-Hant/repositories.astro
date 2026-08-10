@@ -1,0 +1,177 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="程式碼儲存庫 — Town OS" lang="zh-Hant">
+  <section class="section">
+    <div class="container repos-container">
+      <h1>程式碼儲存庫</h1>
+      <p class="page-lead">
+        Town OS 的所有原始碼都放在 <a href="https://gitea.com/town-os" target="_blank" rel="noopener">Gitea</a> 上。<a href="https://github.com/town-os" target="_blank" rel="noopener">github.com/town-os</a> 有 GitHub 鏡像，但通常不是最新的。
+      </p>
+
+      <div class="repo-links">
+        <a href="https://gitea.com/town-os/town-os" target="_blank" rel="noopener" class="repo-card repo-card--highlight">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Town OS</h2>
+            <p>核心產品。追蹤 <code>stable</code> 分支即可掌握發行層級的變更。看到任何問題都歡迎開立 issue。</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Rolodex</h2>
+            <p>為你的套件管理權威區域並轉送上游查詢的 DNS 伺服器。設計上是 Town OS 的網路骨幹。DNSSEC、廣告封鎖與 DHCP 已在規劃中。</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M18 8h-2V6c0-2.21-1.79-4-4-4S8 3.79 8 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM12 17c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3-9H9V6c0-1.66 1.34-3 3-3s3 1.34 3 3v2z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Install</h2>
+            <p>USB 隨身碟映像檔的建置工具。產生的可開機映像檔採用 squashfs 根檔案系統、GPT 分割，並同時為 UEFI 與 BIOS 設定 GRUB。支援以 QEMU 測試。</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 12H4V8h16v10z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>Default Packages</h2>
+            <p>每一套 Town OS 都內附的預設套件庫。收錄 Gitea、Jitsi Meet、Mattermost、Plex、PostgreSQL 等套件。採用 BSD-3-Clause 授權。</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener" class="repo-card">
+          <div class="card-icon">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V8h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h2zm-6-4h8v2h-8z"/>
+            </svg>
+          </div>
+          <div class="card-content">
+            <h2>ttyforce</h2>
+            <p>以 Rust 撰寫的 Town OS 文字介面安裝程式，同時取代 getty。負責互動式網路設定、含自動 RAID 的磁碟佈建、從 GitHub 匯入 SSH 金鑰，並在開機後顯示即時系統狀態。</p>
+          </div>
+          <span class="card-arrow">&rarr;</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .repos-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .page-lead a {
+    color: var(--color-accent);
+  }
+
+  .repo-links {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 640px;
+    width: 100%;
+  }
+
+  .repo-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    color: var(--color-text);
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .repo-card--highlight {
+    border-color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-card));
+  }
+
+  .repo-card:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .card-icon {
+    flex-shrink: 0;
+    color: var(--color-accent);
+  }
+
+  .card-content {
+    flex: 1;
+    text-align: left;
+  }
+
+  .card-content h2 {
+    font-size: 1.15rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .card-content p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  .card-content code {
+    background: var(--color-bg-elevated);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  .card-arrow {
+    font-size: 1.5rem;
+    color: var(--color-text-muted);
+    transition: color 0.2s, transform 0.2s;
+  }
+
+  .repo-card:hover .card-arrow {
+    color: var(--color-accent);
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 768px) {
+    .repo-card {
+      padding: 1.25rem;
+    }
+  }
+</style>

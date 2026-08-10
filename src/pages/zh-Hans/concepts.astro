@@ -1,0 +1,217 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="核心概念 — Town OS" lang="zh-Hans">
+  <section class="section">
+    <div class="container concepts-container">
+      <h1>核心概念</h1>
+      <p class="page-lead">
+        Town OS 建立在一组核心思想之上。理解这些概念，有助于你看清各部分是如何组合在一起的——
+        从定义一个软件包，到管理一个正在运行的服务。
+      </p>
+
+      <div class="concepts-grid">
+        <div class="card concept-card">
+          <h3>软件包（Packages）</h3>
+          <p>
+            软件包是对某个服务的自包含 YAML 定义，从 git 仓库拉取。每个软件包都会声明自己的
+            网络端口映射、存储卷、环境变量和交互式提问——运行该服务所需的一切。软件包可以以
+            容器方式运行（默认），也可以是基于 QEMU 的虚拟机，或通过 Valve 的 Proton 兼容层
+            运行的 Windows 应用。文件模板（Go 的 <code>text/template</code> 文件）可以在安装时
+            渲染进卷中，实现动态配置。软件包通过 <code>supplies</code> 标签（例如
+            <code>http</code>、<code>database</code>、<code>cache</code>）描述自身能力。
+            默认仓库自带一批精选软件包，涵盖 git 托管、视频会议、媒体流、团队沟通
+            和数据库——并且还在持续增加。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>提问（Questions）</h3>
+          <p>
+            安装软件包时，Town OS 可能会呈现一组称为「提问」的交互式提示。你的回答会填入软件包
+            定义中各处的 <code>@variable@</code> 模板占位符——用于设置主机名、端口、凭据和其他选项。
+            每个提问都带有类型化的校验器（<code>hostname</code>、<code>port</code>、<code>bytes</code>、
+            <code>volume</code>、<code>archive</code>、<code>duration</code>、<code>secret</code>、
+            <code>boolean</code>、<code>oauth</code> 或自由文本）以及可选的默认值，
+            因此配置错误在服务启动前就会被拦下。类型还决定了你看到的控件——<code>boolean</code>
+            是复选框，<code>secret</code> 是掩码输入框，而 <code>oauth</code> 提问是一个「连接」按钮，
+            会带你登录相应服务商并保存它返回的令牌。有几种类型在留空时会自动生成取值：端口在
+            10000–60000 范围内随机分配，主机名按 <code>package-name-4hex</code> 的形式生成，
+            密钥则生成 64 位十六进制字符串。标记为 <code>optional</code> 的提问可以直接留空——
+            你没有的 SMTP 中继会保持未设置，而不是被随便填上一个值。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>服务（Services）</h3>
+          <p>
+            软件包安装完成后就成为一个服务——一个由 systemd 单元管理的运行中容器。Town OS 提供
+            启动、停止和重启控制，通过 Server-Sent Events 实时推送日志，支持基于游标的日志分页，
+            也可以启用或禁用服务。各服务之间以及与宿主系统之间都是相互隔离的。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>网络（Networking）</h3>
+          <p>
+            Town OS 内置了
+            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>，
+            这是一个 DNS 服务器，为你的软件包管理权威区域并转发上游查询。每个软件包声明自己的
+            端口映射——<code>external</code> 端口暴露给宿主机，<code>internal</code> 端口仅在容器
+            之间可用。端口取值支持 <code>@variable@</code> 模板，因此用户可以在安装时自行选择端口。
+            声明了依赖关系的软件包会共享同一网络，使同一依赖树中的容器可以直接通信。父软件包可以在
+            环境变量中使用 <code>@dep_KEY_host@</code> 和 <code>@dep_KEY_port_N@</code> 模板变量引用
+            依赖，也可以通过运行时环境变量
+            （<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> 和
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>）访问。UPnP 转发由系统自动处理。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>存储（Storage）</h3>
+          <p>
+            所有数据都存放在 btrfs 子卷上，按软件包相互隔离。每个卷都有一个容器内的挂载点、
+            一个可配置的配额（例如 <code>512mb</code>、<code>2gb</code>），以及可选的
+            <code>uid</code>/<code>gid</code> 归属。卷可以通过 <code>archives</code> 功能从容器
+            镜像预填充内容，也可以在安装时把一个 git 仓库克隆进空卷来完成初始化。用户还可以创建
+            自己的独立卷。虚拟机磁盘镜像会缓存在专用子卷中，后续安装可以直接复用。系统支持 btrfs
+            快照，可用于时间点备份。数据在软件包重装和升级之间始终保留——更新服务时你的文件不会丢失。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>仓库（Repositories）</h3>
+          <p>
+            软件包按仓库组织——即包含 <code>packages/</code> 目录、其中存放带版本 YAML 定义的 git 仓库。
+            每套 Town OS 都包含默认仓库，但任何人都可以创建和分享自定义仓库。仓库是有顺序的——
+            当软件包重名时，靠后的条目会覆盖靠前的。仓库中的 <code>featured.json</code> 文件可以
+            在界面上突出展示选定的软件包。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>模板与说明（Templates &amp; Notes）</h3>
+          <p>
+            <code>@variable@</code> 模板系统把用户对提问的回答连接到环境变量、端口映射、卷配额等各处。
+            像 <code>@LOCAL_EXTERNAL_HOST@</code> 和 <code>@LOCAL_INTERNAL_HOST@</code> 这样的内置变量
+            始终可用。安装完成后，<code>notes</code> 会展示关键信息，例如连接 URL、凭据或联系方式——
+            并可对 <code>url</code>、<code>phone</code> 和 <code>email</code> 进行可选的类型校验。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>页面（Pages）</h3>
+          <p>
+            Town OS 可以托管静态网站。每个页面有三种可选的来源：上传 tar 归档、从容器镜像中提取文件，
+            或克隆一个 git 仓库。每个页面都有自己的域名，并通过 Caddy 对外提供服务。归档类型的页面可以
+            重新上传来更新；git 和容器镜像类型的页面可以按需重新构建。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>监控（Monitoring）</h3>
+          <p>
+            内置的可观测性套件开箱即用，无需任何配置。Prometheus 负责采集指标，Node Exporter 报告
+            主机统计数据（CPU、内存、磁盘、网络）。可选两种监控后端：轻量的内置界面（默认）
+            或带自动配置仪表盘的 Grafana。整套组件都作为系统服务运行，失败时会自动重启。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>国际化（Internationalization）</h3>
+          <p>
+            所有面向用户的字符串都经由一个以 BCP 47 语言代码为键的消息目录管理。界面以母语字形呈现
+            21 种常见语言，另有 87 种以上的国家/地区代码可选。目前只有英语（<code>en-US</code>）
+            完成了全部翻译——相关基础设施已经就绪，只等社区参与翻译。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>账户与会话（Accounts &amp; Sessions）</h3>
+          <p>
+            Town OS 支持管理员账户和普通用户账户。密码至少需要 8 个字符。身份验证使用 JWT 令牌，
+            闲置 7 天后过期。会话是临时性的——签名密钥会在每次重启时重新生成，从而自动清除所有活动会话。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>审计日志（Audit Logging）</h3>
+          <p>
+            每一项管理操作都会被记录，包含账户名、动作、请求路径、详情、成功标志和时间戳。
+            只读端点不计入其中。审计日志支持分页、按账户过滤和全文搜索。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>设置（Settings）</h3>
+          <p>
+            全系统配置通过界面中的键值设置进行管理。可配置项包括默认卷配额（50 GB）、
+            归档上传大小上限（1 GB）、归档解包超时（600 秒）、语言区域、Proton 运行器镜像
+            以及 DNS 顶级域名。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>软件包升级（Package Upgrades）</h3>
+          <p>
+            当你配置的仓库中出现更新版本时，Town OS 会自动检测。仪表盘上的角标会显示待处理升级的数量。
+            你可以忽略不想升级的版本——忽略记录以 SHA256 哈希跟踪，只有当可升级集合发生变化时才会再次出现。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>系统服务（System Services）</h3>
+          <p>
+            基础设施容器——监控、DNS 和 Web 界面——与用户安装的软件包分开管理。它们使用不同的
+            systemd 前缀（<code>town-os-system--</code>），失败时总会重启，且用户无法将其禁用。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .concepts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .concepts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .concept-card {
+    text-align: left;
+  }
+
+  .concept-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

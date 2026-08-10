@@ -1,0 +1,1910 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="API 文件 — Town OS" lang="zh-Hant">
+  <section class="section">
+    <div class="container">
+      <h1>API 文件</h1>
+      <p class="page-lead">
+        Town OS systemcontroller API 的完整參考——涵蓋帳號、儲存、套件庫、套件、systemd、
+        設定、稽核、頁面、DNS、監控、系統服務、語言地區、虛擬機器映像檔與狀態，共 77 個端點。
+      </p>
+      <div class="client-libs-cards">
+        <a href="#go-client" class="card client-lib-card">
+          <h3>Go 用戶端</h3>
+          <p><code>src/svc/systemcontroller/client.go</code></p>
+          <p>完整的 <code>Client</code> 介面，支援 Unix socket 與 HTTP。</p>
+          <p class="forthcoming">封裝發布中</p>
+        </a>
+        <a href="#js-client" class="card client-lib-card">
+          <h3>JavaScript 用戶端</h3>
+          <p><code>ui/src/api/</code></p>
+          <p>Town OS 儀表板介面所使用、以 mixin 組成的模組化用戶端。</p>
+          <p class="forthcoming">封裝發布中</p>
+        </a>
+      </div>
+
+      <nav class="toc">
+        <ul>
+          <li><a href="#overview">概觀</a></li>
+          <li><a href="#authentication">身分驗證</a></li>
+          <li><a href="#pagination">分頁</a></li>
+          <li><a href="#status">狀態</a></li>
+          <li><a href="#accounts">帳號</a></li>
+          <li><a href="#storage">儲存</a></li>
+          <li><a href="#repositories">套件庫</a></li>
+          <li><a href="#packages">套件</a></li>
+          <li><a href="#systemd">Systemd</a></li>
+          <li><a href="#settings">設定</a></li>
+          <li><a href="#audit">稽核記錄</a></li>
+          <li><a href="#pages">頁面</a></li>
+          <li><a href="#dns">DNS</a></li>
+          <li><a href="#monitoring">監控</a></li>
+          <li><a href="#system-services">系統服務</a></li>
+          <li><a href="#locales">語言地區</a></li>
+          <li><a href="#vm-images">虛擬機器映像檔</a></li>
+          <li><a href="#client-libraries">用戶端函式庫</a></li>
+          <li><a href="#development">開發參考</a></li>
+          <li><a href="#prerequisites">先決條件</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Overview -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="overview">概觀</h2>
+      <p class="doc-text">
+        systemcontroller 是 Town OS 的核心後端服務。它建構於
+        <strong>Echo v5</strong> 之上，正式環境中會監聽 <strong>5309</strong> 連接埠（TCP）
+        或一個 Unix 網域 socket。所有請求與回應主體都使用 JSON。錯誤遵循
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        （<code>application/problem+json</code>）。
+      </p>
+      <p class="doc-text">
+        開發時會啟用 CORS。正式環境中，API 與介面部署在同一個來源之下。
+      </p>
+    </div>
+  </section>
+
+  <!-- Authentication -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="authentication">身分驗證</h2>
+      <p class="doc-text">
+        呼叫 <code>POST /account/authenticate</code> 並附上使用者名稱與密碼即可驗證。
+        回應中會含有一個 Bearer 權杖。請在後續請求中帶上它：
+      </p>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+      <p class="doc-text">
+        工作階段閒置 7 天後過期。共有三種驗證層級：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>層級</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="auth-badge auth-public">公開</span></td><td>不需要權杖。</td></tr>
+            <tr><td><span class="auth-badge auth-authenticated">已驗證</span></td><td>任何有效的工作階段權杖。</td></tr>
+            <tr><td><span class="auth-badge auth-admin">管理者</span></td><td>屬於管理者帳號的工作階段權杖。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pagination -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pagination">分頁</h2>
+      <p class="doc-text">
+        所有清單端點都接受下列查詢參數，並回傳統一的信封結構：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>參數</th><th>型別</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sort_by</code></td><td>string</td><td>用來排序的欄位名稱。</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> 或 <code>desc</code>。</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>每頁筆數（預設 20）。</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>分頁位移。</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>對所有字串欄位做不分大小寫的子字串比對。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>回應信封</h3>
+      <pre><code set:html={'{\n  "entries":     [...],\n  "has_more":    true,\n  "total_pages": 5,\n  "total_count": 97\n}'} /></pre>
+    </div>
+  </section>
+
+  <!-- Status -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="status">狀態</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/status/ping</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        健康檢查與系統概覽。未驗證的呼叫者會取得精簡回應，只含
+        <code>status</code> 與 <code>needs_setup</code>。已驗證的呼叫者則取得完整的儀表板資料，
+        包含檔案系統數量、套件計數、unit 狀態摘要、磁碟使用量、外部／內部 IP，以及是否有可用升級。
+      </p>
+    </div>
+  </section>
+
+  <!-- Accounts -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="accounts">帳號</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/authenticate</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以使用者名稱與密碼驗證。回傳一個工作階段權杖與該帳號物件。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>必填。</strong>帳號使用者名稱。</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>必填。</strong>帳號密碼。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/create</code>
+          <span class="auth-badge auth-public">公開</span>
+          /
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        建立新帳號。在初始啟動模式下（尚無任何已啟用的管理者帳號），此端點是公開的；
+        否則需要管理者驗證。建立的第一個帳號會成為管理者。密碼至少 8 個字元。
+        電子郵件、電話與真實姓名為必填。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>必填。</strong></td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>必填。</strong>至少 8 個字元。</td></tr>
+            <tr><td><code>email</code></td><td>string</td><td><strong>必填。</strong></td></tr>
+            <tr><td><code>phone</code></td><td>string</td><td><strong>必填。</strong></td></tr>
+            <tr><td><code>real_name</code></td><td>string</td><td><strong>必填。</strong></td></tr>
+            <tr><td><code>admin</code></td><td>boolean</td><td>此帳號是否具有管理者權限。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依使用者名稱取得單一帳號。請求主體：<code>&lbrace;"username": "alice"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有帳號。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/update</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        更新帳號欄位。送出 <code>username</code> 以指明帳號，並附上一個
+        <code>fields</code> 物件，其中可任意組合 <code>password</code>、
+        <code>email</code>、<code>phone</code>、<code>real_name</code> 與 <code>admin</code>。
+        只有提供的欄位會被變更。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/me</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        回傳與 Authorization 標頭中權杖關聯的使用者名稱。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/sessions</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出目前已驗證使用者的所有作用中工作階段。每個工作階段含其 ID、使用者名稱、建立時間與最後使用時間。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/session/revoke</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依 ID 撤銷一個工作階段。請求主體：<code>&lbrace;"session_id": "..."&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        停用一個帳號。請求主體：<code>&lbrace;"username": "bob"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        重新啟用一個已停用的帳號。請求主體：<code>&lbrace;"username": "bob"&rbrace;</code>。
+      </p>
+    </div>
+  </section>
+
+  <!-- Storage -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="storage">儲存</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出檔案系統。除分頁參數外，請求主體中還可傳入選用的 <code>name</code>
+        （前綴篩選）與 <code>state</code>（<code>user</code>、<code>installed</code>
+        或 <code>uninstalled</code>）。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/create</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        建立一個新的 btrfs 子磁碟區。送出 <code>name</code> 與選用的 <code>quota</code>
+        （位元組）。若配額為 0 或省略，則採用系統預設值（50 GB）。保留名稱
+        （<code>installed</code>、<code>uninstalled</code>、<code>archives</code>）會被拒絕。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/modify</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        修改既有的檔案系統。送出 <code>name</code> 以指明對象，並附上一個
+        <code>filesystem</code> 物件，其中含更新後的 <code>name</code> 與／或 <code>quota</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        移除一個檔案系統。請求主體：<code>&lbrace;"name": "mydata"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/upload-archive</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        上傳封存檔並解開到目標子磁碟區。接受 <code>multipart/form-data</code>，
+        含一個 <code>subvolume</code> 欄位與一個 <code>archive</code> 檔案。支援
+        <code>.tar.gz</code>、<code>.tgz</code>、<code>.tar.bz2</code>、<code>.tbz2</code>、
+        <code>.tar.xz</code>、<code>.txz</code>、<code>.tar</code>、<code>.zip</code> 與
+        <code>.7z</code>。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>必填。</strong>目標子磁碟區路徑。</td></tr>
+            <tr><td><code>archive</code></td><td>file</td><td><strong>必填。</strong>要上傳的封存檔。</td></tr>
+            <tr><td><code>subpath</code></td><td>string</td><td>選用。磁碟區內用來解開的相對路徑；會視需要建立。</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>選用。解開前停止、完成後重新啟動的 systemd unit 名稱。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>設定</th><th>預設值</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>max_archive_size</code></td><td>1 GB</td><td>上傳大小上限。</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 秒</td><td>解開封存檔的最長時間。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/download-archive</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        下載子磁碟區內容的封存檔。會以所要求的格式回傳串流封存。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>必填。</strong>來源子磁碟區路徑。</td></tr>
+            <tr><td><code>paths</code></td><td>string[]</td><td>選用。子磁碟區內要納入的特定路徑陣列。</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>選用。封存期間停止、之後重新啟動的 systemd unit 名稱。</td></tr>
+            <tr><td><code>format</code></td><td>string</td><td>選用。壓縮格式：<code>tar.gz</code>（預設）、<code>tar.bz2</code> 或 <code>tar.xz</code>。</td></tr>
+            <tr><td><code>filename</code></td><td>string</td><td>選用。下載檔案的自訂主檔名，伺服器會補上對應副檔名。預設為 <code>download</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/package-volumes</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依套件分組列出套件磁碟區，並可選擇是否納入已解除安裝的磁碟區。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依內部名稱刪除某個特定的套件磁碟區。
+      </p>
+    </div>
+  </section>
+
+  <!-- Repositories -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="repositories">套件庫</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/repository</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有已設定的套件庫，含名稱、網址與任何錯誤狀態。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/add</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新增一個套件庫。會立即觸發一次重新整理。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code></td><td>string</td><td><strong>必填。</strong>套件庫的顯示名稱。</td></tr>
+            <tr><td><code>url</code></td><td>string</td><td><strong>必填。</strong>套件庫的 Git 網址。</td></tr>
+            <tr><td><code>username</code></td><td>string</td><td>選用。私人套件庫的驗證使用者名稱。</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td>選用。私人套件庫的驗證密碼。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/remove</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依名稱移除一個套件庫。會立即觸發一次重新整理。
+        請求主體：<code>&lbrace;"name": "my-repo"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/move</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        把某個套件庫移到新的位置（從 0 起算）。當套件名稱衝突時，排在後面的套件庫會覆蓋前面的。
+        請求主體：<code>&lbrace;"name": "my-repo", "position": 0&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/refresh</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        強制立即重新整理所有套件庫的中繼資料。成功時回傳空的主體；若有套件庫失敗，
+        則回傳一個將套件庫名稱對應到錯誤字串的 JSON 物件。
+      </p>
+    </div>
+  </section>
+
+  <!-- Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="packages">套件</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有套件庫中全部可用的套件。每筆項目含套件庫、名稱、版本、描述、supplies 標籤、
+        安裝狀態，以及是否有可用升級。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/by-repo</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依套件庫分組列出套件。接受選用的 <code>search</code> 查詢參數。
+        回傳一個由 <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code> 組成的陣列。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/timezones</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有可用的 IANA 時區名稱，供套件設定使用。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/installed</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已安裝套件的識別碼。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/installed/info</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得某個已安裝套件的詳細資訊。送出 <code>repo</code>、<code>name</code>
+        與 <code>version</code>。回傳問題、使用者回答、註記與註記型別。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/responses</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得某個已安裝套件所保存的問題回答。送出 <code>repo</code>、
+        <code>name</code> 與 <code>version</code>。回傳一份鍵值對應。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/versions</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出某個套件的可用版本。請求主體：<code>&lbrace;"name": "nginx"&rbrace;</code>。
+        回傳一個版本識別碼的字串陣列。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/children</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出子套件。送出 <code>repo</code> 與 <code>name</code>。回傳一個字串陣列。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得某個套件的安裝問題。請求主體：<code>&lbrace;"name": "nginx"&rbrace;</code>。
+        回傳一份從問題鍵到 <code>&lbrace;"query": "...", "type": "..."&rbrace;</code> 的對應。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions/identity</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得特定套件版本的問題。送出 <code>repo</code>、<code>name</code>
+        與 <code>version</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/start</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        為某個 <code>oauth</code> 問題啟動 OAuth 裝置流程。送出 <code>repo</code>、
+        <code>name</code>、<code>version</code> 與 <code>question</code>。系統控制器
+        會向供應商執行該流程的起始步驟，並回傳
+        <code>flow_id</code>、<code>approve_url</code>（請在使用者的瀏覽器中開啟）、
+        選用的 <code>user_code</code>，以及 <code>interval_ms</code>——輪詢的頻率。
+      </p>
+      <p class="doc-text">
+        供應商的各個網址來自套件而非 Town OS，因此呼叫前會先檢查：
+        只允許 <code>https</code>，而且絕不能是主機自身網路上的位址。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/poll</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        輪詢上面啟動的流程。送出 <code>flow_id</code>。回傳 <code>status</code>：
+        使用者尚未核准時為 <code>pending</code>，核准完成時為 <code>approved</code>
+        並附上 <code>token</code>，而流程逾時或權杖已被取走後則為 <code>expired</code>——
+        每個流程只能使用一次。取得的權杖接著會作為該問題的答案送到
+        <code>/packages/install</code>，與手動輸入的回答完全相同。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install-preview</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在真正安裝之前先預覽這次安裝會做什麼。送出 <code>repo</code>、
+        <code>name</code> 與 <code>version</code>。回傳磁碟區細節、連接埠對應、
+        磁碟使用量、配額資訊、升級的來源版本，以及一段易讀的摘要。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        安裝一個套件。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>repo</code></td><td>string</td><td><strong>必填。</strong>套件庫名稱。</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td><strong>必填。</strong>套件名稱。</td></tr>
+            <tr><td><code>version</code></td><td>string</td><td><strong>必填。</strong>要安裝的版本。</td></tr>
+            <tr><td><code>responses</code></td><td>object</td><td><strong>必填。</strong>對安裝問題的鍵值回答。</td></tr>
+            <tr><td><code>reuse_volumes</code></td><td>boolean</td><td>重用先前安裝留下的資料磁碟區。</td></tr>
+            <tr><td><code>import_from_version</code></td><td>string</td><td>升級時要從哪個版本匯入磁碟區。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstall</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        解除安裝一個套件。送出 <code>repo</code>、<code>name</code>、<code>version</code>，
+        以及選用的 <code>purge_volumes</code>（布林值）以刪除相關資料。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        停用一個已安裝的套件（停止其服務）。送出 <code>repo</code> 與 <code>name</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        重新啟用一個已停用的套件（啟動其服務）。送出 <code>repo</code> 與 <code>name</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除某個已安裝套件的所有資料磁碟區。送出 <code>repo</code> 與 <code>name</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        檢查某個套件是否有先前安裝留下的磁碟區。送出
+        <code>repo</code> 與 <code>name</code>。回傳 <code>has_uninstalled_volumes</code>、
+        <code>uninstalled_versions</code> 與 <code>installed_versions</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除先前已解除安裝版本留下的磁碟區。送出 <code>repo</code>
+        與 <code>name</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/upgrades</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已安裝套件的可用升級。每筆項目含
+        <code>installed_version</code>、<code>latest_version</code>，以及套件定義是否
+        <code>changed</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/upgrades/dismiss</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        忽略目前的升級通知。送出一個空的 JSON 物件。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/manifest</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        回傳原始的 YAML 套件定義。送出 <code>repo</code>、<code>name</code>
+        與 <code>version</code>。以 <code>Content-Type: text/x-yaml</code> 回傳檔案內容。
+        若該套件檔案不存在則回傳 404。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/featured</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有套件庫中的精選套件。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/last-responses</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取回某個套件快取的 last 回答。送出 <code>repo</code> 與
+        <code>name</code>。回傳上一次解除安裝時保存的回答，供重新安裝時重用。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/clear-last-responses</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除某個套件快取的 last 回答檔案。送出 <code>repo</code> 與
+        <code>name</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/rebuild-git</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        為某個已安裝套件中由 git 填入的磁碟區拉取最新變更，並重新啟動相依的服務。
+        送出 <code>repo</code>、<code>name</code> 與 <code>version</code>。
+        重新建置之前會依已保存的回答重新求值範本變數。
+      </p>
+    </div>
+  </section>
+
+  <!-- Systemd -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="systemd">Systemd</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出由 Town OS 管理的 systemd unit。每筆項目含 unit 名稱、描述、
+        load/active/sub 狀態、關聯的套件識別碼與描述，以及一個失敗旗標。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        控制某個 systemd unit。送出 <code>name</code>（unit 名稱）與 <code>action</code>
+        （<code>start</code>、<code>stop</code>、<code>restart</code>、<code>enable</code>
+        或 <code>disable</code>）。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        透過 Server-Sent Events 即時串流某個 unit 的 journal 項目。傳入
+        <code>unit</code> 查詢參數；留空或使用 <code>__system__</code> 會回傳全系統記錄。
+        每個 SSE 事件都含一筆 JSON 編碼的 journal 項目，欄位如
+        <code>Message</code>、<code>Priority</code>、<code>RealtimeTimestamp</code> 與
+        <code>SystemdUnit</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tail</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得一頁 journal 項目，支援以游標分頁與篩選。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>參數</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>unit</code></td><td>string</td><td>systemd unit 名稱。留空或使用 <code>__system__</code> 表示全系統記錄。</td></tr>
+            <tr><td><code>lines</code></td><td>int</td><td>要回傳的項目數（預設 100）。</td></tr>
+            <tr><td><code>before</code></td><td>string</td><td>游標——回傳該位置之前的項目。</td></tr>
+            <tr><td><code>after</code></td><td>string</td><td>游標——回傳該位置之後的項目。</td></tr>
+            <tr><td><code>grep</code></td><td>string</td><td>對訊息文字做不分大小寫的子字串篩選。</td></tr>
+            <tr><td><code>since</code></td><td>int</td><td>Unix 時間戳記——回傳該時間之後的項目。</td></tr>
+            <tr><td><code>until</code></td><td>int</td><td>Unix 時間戳記——蒐集到該時間為止。</td></tr>
+            <tr><td><code>priority</code></td><td>int</td><td>syslog 嚴重程度篩選（0 表示不篩選）。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        回傳 <code>entries</code>、<code>cursor</code>（第一筆）與
+        <code>end_cursor</code>（最後一筆），供後續分頁使用。
+      </p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="settings">設定</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/settings</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以鍵值物件取得所有設定。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/get</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得單一設定項。請求主體：<code>&lbrace;"key": "default_quota"&rbrace;</code>。
+        回傳 <code>key</code> 與 <code>value</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/set</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        設定某個項目的值。請求主體：<code>&lbrace;"key": "default_quota", "value": "107374182400"&rbrace;</code>。
+      </p>
+
+      <h3>預設設定</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>鍵</th><th>預設值</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>default_quota</code></td><td>53687091200（50 GB）</td><td>新檔案系統的預設配額。</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>1073741824（1 GB）</td><td>封存檔上傳大小上限。</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600（秒）</td><td>解開封存檔的最長時間。</td></tr>
+            <tr><td><code>locale</code></td><td>en-US</td><td>用於國際化的全系統語言地區。</td></tr>
+            <tr><td><code>proton_image</code></td><td>quay.io/town/proton:latest</td><td>Proton/Wine 執行器容器映像檔。</td></tr>
+            <tr><td><code>dns_tld</code></td><td>home</td><td>本機 DNS 解析所用的頂層網域。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="audit">稽核記錄</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/audit/log</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出稽核記錄項目。請求主體中的所有欄位皆為選填。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>欄位</th><th>型別</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>before_id</code></td><td>int</td><td>鍵集分頁——回傳 ID 小於此值的項目。</td></tr>
+            <tr><td><code>account</code></td><td>string</td><td>依帳號使用者名稱篩選。</td></tr>
+            <tr><td><code>sort_by</code></td><td>string</td><td>用來排序的欄位。</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> 或 <code>desc</code>。</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>每頁筆數。</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>分頁位移。</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>搜尋篩選條件。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        每筆稽核項目含 <code>id</code>、<code>account</code>、<code>action</code>、
+        <code>path</code>、<code>detail</code>、<code>success</code>、<code>error</code>
+        與 <code>created_at</code>。被稽核的動作包括：身分驗證，建立／更新／停用帳號，
+        撤銷工作階段，安裝／解除安裝／停用／啟用套件，建立／修改／移除檔案系統，
+        新增／移除／移動／重新整理套件庫，上傳／下載封存檔，更新設定，忽略升級，以及清除磁碟區。
+      </p>
+    </div>
+  </section>
+
+  <!-- Pages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="pages">頁面</h2>
+      <p class="doc-text">
+        靜態網站代管，支援三種內容來源型別：上傳封存檔、容器映像檔與 git 儲存庫。
+        使用者為其指定一個網域，系統則透過 Caddy 容器提供內容。
+        所有會造成變更的端點都需要管理者驗證；清單端點只需一般驗證。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/pages</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有頁面，支援排序、搜尋與分頁。可依名稱、儲存庫網址、
+        分支、網域、來源型別、狀態與時間戳記排序。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/create</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        建立一個新頁面。接受名稱、來源型別（<code>archive</code>、
+        <code>container_image</code> 或 <code>git</code>）、儲存庫網址、分支、網域、
+        容器映像檔與映像檔內目錄。來源型別預設為 <code>archive</code>。
+        git 與容器映像檔類型的頁面會以非同步方式佈建。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/upload</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        為封存類型的頁面上傳內容的 tar 封存檔。接受含 <code>name</code> 與
+        <code>archive</code> 檔案的 multipart 表單。僅對來源型別為
+        <code>archive</code> 的頁面有效；其他來源型別會回傳 400。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/update</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        對頁面的儲存庫網址、分支、網域、來源型別、容器映像檔或映像檔內目錄做部分更新。
+        只有提供的欄位會被變更。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        從資料庫刪除一個頁面，移除 webroot 符號連結，並刪除對應的 btrfs 子磁碟區。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/rebuild</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        從來源重新建置頁面內容。git 頁面會拉取最新變更；容器映像檔頁面會從映像檔重新擷取。
+        封存頁面會回傳 400（請改用 <code>/pages/upload</code> 重新上傳）。
+      </p>
+    </div>
+  </section>
+
+  <!-- DNS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns">DNS</h2>
+      <p class="doc-text">
+        由 <code>rolodex-dns</code> 容器驅動的整合式本機 DNS 解析器。它為已安裝的套件
+        管理區域檔與記錄，並透過 gRPC Unix socket 介面提供本機名稱解析。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/status</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        回傳 DNS 狀態，包含啟用旗標、執行狀態、TLD 與記錄數量。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/records</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出所有 DNS 記錄。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新增一筆 DNS 記錄。接受名稱、記錄型別、值與 TTL。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依名稱與型別移除一筆 DNS 記錄。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得目前的頂層網域設定。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        設定 TLD。會變更既有的 TLD 並重新註冊所有已安裝的套件。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/setup</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        初始化或重新啟動 DNS 伺服器，並註冊所有已安裝的套件。
+      </p>
+    </div>
+  </section>
+
+  <!-- Monitoring -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="monitoring">監控</h2>
+      <p class="doc-text">
+        整合的 Prometheus、Node Exporter 與 Grafana 堆疊，用於系統監控。
+        整套元件以受 systemd 監管、帶 <code>Restart=always</code> 的 podman 容器執行。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/status</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        回傳每個監控服務的容器狀態（名稱、映像檔、執行狀態、連接埠）。
+        未設定監控時會回傳 <code>&lbrace;"status": "disabled"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/grafana/*</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        反向代理到本機的 Grafana 執行個體，並從網址路徑中去掉
+        <code>/monitoring/grafana</code> 前綴。未設定監控時回傳 503。
+        此端點會略過身分驗證。
+      </p>
+    </div>
+  </section>
+
+  <!-- System Services -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="system-services">系統服務</h2>
+      <p class="doc-text">
+        系統服務是由 systemd 管理的基礎架構容器（與使用者安裝的套件服務不同）。
+        它們使用 <code>town-os-system--</code> 作為 unit 名稱前綴。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/system-services</code>
+          <span class="auth-badge auth-public">公開</span>
+          /
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出系統服務與其即時 unit 狀態。從本機存取時不需驗證。
+        每筆項目含鍵、顯示名稱、映像檔、連接埠與 systemd unit 狀態欄位。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/status</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        控制某個系統服務。接受 <code>key</code> 與 <code>action</code>
+        （<code>start</code>、<code>stop</code> 或 <code>restart</code>）。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/refresh</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        重新整理系統服務的 unit 檔案與狀態。
+      </p>
+    </div>
+  </section>
+
+  <!-- Locales -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="locales">語言地區</h2>
+      <p class="doc-text">
+        系統的國際化語言地區資訊。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/locales</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        回傳目前的語言地區、已填入的語言地區清單、常見語言（含其母語字體名稱）
+        以及延伸語言地區。使用 BCP 47 語言代碼。
+      </p>
+    </div>
+  </section>
+
+  <!-- VM Images -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-images">虛擬機器映像檔</h2>
+      <p class="doc-text">
+        管理虛擬機器套件所使用、已快取的虛擬機器磁碟映像檔。遠端映像檔會被下載，
+        並透過 <code>qemu-img convert</code> 轉換成 raw 格式；轉換後的映像檔會快取在
+        <code>vm-images</code> 子磁碟區中。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/vm-images</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已快取的虛擬機器磁碟映像檔。回傳每個映像檔的名稱與檔案大小。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/upload</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        從某個網址下載虛擬機器映像檔並轉換成 raw 格式。接受一個網址與選用的名稱。
+        名稱預設取自網址中的檔名，並加上 <code>.raw</code> 副檔名。
+        下載的逾時時間為 30 分鐘。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/delete</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依名稱移除一個已快取的虛擬機器映像檔。
+      </p>
+    </div>
+  </section>
+
+  <!-- Client Libraries -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="client-libraries">用戶端函式庫</h2>
+      <p class="doc-text">
+        Town OS 內附 Go 與 JavaScript 用戶端函式庫，涵蓋完整的 API。
+        兩個用戶端遇到非 200 回應時，都會依據
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        的問題細節拋出帶型別的錯誤。
+      </p>
+
+      <h3 id="go-client">Go 用戶端</h3>
+      <p class="doc-text">
+        Go 用戶端位於 <code>src/svc/systemcontroller/client.go</code>，實作了
+        <code>Client</code> 介面。它同時支援 Unix socket 與 HTTP 連線。
+      </p>
+      <pre><code>// 透過 Unix 網域 socket 連線（正式環境）
+client := systemcontroller.InitClient("/run/town-os/systemcontroller.sock")
+
+// 透過 HTTP 連線（開發 / 測試）
+client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309")</code></pre>
+      <p class="doc-text">
+        驗證完成後請設定 <code>client.Token</code>。所有方法的第一個參數都是
+        <code>context.Context</code>。
+      </p>
+
+      <h4>儲存</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateFilesystem(ctx, fs)</code></td><td>建立一個新的 btrfs 子磁碟區。</td></tr>
+            <tr><td><code>ModifyFilesystem(ctx, name, fs)</code></td><td>重新命名檔案系統或調整其大小。</td></tr>
+            <tr><td><code>RemoveFilesystem(ctx, name)</code></td><td>依名稱刪除檔案系統。</td></tr>
+            <tr><td><code>ListFilesystems(ctx, prefix, state, params)</code></td><td>依名稱前綴與狀態（<code>"user"</code>、<code>"installed"</code>、<code>"uninstalled"</code>）篩選的分頁清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>套件庫</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRepository(ctx, name, rawURL, username, password)</code></td><td>註冊一個套件庫，憑證選填。</td></tr>
+            <tr><td><code>RemoveRepository(ctx, name)</code></td><td>依名稱移除套件庫。</td></tr>
+            <tr><td><code>MoveRepository(ctx, name, position)</code></td><td>調整優先權（0 = 最高）。</td></tr>
+            <tr><td><code>RefreshRepositories(ctx)</code></td><td>重新整理所有中繼資料。回傳錯誤對應。</td></tr>
+            <tr><td><code>ListRepositories(ctx, params)</code></td><td>套件庫的分頁清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>套件</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListPackages(ctx, params)</code></td><td>可用套件的分頁清單。</td></tr>
+            <tr><td><code>ListPackagesByRepo(ctx, params)</code></td><td>依套件庫分組的套件。</td></tr>
+            <tr><td><code>ListPackageVersions(ctx, name)</code></td><td>某個套件的可用版本。</td></tr>
+            <tr><td><code>GetPackageQuestions(ctx, name)</code></td><td>依名稱取得設定問題。</td></tr>
+            <tr><td><code>GetPackageQuestionsByIdentity(ctx, repo, name, version)</code></td><td>特定版本的問題。</td></tr>
+            <tr><td><code>ListChildren(ctx, repo, name)</code></td><td>子套件的名稱。</td></tr>
+            <tr><td><code>InstallPreview(ctx, repo, name, version)</code></td><td>不實際安裝，預覽磁碟區與連接埠。</td></tr>
+            <tr><td><code>InstallPackage(ctx, name, version, responses, reuseVolumes, importFromVersion, skipResponseReuse)</code></td><td>安裝一個套件。name 採 <code>"repo/package"</code> 格式。</td></tr>
+            <tr><td><code>UninstallPackage(ctx, repo, name, version, purgeVolumes)</code></td><td>移除一個已安裝的套件。</td></tr>
+            <tr><td><code>DisablePackage(ctx, repo, name)</code></td><td>停止服務但不解除安裝。</td></tr>
+            <tr><td><code>EnablePackage(ctx, repo, name)</code></td><td>重新啟用一個已停用的套件。</td></tr>
+            <tr><td><code>PurgeVolumes(ctx, repo, name)</code></td><td>刪除某個套件的所有資料磁碟區。</td></tr>
+            <tr><td><code>ListUninstalledVolumes(ctx, repo, name)</code></td><td>檢查是否有殘留的磁碟區。</td></tr>
+            <tr><td><code>PurgeUninstalledVolumes(ctx, repo, name)</code></td><td>刪除殘留的磁碟區。</td></tr>
+            <tr><td><code>ListInstalled(ctx, params)</code></td><td>以 <code>"repo/name@version"</code> 形式列出已安裝的套件。</td></tr>
+            <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>已儲存的設定回答。</td></tr>
+            <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>詳細資訊，含問題、回答與註記。</td></tr>
+            <tr><td><code>ListTimezones(ctx)</code></td><td>可用的 IANA 時區名稱。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListUnits(ctx, params)</code></td><td>systemd unit 的分頁清單。</td></tr>
+            <tr><td><code>SetUnitStatus(ctx, name, action)</code></td><td>執行 <code>"start"</code>、<code>"stop"</code> 或 <code>"restart"</code>。</td></tr>
+            <tr><td><code>LogReplay(ctx, name)</code></td><td>透過 SSE 串流 journal 項目。回傳一個 channel。</td></tr>
+            <tr><td><code>LogTail(ctx, params)</code></td><td>一頁 journal 項目，支援游標分頁、grep、時間範圍與優先層級篩選。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>帳號</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>Authenticate(ctx, username, password)</code></td><td>回傳工作階段權杖與帳號。</td></tr>
+            <tr><td><code>CreateAccount(ctx, username, password, email, phone, realName, admin)</code></td><td>建立一個使用者。密碼至少 8 個字元。</td></tr>
+            <tr><td><code>GetAccount(ctx, username)</code></td><td>依使用者名稱取得帳號。</td></tr>
+            <tr><td><code>UpdateAccount(ctx, username, fields)</code></td><td>修改帳號欄位（password、email、phone、real_name、admin）。</td></tr>
+            <tr><td><code>ListAccounts(ctx, params)</code></td><td>帳號的分頁清單。</td></tr>
+            <tr><td><code>DisableAccount(ctx, username)</code></td><td>阻止其進行身分驗證。</td></tr>
+            <tr><td><code>EnableAccount(ctx, username)</code></td><td>重新啟用一個已停用的帳號。</td></tr>
+            <tr><td><code>ListSessions(ctx, token)</code></td><td>該權杖所屬使用者的作用中工作階段。</td></tr>
+            <tr><td><code>SessionUsername(ctx, token)</code></td><td>工作階段權杖對應的使用者名稱。</td></tr>
+            <tr><td><code>RevokeSession(ctx, sessionID)</code></td><td>使某個工作階段失效。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>稽核、設定與升級</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListAuditLog(ctx, opts, token)</code></td><td>帶篩選條件的分頁稽核記錄。</td></tr>
+            <tr><td><code>GetSettings(ctx)</code></td><td>以鍵值對應回傳所有設定。</td></tr>
+            <tr><td><code>GetSetting(ctx, key)</code></td><td>依鍵取得單一設定。</td></tr>
+            <tr><td><code>SetSetting(ctx, key, value)</code></td><td>更新某個設定。</td></tr>
+            <tr><td><code>ListUpgrades(ctx)</code></td><td>有較新版本可用的套件。</td></tr>
+            <tr><td><code>DismissUpgrades(ctx)</code></td><td>將待處理的升級標為已忽略。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>封存檔</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>UploadArchive(ctx, subvolume, archiveReader, filename, subpath, stopService)</code></td><td>上傳封存檔並解開到某個子磁碟區。格式：tar.gz、tar.bz2、tar.xz。</td></tr>
+            <tr><td><code>DownloadArchive(ctx, subvolume, paths, stopService, format)</code></td><td>為子磁碟區內容建立封存檔。回傳一個 <code>io.ReadCloser</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>健康檢查</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>Ping(ctx)</code></td><td>服務健康狀況與各項計數摘要。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- JavaScript Client -->
+  <section class="section alt-section">
+    <div class="container">
+      <h3 id="js-client">JavaScript 用戶端</h3>
+      <p class="doc-text">
+        JavaScript 用戶端位於 <code>ui/src/api/</code>，由 Town OS 儀表板介面使用。
+        它以一組模組化的 mixin 建構在 <code>SystemControllerClient</code> 類別之上。
+        非 200 回應會拋出 <code>ApiError</code>，其中帶有解析後的 RFC 9457 問題細節。
+      </p>
+      <pre><code>import SystemControllerClient from './api/client.js';
+
+const client = new SystemControllerClient('http://localhost:5309');
+
+// 驗證完成後
+const result = await client.authenticate('admin', 'password');
+client.setToken(result.token);</code></pre>
+
+      <h4>儲存</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>createFilesystem(fs)</code></td><td>建立一個新的 btrfs 子磁碟區。</td></tr>
+            <tr><td><code>modifyFilesystem(name, fs)</code></td><td>重新命名檔案系統或調整其大小。</td></tr>
+            <tr><td><code>removeFilesystem(name)</code></td><td>依名稱刪除檔案系統。</td></tr>
+            <tr><td><code>listFilesystems(prefix, sortBy, sortOrder, state, limit, offset, search)</code></td><td>帶篩選條件的分頁清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>套件庫</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>addRepository(name, url, username?, password?)</code></td><td>註冊一個套件庫，憑證選填。</td></tr>
+            <tr><td><code>removeRepository(name)</code></td><td>依名稱移除套件庫。</td></tr>
+            <tr><td><code>moveRepository(name, position)</code></td><td>調整優先權（0 = 最高）。</td></tr>
+            <tr><td><code>refreshRepositories()</code></td><td>重新整理所有中繼資料。回傳錯誤對應或 null。</td></tr>
+            <tr><td><code>listRepositories(sortBy, sortOrder, limit, offset, search)</code></td><td>分頁清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>套件</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listPackages(sortBy, sortOrder, limit, offset, search)</code></td><td>可用套件的分頁清單。</td></tr>
+            <tr><td><code>listPackagesByRepo(search)</code></td><td>依套件庫分組的套件。</td></tr>
+            <tr><td><code>listPackageVersions(name)</code></td><td>某個套件的可用版本。</td></tr>
+            <tr><td><code>getPackageQuestions(name)</code></td><td>依名稱取得設定問題。</td></tr>
+            <tr><td><code>getPackageQuestionsByIdentity(repo, name, version)</code></td><td>特定版本的問題。</td></tr>
+            <tr><td><code>installPreview(repo, name, version)</code></td><td>不實際安裝，預覽磁碟區與連接埠。</td></tr>
+            <tr><td><code>installPackage(repo, name, version, responses, reuseVolumes?, importFromVersion?)</code></td><td>帶設定回答安裝一個套件。</td></tr>
+            <tr><td><code>uninstallPackage(repo, name, version, purgeVolumes?)</code></td><td>移除一個已安裝的套件。</td></tr>
+            <tr><td><code>disablePackage(repo, name)</code></td><td>停止服務但不解除安裝。</td></tr>
+            <tr><td><code>enablePackage(repo, name)</code></td><td>重新啟用一個已停用的套件。</td></tr>
+            <tr><td><code>purgeVolumes(repo, name)</code></td><td>刪除某個套件的所有資料磁碟區。</td></tr>
+            <tr><td><code>listUninstalledVolumes(repo, name)</code></td><td>檢查是否有殘留的磁碟區。</td></tr>
+            <tr><td><code>purgeUninstalledVolumes(repo, name)</code></td><td>刪除殘留的磁碟區。</td></tr>
+            <tr><td><code>listInstalled(sortBy, sortOrder, limit, offset, search)</code></td><td>以 <code>"repo/name@version"</code> 形式列出已安裝的套件。</td></tr>
+            <tr><td><code>getResponses(repo, name, version)</code></td><td>已儲存的設定回答。</td></tr>
+            <tr><td><code>getInstalledInfo(repo, name, version)</code></td><td>詳細資訊，含問題、回答與註記。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listUnits(sortBy, sortOrder, limit, offset, search)</code></td><td>systemd unit 的分頁清單。</td></tr>
+            <tr><td><code>setUnitStatus(name, action)</code></td><td>執行 <code>"start"</code>、<code>"stop"</code> 或 <code>"restart"</code>。</td></tr>
+            <tr><td><code>logReplay(unit)</code></td><td>透過 SSE 串流 journal 項目。回傳一個 <code>AsyncGenerator</code>。</td></tr>
+            <tr><td><code>logTail(unit, lines?, before?, after?, grep?, since?, until?, priority?)</code></td><td>一頁 journal 項目，支援游標分頁、grep、時間範圍與優先層級篩選。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>帳號</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>authenticate(username, password)</code></td><td>回傳工作階段權杖與帳號。</td></tr>
+            <tr><td><code>createAccount(username, password, email, phone, realName, admin)</code></td><td>建立一個使用者。密碼至少 8 個字元。</td></tr>
+            <tr><td><code>getAccount(username)</code></td><td>依使用者名稱取得帳號。</td></tr>
+            <tr><td><code>updateAccount(username, fields)</code></td><td>修改帳號欄位。</td></tr>
+            <tr><td><code>listAccounts(sortBy, sortOrder, limit, offset, search)</code></td><td>帳號的分頁清單。</td></tr>
+            <tr><td><code>disableAccount(username)</code></td><td>阻止其進行身分驗證。</td></tr>
+            <tr><td><code>enableAccount(username)</code></td><td>重新啟用一個已停用的帳號。</td></tr>
+            <tr><td><code>listSessions(token)</code></td><td>該權杖所屬使用者的作用中工作階段。</td></tr>
+            <tr><td><code>sessionUsername(token)</code></td><td>工作階段權杖對應的使用者名稱。</td></tr>
+            <tr><td><code>revokeSession(sessionID)</code></td><td>使某個工作階段失效。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>稽核、設定與升級</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listAuditLog(opts)</code></td><td>帶篩選條件的分頁稽核記錄。</td></tr>
+            <tr><td><code>getSettings()</code></td><td>以鍵值物件回傳所有設定。</td></tr>
+            <tr><td><code>getSetting(key)</code></td><td>依鍵取得單一設定。</td></tr>
+            <tr><td><code>setSetting(key, value)</code></td><td>更新某個設定。</td></tr>
+            <tr><td><code>listUpgrades()</code></td><td>有較新版本可用的套件。</td></tr>
+            <tr><td><code>dismissUpgrades()</code></td><td>將待處理的升級標為已忽略。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>封存檔</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>uploadArchive(subvolume, file, subpath?, stopService?)</code></td><td>透過 <code>FormData</code> 上傳並解開封存檔。回傳 <code>&lbrace;needs_restart, message&rbrace;</code>。</td></tr>
+            <tr><td><code>downloadArchive(subvolume, paths?, stopService?, format?)</code></td><td>下載子磁碟區封存檔。回傳原始的 <code>Response</code> 以便串流處理。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>健康檢查</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>說明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ping()</code></td><td>服務健康狀況與各項計數摘要。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dev Targets -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="development">開發參考</h2>
+      <p class="doc-text">
+        Town OS 後端執行於 5309 連接埠，Vite 開發伺服器則在 5173 連接埠。
+        請用 <code>make dev</code> 啟動完整的開發環境。
+      </p>
+
+      <h3>核心目標</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>目標</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>啟動完整的開發環境（後端 + Vite 開發伺服器）。</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>停止並移除開發用的後端容器。</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>在執行中的開發容器內追蹤 journalctl。</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>停止容器並拆掉開發用的 btrfs 磁碟區。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>測試目標</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>目標</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>執行靜態檢查、Go 單元測試與 JS 單元測試。</td></tr>
+            <tr><td><code>make test-integration</code></td><td>在特權 Podman 容器中執行 Go 整合測試。</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>針對後端容器執行 Bun 介面整合測試。</td></tr>
+            <tr><td><code>make test-full</code></td><td>依序執行所有測試套組。</td></tr>
+            <tr><td><code>make auto-test</code></td><td>監看檔案變更並自動重跑測試。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>建置目標</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>目標</th><th>說明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make production-image</code></td><td>建置正式環境的容器映像檔。</td></tr>
+            <tr><td><code>make test-image</code></td><td>建置測試用的容器映像檔。</td></tr>
+            <tr><td><code>make pull-images</code></td><td>從 Docker Hub 拉取基礎容器映像檔。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prerequisites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="prerequisites">先決條件</h2>
+      <ul class="prereq-list">
+        <li><strong>Go 1.25+</strong></li>
+        <li><strong>Bun</strong>——JavaScript 執行環境</li>
+        <li><strong>Podman</strong>——rootful 模式，需要 <code>sudo</code></li>
+        <li><strong>btrfs-progs</strong>——<code>mkfs.btrfs</code></li>
+        <li><strong>golangci-lint</strong></li>
+      </ul>
+      <p class="doc-text">
+        建立一個 <code>.env</code> 檔案，填入儲存庫憑證：
+      </p>
+      <pre><code>TOWN_OS_REPO_USERNAME=&lt;username&gt;
+TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
+      <p class="doc-text">
+        安裝好先決條件之後，請先執行 <code>make pull-images</code>，再執行其他任何目標。
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .endpoint {
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+  }
+
+  .endpoint:first-child {
+    margin-top: 0;
+  }
+
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .method {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .method.post {
+    background: #2d6a4f;
+    color: #95d5b2;
+  }
+
+  .method.get {
+    background: #1b4965;
+    color: #a8dadc;
+  }
+
+  .endpoint-path {
+    font-size: 1.1rem;
+    background: var(--color-code-bg);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+  }
+
+  .auth-badge {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .auth-public {
+    background: #264653;
+    color: #a8dadc;
+  }
+
+  .auth-authenticated {
+    background: var(--color-primary-dim);
+    color: var(--color-text-muted);
+  }
+
+  .auth-admin {
+    background: #6b2737;
+    color: #f4a5b8;
+  }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1.5rem;
+  }
+
+  .format-tags code {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .client-libs-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .client-lib-card {
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--color-primary-dim);
+  }
+
+  .client-lib-card:hover {
+    border-color: var(--color-accent);
+  }
+
+  .client-lib-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.4rem;
+  }
+
+  .client-lib-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .client-lib-card .forthcoming {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--color-primary-light);
+    margin-top: 0.4rem;
+  }
+
+  @media (max-width: 768px) {
+    .client-libs-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .prereq-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+</style>

@@ -1,0 +1,840 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { localizePath } from '../../i18n/ui';
+const base = import.meta.env.BASE_URL;
+const L = (path: string) => localizePath(path, 'zh-Hant');
+
+const previewScreenshots = [
+  { file: 'dashboard.webp', w: 2400, h: 1187, title: '儀表板' },
+  { file: 'packages.webp', w: 2400, h: 1191, title: '套件' },
+  { file: 'installation.webp', w: 2400, h: 1189, title: '安裝' },
+  { file: 'services.webp', w: 2400, h: 1186, title: '服務' },
+];
+---
+
+<BaseLayout title="Town OS——把雲端搬進你家的儲藏室" lang="zh-Hant">
+  <!-- First Release Banner -->
+  <section class="release-banner">
+    <div class="container">
+      <div class="release-box">
+        <span class="release-badge">首次發行</span>
+        <p class="release-text">
+          Town OS 目前是首次發行的版本。大部分功能都需要內建的 DNS 伺服器或
+          Android 用戶端——這類設定最好交給懂技術的朋友處理。
+        </p>
+        <div class="release-actions">
+          <a href="#install" class="btn banner-btn banner-btn-primary">立即試用</a>
+          <a href={`${L('guide/')}#quick-start`} class="btn banner-btn banner-btn-outline">USB 製作指南</a>
+          <a href="https://gitea.com/town-os/town-os/issues" class="btn banner-btn banner-btn-outline" target="_blank" rel="noopener">回報問題</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <img src={`${base}images/banner.webp`} alt="" aria-hidden="true" width="1500" height="483" />
+    </div>
+    <div class="container hero-content">
+      <h1>把雲端搬進你家的儲藏室</h1>
+      <div class="hero-text-box">
+        <p class="hero-lead">
+          在家中執行，完全掌控自己的資料與服務，
+          簡單到連爸媽都會用。
+        </p>
+        <ul class="hero-bullets">
+          <li>從 USB 隨身碟開機，把本機儲存空間全部留給你的資料。</li>
+          <li>各元件的更新會透過網路自動送達。</li>
+          <li>幾乎所有問題重新開機就能解決。</li>
+          <li>升級核心系統只要換一支隨身碟。</li>
+        </ul>
+      </div>
+      <div class="hero-actions">
+        <a href="#install" class="btn btn-primary try-teal">
+          立即試用
+        </a>
+        <a href={`${L('guide/')}#quick-start`} class="btn btn-primary">
+          快速上手指南
+        </a>
+        <a href="https://gitea.com/town-os/town-os" class="btn btn-primary" target="_blank" rel="noopener">
+          在 Gitea 上檢視
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Preview Screenshots -->
+  <section class="preview-section">
+    <div class="container">
+      <div class="preview-grid">
+        {previewScreenshots.map((shot) => (
+          <a href={L('screenshots/')} class="preview-item">
+            <img
+              src={`${base}images/screenshots/${shot.file}`}
+              alt={shot.title}
+              width={shot.w}
+              height={shot.h}
+              loading="lazy"
+              decoding="async"
+            />
+            <span class="preview-label">{shot.title}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- What is Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">Town OS 是什麼？</h2>
+      <div class="intro-grid">
+        <div class="intro-text">
+          <p>
+            Town OS 是人人都能在家執行的自助式平台，主打極致的易用性與可靠性。
+            它裝在一支 USB 隨身碟上，完全在記憶體中執行，並把電腦上的所有儲存空間
+            都留給<strong>你自己的東西</strong>。
+          </p>
+          <p>
+            換一支隨身碟就完成升級，重新開機就回到乾淨狀態。沒有繁瑣的安裝流程、
+            不必依賴第三方雲端業者，也沒有月費。Town OS 把主控權還給你。
+          </p>
+          <p>
+            在底層，Town OS 以 btrfs 子磁碟區管理儲存、以 systemd 管理的容器執行服務，
+            並自動安排網路——包含 UPnP 連接埠轉送與各套件專屬的連接埠對應。
+            這是一套為真實使用者打造的完整家用伺服器作業系統。
+          </p>
+        </div>
+        <div class="intro-highlights">
+          <div class="highlight-card">
+            <h3>零安裝</h3>
+            <p>從 USB 隨身碟開機。Town OS 在記憶體中執行，你的硬碟只用來放資料，不用來裝系統。</p>
+          </div>
+          <div class="highlight-card">
+            <h3>即時復原</h3>
+            <p>操作出錯了？重新開機就回到已知良好的狀態。升級只要換掉隨身碟。</p>
+          </div>
+          <div class="highlight-card">
+            <h3>完整的容器平台</h3>
+            <p>專為家庭與小型辦公環境打造。透過清爽的介面從套件庫安裝服務——引導式問答會逐項設定每個服務，網路與儲存則自動管理。套件不限於容器，也可以是虛擬機器，或透過 Proton 執行的 Windows 應用程式。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install Command -->
+  <section class="install-banner" id="install">
+    <div class="container">
+      <div class="install-box">
+        <p class="install-label">把 Town OS 寫入 USB 隨身碟：</p>
+        <div class="install-command" id="install-command">
+          <code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code>
+          <button class="copy-btn" id="copy-btn" aria-label="複製到剪貼簿">複製</button>
+        </div>
+        <p class="install-note">
+          需要 <a href="https://podman.io/" target="_blank" rel="noopener">Podman</a>，
+          並且會格式化你選定的隨身碟。這是進階操作——如果你對命令列不熟悉，
+          <strong>請找一位你信任、懂技術的朋友幫你設定</strong>，
+          這樣大家就能在屬於你們自己的 Town 上互通了。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section features-section">
+    <div class="container">
+      <h2 class="section-title">為每個人而生</h2>
+      <div class="features-grid">
+        <div class="card feature-card">
+          <h3>聰明的儲存</h3>
+          <p>整合式的可靠儲存，完全不受作業系統影響。</p>
+          <ul class="feature-list">
+            <li>套件與儲存無縫整合——配額可依套件個別管理</li>
+            <li>可將磁碟區封存並下載為壓縮備份</li>
+            <li>也可以上傳封存檔，依自己的方式手動維護磁碟區</li>
+            <li>安裝時會依現有硬碟自動設定 RAID，並分組以取得最佳備援</li>
+            <li>你的資料井然有序，也受到保護</li>
+          </ul>
+        </div>
+        <div class="card feature-card">
+          <h3>整合式網路</h3>
+          <p>用一台機器管理整個區域網路。</p>
+          <ul class="feature-list">
+            <li>內建 DNS 由 <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a> 提供——為你的套件管理權威區域，並轉送上游查詢</li>
+            <li>自動 UPnP 連接埠轉送，方便從外部存取</li>
+            <li>依套件設定連接埠對應，並支援相依套件之間的網路互通</li>
+            <li>DNSSEC、廣告封鎖、ACME 憑證與 DHCP 即將推出</li>
+          </ul>
+        </div>
+        <div class="card feature-card">
+          <h3>套件生態系</h3>
+          <p>按一下就能安裝服務，再透過引導式問答完成設定。除了預設套件庫，你也可以<a href={L('packaging/')}>建立自己的套件庫</a>。</p>
+          <ul class="feature-list">
+            <li>為你的社區或多據點企業建一個</li>
+            <li>管理你旗下的連鎖咖啡店</li>
+            <li>在自家的小型 ISP 上掌握整套技術堆疊</li>
+            <li>用你希望他們使用的工具，讓爸媽和孩子上網更安全</li>
+            <li>為孩子和他們的朋友開一個 Mastodon 網路或 Minecraft 伺服器</li>
+            <li>Gitea、Jitsi、Plex、資料庫、網頁伺服器等等</li>
+            <li>直接從介面發布靜態 HTML 網站</li>
+            <li>網路與儲存依套件自動管理</li>
+          </ul>
+        </div>
+        <div class="card feature-card">
+          <h3>友善的介面</h3>
+          <p>人人都用得上的清爽儀表板。</p>
+          <ul class="feature-list">
+            <li>管理服務、儲存、使用者與套件</li>
+            <li>內建稽核記錄，記下每一個動作</li>
+            <li>整合 systemd journal，即時檢視服務記錄</li>
+            <li>Prometheus 與 Node Exporter，附內建儀表板——可選擇升級為 Grafana</li>
+            <li>支援 21 種語言——歡迎社群參與翻譯</li>
+            <li>對非技術使用者安全直覺，對管理者又足夠強大</li>
+          </ul>
+        </div>
+        <div class="card feature-card">
+          <h3>快速、彈性又安全</h3>
+          <p>作業系統完全在記憶體中執行——硬碟只屬於你的資料。</p>
+          <ul class="feature-list">
+            <li>隨身碟上的不可變作業系統——從設計上就難以被竄改</li>
+            <li>各元件支援線上更新</li>
+            <li>升級順暢——大多數問題重新開機即可解決</li>
+            <li>稽核記錄與即時服務記錄</li>
+            <li>依磁碟區管理配額</li>
+            <li>偵測套件升級並在儀表板上提醒</li>
+            <li><strong>完整的 REST API</strong>——用戶端已經存在，很快就會發布</li>
+          </ul>
+        </div>
+        <div class="card feature-card">
+          <h3>開放原始碼</h3>
+          <p>採用 GNU AGPL 3.0 授權。</p>
+          <ul class="feature-list">
+            <li>程式碼隨時可供檢視——資安專業人員、自動化掃描工具與監督者皆可查閱</li>
+            <li>任何人若加以封裝或修改，都必須公開釋出</li>
+            <li>沒有人能在無人知曉的情況下佔使用者便宜</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Default Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">預設套件庫</h2>
+      <div class="repo-highlight">
+        <div class="repo-info">
+          <p>
+            每一套 Town OS 都內附
+            <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">default-packages</a>
+            套件庫，其中收錄了一批精選的自架服務：
+          </p>
+          <div class="tag-grid">
+            <span class="tag">Gitea</span>
+            <span class="tag">Jitsi Meet</span>
+            <span class="tag">Mattermost</span>
+            <span class="tag">Plex</span>
+            <span class="tag">PostgreSQL</span>
+          </div>
+          <p>
+            各套件的測試程度不一——Gitea、Plex 與 PostgreSQL 目前運作良好。
+            預設套件庫仍在持續擴充，歡迎提交 Pull Request 新增或改進套件。
+            你也可以建立自己的私人套件庫——很適合家人、朋友或客製化部署。
+          </p>
+          <a href="https://github.com/town-os/default-packages" class="btn btn-primary" target="_blank" rel="noopener">
+            在 GitHub 上瀏覽套件
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documentation quick links -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title">文件</h2>
+      <div class="docs-grid">
+        <a href={L('concepts/')} class="card doc-link">
+          <h3>核心概念</h3>
+          <p>了解 Town OS 背後的核心想法——套件、問答、服務、網路、儲存與套件庫。</p>
+        </a>
+        <a href={L('packaging/')} class="card doc-link">
+          <h3>封裝格式</h3>
+          <p>了解套件如何定義、範本系統如何運作，以及如何貢獻你自己的套件。</p>
+        </a>
+        <a href={L('api/')} class="card doc-link">
+          <h3>API 參考</h3>
+          <p>控制 Town OS 的完整 API——涵蓋帳號、儲存、套件庫、套件、systemd、設定、稽核、頁面、DNS 等共 77 個端點。</p>
+        </a>
+        <a href={L('screenshots/')} class="card doc-link">
+          <h3>介面截圖</h3>
+          <p>看看 Town OS 實際運作的樣子——儀表板、套件管理、儲存與服務監督。</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const btn = document.getElementById('copy-btn');
+    if (btn) {
+      btn.addEventListener('click', () => {
+        navigator.clipboard.writeText('curl -sSLO https://town-os.github.io/install.sh && bash install.sh').then(() => {
+          btn.textContent = '已複製！';
+          setTimeout(() => { btn.textContent = '複製'; }, 2000);
+        });
+      });
+    }
+  </script>
+</BaseLayout>
+
+<style>
+  /* Install Banner */
+  .install-banner {
+    background: var(--color-bg-elevated);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+    padding: 3.5rem 0;
+  }
+
+  .install-box {
+    text-align: center;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+
+  .install-label {
+    color: var(--color-text);
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+  }
+
+  .install-command {
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    max-width: 100%;
+    background: var(--color-code-bg);
+    border: 2px solid var(--color-primary);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(91, 76, 158, 0.3);
+  }
+
+  .install-command code {
+    padding: 1.1rem 1.5rem;
+    color: var(--color-accent);
+    font-size: 1.2rem;
+    background: none;
+    border-radius: 0;
+    user-select: all;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .copy-btn {
+    padding: 1.1rem 1.75rem;
+    background: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    border-left: 1px solid var(--color-border);
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+
+  .copy-btn:hover {
+    background: var(--color-primary-light);
+  }
+
+  .install-note {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 1.5rem auto 0;
+    max-width: 640px;
+  }
+
+  .install-note strong {
+    color: var(--color-text);
+  }
+
+  .install-note a {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  /* First Release Banner */
+  .release-banner {
+    background: linear-gradient(135deg, #473c7a 0%, #2c2456 100%);
+    border-bottom: 1px solid var(--color-primary-light);
+    padding: 1.25rem 0;
+  }
+
+  .release-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .release-badge {
+    display: inline-block;
+    background: #1c1740;
+    color: #a49dc4;
+    font-weight: 800;
+    font-size: 0.85rem;
+    letter-spacing: 0.15em;
+    padding: 0.4rem 1.1rem;
+    border-radius: 6px;
+    white-space: nowrap;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  }
+
+  .release-text {
+    color: #a49dc4;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.5;
+    max-width: 720px;
+  }
+
+  .release-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .banner-btn {
+    padding: 0.6rem 1.4rem;
+  }
+
+  .hero-actions .try-teal {
+    background: #5e857e;
+    color: var(--color-bg);
+  }
+
+  .hero-actions .try-teal:hover {
+    background: #6b948c;
+    color: var(--color-bg);
+  }
+
+  .banner-btn-primary {
+    background: #5e857e;
+    color: var(--color-bg);
+  }
+
+  .banner-btn-primary:hover {
+    background: #6b948c;
+    color: var(--color-bg);
+  }
+
+  .banner-btn-outline {
+    background: rgba(0, 0, 0, 0.2);
+    color: #a49dc4;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+  }
+
+  .banner-btn-outline:hover {
+    background: rgba(0, 0, 0, 0.35);
+    border-color: #fff;
+  }
+
+  /* Preview Screenshots */
+  .preview-section {
+    background: var(--color-bg);
+    padding: 2.5rem 0;
+  }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+  }
+
+  .preview-item {
+    display: block;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .preview-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .preview-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  .preview-label {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-align: center;
+  }
+
+  /* Hero */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 6rem 0 5rem;
+    text-align: center;
+  }
+
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+  }
+
+  .hero-bg img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.18;
+  }
+
+
+  .hero-content {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-logo {
+    margin-bottom: 1.5rem;
+    filter: drop-shadow(0 4px 20px rgba(91, 76, 158, 0.4));
+  }
+
+  .hero h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, var(--color-text) 0%, var(--color-accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-text-box {
+    background: rgba(0, 0, 0, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 12px;
+    padding: 1.75rem 2.25rem;
+    max-width: 640px;
+    margin: 0 auto 2rem;
+  }
+
+  .hero-lead {
+    font-size: 1.25rem;
+    color: #c0c0d0;
+    font-weight: 700;
+    margin: 0 0 1rem;
+    line-height: 1.7;
+  }
+
+  .hero-bullets {
+    list-style: none;
+    margin: 0;
+    padding-left: 1.5rem;
+    text-align: left;
+  }
+
+  .hero-bullets li {
+    color: #a8a8b8;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    padding-left: 1.5rem;
+    position: relative;
+  }
+
+  .hero-bullets li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  /* Intro */
+  .intro-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  .intro-text p {
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    font-size: 1.05rem;
+  }
+
+  .intro-text strong {
+    color: var(--color-text);
+  }
+
+  .intro-highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .highlight-card {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 1.25rem 1.5rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .highlight-card h3 {
+    margin-bottom: 0.4rem;
+    font-size: 1.1rem;
+  }
+
+  .highlight-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* Features */
+  .features-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+
+  .feature-card h3 {
+    margin-bottom: 0.6rem;
+    color: var(--color-accent);
+  }
+
+  .feature-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .feature-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .feature-list li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.7;
+    padding-left: 1.1rem;
+    position: relative;
+  }
+
+  .feature-list li::before {
+    content: "\2022";
+    position: absolute;
+    left: 0;
+    color: var(--color-accent);
+  }
+
+  .feature-list a {
+    color: var(--color-accent);
+  }
+
+  .feature-sublist {
+    list-style: none;
+    padding: 0;
+    margin: 0.2rem 0 0 0.75rem;
+  }
+
+  .feature-sublist li {
+    font-size: 0.85rem;
+    padding-left: 1rem;
+  }
+
+  .feature-sublist li::before {
+    content: "\2013";
+  }
+
+  /* Repo highlight */
+  .repo-highlight {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 2.5rem;
+  }
+
+  .repo-info p {
+    color: var(--color-text-muted);
+    font-size: 1.05rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .repo-info strong {
+    color: var(--color-text);
+  }
+
+  .tag-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .tag {
+    background: var(--color-primary-dim);
+    color: var(--color-text);
+    padding: 0.35rem 0.9rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  /* Docs grid */
+  .docs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+
+  .doc-link {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .doc-link h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-link p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  /* Getting Started */
+  .getting-started-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .getting-started-lead {
+    color: var(--color-text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .code-block {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .code-block pre {
+    margin: 0;
+  }
+
+  .code-block code {
+    font-size: 1rem;
+    line-height: 1.8;
+  }
+
+  .getting-started-note {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  .getting-started-note a {
+    color: var(--color-accent);
+  }
+
+  /* Quick Links */
+  .quick-links-section {
+    padding: 2rem 0;
+  }
+
+  .callout-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .callout-card {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .callout-card:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .callout-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+
+  .callout-card h3 {
+    margin-bottom: 0.25rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+  }
+
+  .callout-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .hero { padding: 4rem 0 3rem; }
+    .hero h1 { font-size: 2rem; }
+    .hero-lead { font-size: 1.05rem; }
+    .hero-bullets li { font-size: 1rem; }
+    .intro-grid { grid-template-columns: 1fr; }
+    .features-grid { grid-template-columns: 1fr; }
+    .docs-grid { grid-template-columns: 1fr; }
+    .repo-highlight { padding: 1.5rem; }
+    .callout-row { grid-template-columns: 1fr; }
+    .preview-grid { grid-template-columns: repeat(2, 1fr); }
+    .release-text { font-size: 1.05rem; }
+    .install-label { font-size: 1.2rem; }
+    .install-command code { font-size: 0.9rem; }
+    .copy-btn { padding: 1.1rem 1rem; }
+  }
+</style>

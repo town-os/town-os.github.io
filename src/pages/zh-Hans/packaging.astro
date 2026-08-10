@@ -1,0 +1,1125 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="打包格式 — Town OS" lang="zh-Hans">
+  <section class="section">
+    <div class="container">
+      <h1>打包格式</h1>
+      <p class="page-lead">
+        Town OS 的软件包是一份 YAML 定义，描述如何运行一个容器化服务，
+        包括它的镜像、网络、存储，以及面向用户的配置提问。
+        软件包也可以运行虚拟机，或通过 Proton 运行 Windows 应用。
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#repository-structure">仓库结构</a></li>
+          <li><a href="#package-definition">软件包定义</a></li>
+          <li><a href="#top-level-fields">顶层字段</a></li>
+          <li><a href="#image-field">image 字段</a></li>
+          <li><a href="#supplies-tags">supplies 标签</a></li>
+          <li><a href="#network-configuration">网络配置</a></li>
+          <li><a href="#volumes">卷</a></li>
+          <li><a href="#archives">归档</a></li>
+          <li><a href="#git-sources">Git 来源</a></li>
+          <li><a href="#questions">提问</a></li>
+          <li><a href="#templates">模板</a></li>
+          <li><a href="#notes">说明</a></li>
+          <li><a href="#dependencies">依赖</a></li>
+          <li><a href="#template-system">模板系统</a></li>
+          <li><a href="#vm-runtime">虚拟机运行时</a></li>
+          <li><a href="#proton-runtime">Proton 运行时</a></li>
+          <li><a href="#compilation">编译</a></li>
+          <li><a href="#response-persistence">回答的持久化</a></li>
+          <li><a href="#installation-workflow">安装流程</a></li>
+          <li><a href="#uninstallation">卸载</a></li>
+          <li><a href="#install-preview">安装预览</a></li>
+          <li><a href="#featured-packages">精选软件包</a></li>
+          <li><a href="#importing-repositories">导入仓库</a></li>
+          <li><a href="#validation-rules">校验规则</a></li>
+          <li><a href="#style-guidelines">风格指引</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="repository-structure">仓库结构</h2>
+      <p class="doc-text">
+        软件包仓库就是任意一个包含 <code>packages/</code> 目录的 git 仓库。
+        任何人都可以创建——为家人、朋友或定制化部署托管你自己的软件包。
+        结构很简单：
+      </p>
+      <pre><code>packages/
+  &lt;package-name&gt;/
+    &lt;version&gt;.yaml
+featured.json          # 可选
+
+# 示例：
+packages/
+  nginx/
+    1.0.yaml
+    2.0.yaml
+  postgres/
+    1.0.yaml
+featured.json</code></pre>
+      <p class="doc-text">
+        <code>packages/</code> 下的每个软件包目录都包含一个或多个带版本号的 YAML 文件。
+        版本按点号分段比较——数字段按数值比较，其余按字典序比较。存储系统支持在版本之间升级，
+        也支持临时卸载后再恢复。Town OS 自带一个
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">默认仓库</a>，
+        但你可以按需添加任意多个额外仓库。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="package-definition">软件包定义</h2>
+      <p class="doc-text">一份包含全部可用字段的完整容器软件包定义：</p>
+      <pre><code>image:
+  url: nginx:1.26-alpine
+description: Lightweight high-performance web server and reverse proxy
+supplies: ["http"]
+command: ["optional", "command", "override"]
+environment:
+  NGINX_HOST: "@hostname@"
+network:
+  external:
+    "@port@": "80"
+  internal:
+    "5432": "5432"
+  domains:
+    - "@hostname@"
+volumes:
+  html:
+    mountpoint: /usr/share/nginx/html
+    quota: 2gb
+    uid: 1000
+    gid: 1000
+  data:
+    mountpoint: /data
+    archive: seed-data.tar.gz
+questions:
+  hostname:
+    query: "What hostname should nginx serve?"
+    type: hostname
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"
+archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html
+git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: data
+templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      version: &#123;&#123; .Package.Version &#125;&#125;
+notes:
+  URL:
+    value: "http://@hostname@:@port@"
+    type: url
+  Support:
+    value: "+1 (555) 123-4567"
+    type: phone</code></pre>
+      <p class="doc-text">
+        <code>image</code> 字段也接受简写的字符串形式：<code>image: nginx:1.26-alpine</code>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="top-level-fields">顶层字段</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填（容器运行时）。</strong>容器镜像引用。可以是字符串，也可以是带 <code>url</code> 和可选 <code>type</code> 的对象。与 <code>vm</code> 互斥。</td></tr>
+            <tr><td><code>description</code></td><td>该软件包的简短易读说明。</td></tr>
+            <tr><td><code>supplies</code></td><td>该软件包所提供能力的语义标签列表（例如 <code>["database"]</code>、<code>["http"]</code>）。</td></tr>
+            <tr><td><code>command</code></td><td>可选的容器命令覆盖。与 <code>proton</code> 互斥。</td></tr>
+            <tr><td><code>environment</code></td><td>传给容器的环境变量。键名必须匹配 <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>。取值中可以包含 <code>@variable@</code> 模板标记。</td></tr>
+            <tr><td><code>network</code></td><td>端口映射与域名配置。</td></tr>
+            <tr><td><code>volumes</code></td><td>带挂载配置的具名卷。</td></tr>
+            <tr><td><code>questions</code></td><td>安装期间显示的交互式提问。名称必须是字母数字（<code>^[a-zA-Z0-9]+$</code>）。</td></tr>
+            <tr><td><code>archives</code></td><td>归档提取规格，用于从容器镜像预填充卷。</td></tr>
+            <tr><td><code>git_sources</code></td><td>要克隆进卷中的 git 仓库。</td></tr>
+            <tr><td><code>templates</code></td><td>用 Go <code>text/template</code> 渲染、并在安装时写入卷中的文件模板。</td></tr>
+            <tr><td><code>notes</code></td><td>安装后展示的键值信息。支持模板替换。</td></tr>
+            <tr><td><code>vm</code></td><td>虚拟机配置。与 <code>image</code> 和 <code>proton</code> 互斥。</td></tr>
+            <tr><td><code>proton</code></td><td>通过 Proton 运行 Windows 应用的配置。与 <code>vm</code> 和 <code>command</code> 互斥。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        运行时分两种类型：<strong>container</strong>（默认）和 <strong>vm</strong>。
+        软件包为容器运行时指定 <code>image</code> 或 <code>proton</code>，
+        为虚拟机运行时指定 <code>vm</code>。Proton 是容器运行时的一种特化——
+        它底层同样使用 Podman，但会自动生成命令，并从另一个容器镜像中提取 Windows 应用的文件。
+        这些字段彼此互斥：一个软件包必须恰好包含
+        <code>image</code>/<code>proton</code> 或 <code>vm</code> 之一。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="image-field">image 字段</h2>
+      <p class="doc-text">
+        <code>image</code> 字段指明要运行的容器镜像。它接受两种写法：
+      </p>
+      <pre><code># 对象写法
+image:
+  url: nginx:1.26-alpine
+  type: oci                # 可选，默认为 "oci"
+
+# 简写字符串写法
+image: nginx:1.26-alpine</code></pre>
+      <p class="doc-text">
+        简短的镜像名会在编译期间自动归一化：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>输入</th><th>归一化为</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nginx</code></td><td><code>docker.io/library/nginx:latest</code></td></tr>
+            <tr><td><code>myuser/myapp</code></td><td><code>docker.io/myuser/myapp:latest</code></td></tr>
+            <tr><td><code>ghcr.io/org/app</code></td><td><code>ghcr.io/org/app:latest</code></td></tr>
+            <tr><td><code>nginx:1.26-alpine</code></td><td><code>docker.io/library/nginx:1.26-alpine</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>type</code> 唯一有效的取值是 <code>oci</code>（默认值）。镜像 URL 只能包含
+        字母数字、<code>@</code>、<code>.</code>、<code>_</code>、<code>:</code>、
+        <code>/</code> 和 <code>-</code>——shell 元字符会被拒绝。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="supplies-tags">supplies 标签</h2>
+      <p class="doc-text">
+        <code>supplies</code> 字段声明软件包提供了哪些能力，便于分类和筛选。
+        标签是自由格式的字符串——下面这些是约定俗成的：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>标签</th><th>用于</th><th>示例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>http</code></td><td>Web 服务器、CMS 平台、Web 应用</td><td>nginx、wordpress、gitea</td></tr>
+            <tr><td><code>database</code></td><td>关系型和 NoSQL 数据库</td><td>postgres、mysql、mongo</td></tr>
+            <tr><td><code>cache</code></td><td>缓存与键值存储</td><td>redis、memcached、valkey</td></tr>
+            <tr><td><code>search</code></td><td>搜索与分析引擎</td><td>elasticsearch、opensearch、solr</td></tr>
+            <tr><td><code>messaging</code></td><td>消息代理与队列</td><td>rabbitmq、nats、kafka</td></tr>
+            <tr><td><code>monitoring</code></td><td>指标、告警与可视化</td><td>prometheus、grafana、telegraf</td></tr>
+            <tr><td><code>storage</code></td><td>对象存储与文件托管</td><td>minio、registry、nextcloud</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="network-configuration">网络配置</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>network.external</code></td><td>直接暴露在宿主机上的端口映射。键是宿主机端口，值是容器端口。两者都是 <code>"port"</code> 字符串，并可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>network.internal</code></td><td>只能从该软件包自身网络（以及共享的 HTTP 入口）访问的端口映射。键是宿主机侧/转发端口，值是容器端口。</td></tr>
+            <tr><td><code>network.domains</code></td><td>可选列表，列出面向互联网的额外 FQDN，HTTP 入口会为它们申请公开受信任的（Let&rsquo;s Encrypt / ACME）证书。可包含 <code>@variable@</code> 模板。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        端口取值在模板替换之后必须是 1 到 65535 之间的整数。
+        用不到的话，请整个省略 <code>external</code>、<code>internal</code> 或 <code>domains</code>——不要写成空映射或空列表。
+      </p>
+      <p class="doc-text">
+        端口条目的<strong>键</strong>可以是数字端口字符串
+        （<code>"2222": "22"</code>），也可以是匹配
+        <code>^[a-zA-Z][a-zA-Z0-9_]*$</code> 的<strong>语义名称</strong>（<code>http: "3000"</code>）。
+        给端口命名后，父软件包就能按角色引用它（<code>@dep_KEY_port_http@</code>）而不必写端口号；
+        而对于特殊名称 <code>http</code>，还意味着让该端口接入下面所述的共享 HTTP 入口。
+      </p>
+
+      <h3>HTTP 入口（名为 <code>http</code> 的端口）</h3>
+      <p class="doc-text">
+        Town OS 运行着一个共享的 <strong><code>:443</code> 端口入口</strong>，
+        它为每个软件包终结 TLS，并反向代理到该软件包的明文 HTTP 容器端口。
+        软件包只要把某个 <strong>internal</strong> 端口命名为
+        <code>http</code>，就接入了这个入口：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"      # 容器的明文 HTTP 端口</code></pre>
+      <p class="doc-text">这样做之后：</p>
+      <ul class="doc-list">
+        <li>
+          服务可通过 <code>https://&lt;PACKAGE_DNS&gt;/</code> 访问——
+          <strong>URL 中不带端口。</strong>没有宿主机端口需要选；也不要再把 HTTP 端口
+          映射到 <code>external</code> 下。
+        </li>
+        <li>
+          入口会为 <code>&lt;PACKAGE_DNS&gt;</code>（例如
+          <code>gitea.default.home</code>）提供一张<strong>本地受信任的叶证书</strong>
+          （由内置的 Rolodex CA 签发），并且 Rolodex 会<strong>在 <code>_443</code>
+          上发布 DANE <code>TLSA</code> 记录</strong>，让支持 DANE 的客户端可以固定该证书。
+        </li>
+        <li>
+          由于入口占用了 <code>:443</code>，应用生成的任何 URL 都必须是
+          <strong>不带端口的 HTTPS</strong>。请据此设置应用的对外 URL（例如
+          gitea 的 <code>GITEA__server__ROOT_URL: "https://@PACKAGE_DNS@/"</code>），
+          并让应用在容器内继续监听明文 HTTP。
+        </li>
+      </ul>
+      <p class="doc-text">
+        非 HTTP 协议（SSH、数据库等）<strong>不能</strong>使用
+        <code>http</code> 这个名称——它们不是 HTTP，入口无法为其终结 TLS。
+        请改用数字映射原样转发：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"          # 由 :443 入口托管，终结 TLS
+    "@sshport@": "22"     # 裸 TCP 转发，绝不包装 TLS</code></pre>
+
+      <h3>面向互联网的名称（<code>domains</code>）</h3>
+      <p class="doc-text">
+        默认情况下，入口只服务本地受信任的 <code>&lt;PACKAGE_DNS&gt;</code> 名称。
+        若还想以<strong>公开受信任</strong>的证书把服务暴露到公网，请把真实的 FQDN 列在
+        <code>network.domains</code> 下，并把该名称的公网 DNS 指向这台主机。
+        入口会为列出的每个域名申请 ACME（Let&rsquo;s Encrypt）证书：
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"
+  domains:
+    - git.example.com</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="volumes">卷</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mountpoint</code></td><td><strong>必填。</strong>该卷在容器内的挂载绝对路径（必须以 <code>/</code> 开头）。</td></tr>
+            <tr><td><code>quota</code></td><td>可选的容量上限（例如 <code>512mb</code>、<code>2gb</code>、<code>1tb</code>）。支持 <code>mb</code>、<code>gb</code>、<code>tb</code> 后缀。可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>archive</code></td><td>可选的归档文件名，用于预填充该卷。</td></tr>
+            <tr><td><code>git</code></td><td>可选的 git 仓库 URL，会被克隆进该卷。</td></tr>
+            <tr><td><code>uid</code></td><td>可选的数字用户 ID，用于卷的归属。</td></tr>
+            <tr><td><code>gid</code></td><td>可选的数字组 ID，用于卷的归属。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        卷名必须以字母或数字开头，且只能包含字母数字、点、连字符和下划线
+        （模式：<code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code>）。
+        若软件包没有卷，请整个省略 <code>volumes</code>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="archives">归档</h2>
+      <p class="doc-text">
+        <code>archives</code> 字段会在安装时把容器镜像中的文件提取到卷里：
+      </p>
+      <pre><code>archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填。</strong>要从中提取文件的容器镜像。</td></tr>
+            <tr><td><code>directory</code></td><td><strong>必填。</strong>容器镜像中要提取的绝对路径。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>提取目标卷的名称，须为本软件包中已定义的卷。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        如果目标卷在安装或对账时为空，Podman 会拉取镜像、创建一个临时容器，
+        并把指定目录复制进该卷。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="git-sources">Git 来源</h2>
+      <p class="doc-text">
+        <code>git_sources</code> 字段会把 git 仓库克隆进卷里：
+      </p>
+      <pre><code>git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: config</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>url</code></td><td><strong>必填。</strong>git 仓库 URL（http、https 或 ssh）。可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>branch</code></td><td>要克隆的分支。可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>克隆目标卷的名称，须为本软件包中已定义的卷。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="questions">提问</h2>
+      <p class="doc-text">
+        提问定义了软件包安装期间显示的交互式提示。用户的回答会替换定义中各处的
+        <code>@name@</code> 模板标记。
+      </p>
+      <pre><code>questions:
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>query</code></td><td><strong>必填。</strong>展示给用户的提示文本。</td></tr>
+            <tr><td><code>type</code></td><td>可选的校验类型。自由文本请省略。</td></tr>
+            <tr><td><code>default</code></td><td>可选的默认值，作为建议提供给用户。</td></tr>
+            <tr><td><code>optional</code></td><td>设为 <code>true</code> 即允许该提问留空。其余每个提问都必须给出非空的回答。</td></tr>
+            <tr><td><code>oauth</code></td><td><strong><code>type: oauth</code> 时必填，且仅在该类型下有效。</strong>安装对话框为获取令牌所运行的设备流程。</td></tr>
+            <tr><td><code>show_if</code></td><td>指向同一软件包中的某个 <code>boolean</code> 提问。在那个复选框被勾选之前，本提问在安装对话框中处于隐藏状态；未勾选时它编译为空字符串（并免除必填检查）&mdash; 这样软件包就能把一组进阶选项收纳在一个开关之后。被引用的提问必须存在、必须是布尔类型，且自身不能是条件提问。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>提问类型</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>类型</th><th>校验内容</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hostname</code></td><td>一个小写字母开头，后跟小写字母数字和连字符（模式：<code>^[a-z][a-z0-9-]*$</code>）。留空时自动生成 <code>&lt;package-name&gt;-&lt;4-char-hex&gt;</code>。</td></tr>
+            <tr><td><code>port</code></td><td>1 到 65535 之间的整数。留空或设为 <code>"auto"</code> 时，在 10000-60000 范围内自动挑选一个可用端口。</td></tr>
+            <tr><td><code>bytes</code></td><td>整数，或带 <code>tb</code>、<code>gb</code>、<code>mb</code> 后缀的数值（不区分大小写）</td></tr>
+            <tr><td><code>volume</code></td><td>字母数字、连字符和下划线（模式：<code>^[a-zA-Z0-9-_]+$</code>）</td></tr>
+            <tr><td><code>archive</code></td><td>任意非空字符串</td></tr>
+            <tr><td><code>secret</code></td><td>留空或设为 <code>"auto"</code> 时自动生成 64 位十六进制字符串（256 位）。也可以用明确的取值覆盖。</td></tr>
+            <tr><td><code>duration</code></td><td>整数，或带 <code>d</code>、<code>h</code>、<code>m</code>、<code>s</code> 后缀的数值（不区分大小写）。会换算为秒。</td></tr>
+            <tr><td><code>boolean</code></td><td><code>true</code>、<code>false</code>、<code>t</code>、<code>f</code>、<code>1</code> 或 <code>0</code>（不区分大小写）。归一化为字符串 <code>true</code> 或 <code>false</code>。在安装对话框中渲染为复选框；未作答的提问取 <code>default</code>，若未声明默认值则取 <code>false</code>。</td></tr>
+            <tr><td><code>oauth</code></td><td>不靠手动输入，而是从安装对话框运行 OAuth 设备流程取得的令牌。渲染为一个<strong>连接</strong>按钮；返回的令牌即为回答。其存储和显示方式与 <code>secret</code> 相同。</td></tr>
+            <tr><td><em>（省略）</em></td><td>任意字符串——不做校验</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>布尔提问</h3>
+      <p class="doc-text">
+        <code>boolean</code> 提问显示为复选框而不是文本框，其回答会以字面字符串
+        <code>true</code> 或 <code>false</code> 替换进去。由于未勾选同样是一个真实的回答，
+        带 <code>default: "true"</code> 的提问也可以被用户关掉——明确的
+        <code>false</code> 会胜过默认值。
+      </p>
+      <pre><code>environment:
+  REGISTRATION_OPEN: "@open@"
+  METRICS_ENABLED: "@metrics@"
+questions:
+  open:
+    query: "Allow open registration?"
+    type: boolean          # 未作答 -&gt; "false"
+  metrics:
+    query: "Enable metrics?"
+    type: boolean
+    default: "true"        # 未作答 -&gt; "true"</code></pre>
+      <p class="doc-text">
+        文件模板看到的也是归一化之后的值，因此
+        <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> 会渲染为 <code>true</code> 或
+        <code>false</code>，并且可以用
+        <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code> 来判断。
+      </p>
+
+      <h3>可选提问</h3>
+      <p class="doc-text">
+        除非声明了 <code>optional: true</code>，否则每个提问都必须给出非空的回答。
+        没有它的话，那些应用确实可以不要的设置——SMTP 中继、API 密钥——就没有诚实的表达方式：
+        作者只能编造一个占位默认值，然后期待操作者把它改掉。
+      </p>
+      <pre><code>environment:
+  SMTP_HOST: "@smtp_host@"
+  SMTP_PORT: "@smtp_port@"
+questions:
+  smtp_host:
+    query: "SMTP server hostname"
+    optional: true
+  smtp_port:
+    query: "SMTP server port"
+    type: port
+    optional: true
+    default: "587"</code></pre>
+      <p class="doc-text">
+        留空时，可选提问会在它的 <code>@marker@</code> 处替换为<strong>空字符串</strong>，
+        因此应用看到的是一个空变量，而不是某个没人选过的取值。它绝不会被自动生成：
+        留空的可选 <code>secret</code> 会保持为空，而不会变成一串随机字符串，
+        让应用傻乎乎地拿它去认证。
+      </p>
+      <p class="doc-text">
+        <code>optional</code> 可以与 <code>type</code> 组合——已作答的可选端口仍会按端口校验，
+        而留空的则会被编译掉、什么都不留。它对 <code>boolean</code> 没有意义，
+        因为复选框总会解析为它的两个取值之一。
+      </p>
+
+      <h3>OAuth 提问</h3>
+      <p class="doc-text">
+        有些应用需要配置一份只有其厂商才能签发的凭据——Plex 账号令牌、GitHub 个人令牌——
+        而通常的获取方式是在终端里跑个脚本，再把输出粘贴过来。<code>oauth</code> 提问
+        改为从安装对话框中运行那套流程：操作者点击<strong>连接</strong>，在浏览器标签页中授权，
+        返回的令牌就成为回答。
+      </p>
+      <p class="doc-text">
+        这里<strong>没有服务商注册表</strong>。提问自带一个 <code>oauth</code> 块，
+        写明服务商自己的各个 URL，因此任何具备设备式流程的厂商都无需改动 Town OS 即可支持。
+      </p>
+      <pre><code>environment:
+  PLEX_TOKEN: "@plextoken@"
+questions:
+  plextoken:
+    query: "Plex account"
+    type: oauth
+    oauth:
+      start:
+        method: POST
+        url: "https://plex.tv/api/v2/pins?strong=true"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      extract:
+        id: id
+        code: code
+      approve: "https://app.plex.tv/auth#?clientID=&#123;&#123;client_id&#125;&#125;&amp;code=&#123;&#123;code&#125;&#125;"
+      poll:
+        url: "https://plex.tv/api/v2/pins/&#123;&#123;id&#125;&#125;"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      token: authToken
+      interval: 2s
+      timeout: 10m</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start</code></td><td><strong>必填。</strong>开启流程的请求：<code>method</code>（默认 <code>GET</code>）、<code>url</code>，以及可选的 <code>headers</code> 和 <code>form</code> 请求体。</td></tr>
+            <tr><td><code>extract</code></td><td>要从开始响应中取出、并提供给下面各模板使用的 JSON 字段，写作 <code>name: json_field</code>。</td></tr>
+            <tr><td><code>approve</code></td><td><strong>必填。</strong>操作者用于授权的 URL。它会在新标签页中打开，同时也会显示为链接，以防被弹窗拦截器挡掉。</td></tr>
+            <tr><td><code>user_code</code></td><td>可选模板，用于操作者需要在授权页面上输入的短码。GitHub 会给一个；Plex 不会。</td></tr>
+            <tr><td><code>poll</code></td><td><strong>必填。</strong>在获得授权前反复发出的请求。结构与 <code>start</code> 相同。</td></tr>
+            <tr><td><code>token</code></td><td><strong>必填。</strong>轮询响应中存放令牌的 JSON 字段。该字段缺失或为 <code>null</code>，就是服务商在说&ldquo;尚未授权&rdquo;。</td></tr>
+            <tr><td><code>interval</code></td><td>轮询间隔。默认为 <code>5s</code>；请遵守服务商公布的速率限制。</td></tr>
+            <tr><td><code>timeout</code></td><td>放弃前持续轮询多久。默认为 <code>5m</code>。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        URL、请求头和表单值中的 <code>&#123;&#123;...&#125;&#125;</code> 占位符，
+        会依据 <code>extract</code> 所命名的内容来解析，另外还有
+        <code>&#123;&#123;client_id&#125;&#125;</code>——这是 Town OS 为每次流程生成、
+        并在每一步都发送的随机标识符，Plex 正是把它的 pin 绑定在这上面。
+      </p>
+      <p class="doc-text">
+        令牌是一份凭据，因此也按凭据对待：在软件包信息面板中被掩码，可复制但绝不打印。
+        它像其他回答一样被缓存，因此重装或升级时会直接复用，而不必让操作者再跑一趟服务商那边。
+      </p>
+      <p class="doc-text">
+        由于调用这些 URL 的是系统控制器而不是浏览器，它们必须是 <code>https</code>，
+        并且不能解析到回环、私有、链路本地或 CGNAT 地址。这项检查在实际建立连接时执行，
+        并在每一次重定向时再执行一遍，因此软件包无法借由某个流程，让控制器伸手进宿主机自己的网络。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="templates">模板</h2>
+      <p class="doc-text">
+        <code>templates</code> 字段定义了一些文件，它们会用 Go <code>text/template</code> 渲染，
+        并在安装期间写入卷中。只有当目标文件尚不存在时才会写入，从而在升级过程中保留用户的修改。
+      </p>
+      <pre><code>templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      name: &#123;&#123; .Package.Name &#125;&#125;
+      system: &#123;&#123; .System.Hostname &#125;&#125;</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>本软件包中已定义的卷名。</td></tr>
+            <tr><td><code>path</code></td><td><strong>必填。</strong>卷内的相对路径。不得以 <code>/</code> 开头，也不得包含 <code>..</code>。</td></tr>
+            <tr><td><code>content</code></td><td><strong>必填。</strong>要渲染的 Go <code>text/template</code> 内容。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>模板数据上下文</h3>
+      <p class="doc-text">
+        在 <code>&#123;&#123; &#125;&#125;</code> 表达式内部可以使用以下数据：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>表达式</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.Responses.&lt;name&gt;</code></td><td>用户对指定提问的回答</td></tr>
+            <tr><td><code>.Package.Name</code></td><td>软件包名称</td></tr>
+            <tr><td><code>.Package.Version</code></td><td>软件包版本</td></tr>
+            <tr><td><code>.Package.Repo</code></td><td>仓库名称</td></tr>
+            <tr><td><code>.Package.Image</code></td><td>编译后的容器镜像引用</td></tr>
+            <tr><td><code>.Package.Description</code></td><td>软件包描述</td></tr>
+            <tr><td><code>.System.Hostname</code></td><td>系统主机名</td></tr>
+            <tr><td><code>.System.ExternalIP</code></td><td>外部 IP 地址（若已知）</td></tr>
+            <tr><td><code>.System.InternalIP</code></td><td>内部/局域网 IP 地址（若已知）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        模板名遵循与卷名相同的规则。文件以 <code>0600</code> 模式写入，
+        上级目录以 <code>0750</code> 模式创建。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="notes">说明</h2>
+      <p class="doc-text">
+        说明（notes）提供安装后展示的键值信息。
+      </p>
+      <pre><code>notes:
+  URL:
+    value: "http://localhost:@port@"
+    type: url
+  Info:
+    value: "Default admin credentials are admin/admin"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>value</code></td><td><strong>必填。</strong>说明文本。支持 <code>@variable@</code> 模板替换。</td></tr>
+            <tr><td><code>type</code></td><td>可选的校验类型：<code>url</code>、<code>phone</code> 或 <code>email</code>。纯文本请省略。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dependencies">依赖</h2>
+      <p class="doc-text">
+        软件包可以声明对其他软件包的依赖。依赖会共享父包的 podman 网络，
+        使同一依赖树中的容器能通过 podman 内置的 DNS 按容器名直接通信。
+      </p>
+      <pre><code>dependencies:
+  db:
+    package: postgres
+    responses:
+      password: "@dbpass@"
+      user: "mattermost"
+      database: "mattermost"
+      port: "5432"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>package</code></td><td><strong>必填。</strong>要安装的依赖软件包名称。</td></tr>
+            <tr><td><code>repo</code></td><td>包含该依赖的仓库。默认与父包所在仓库相同。</td></tr>
+            <tr><td><code>version</code></td><td>要安装的版本。默认为可用的最新版本。</td></tr>
+            <tr><td><code>responses</code></td><td>给该依赖的提问回答。取值支持来自父包提问的 <code>@variable@</code> 语法。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        父软件包在运行时会为每个依赖获得对应的环境变量：
+        <code>TOWNOS_DEP_&#123;KEY&#125;_HOST</code>（容器名）和
+        <code>TOWNOS_DEP_&#123;KEY&#125;_PORT_&#123;port&#125;</code>（容器侧端口号）。
+        父包也可以在自己的环境变量值中使用 <code>@dep_KEY_host@</code> 和
+        <code>@dep_KEY_port_N@</code> 模板变量（参见<a href="#template-system">模板系统</a>）。
+      </p>
+      <p class="doc-text">
+        <strong>示例：</strong>一个对 PostgreSQL 声明了 <code>db</code> 依赖的 Mattermost 软件包，
+        可以在它的数据源 URL 中引用数据库主机：
+      </p>
+      <pre><code>environment:
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:@dbpass@@@dep_db_host@:@dep_db_port_5432@/mattermost?sslmode=disable"</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="template-system">模板系统</h2>
+      <p class="doc-text">
+        Town OS 有两套模板系统，分别作用于编译的不同阶段。
+      </p>
+
+      <h3><code>@variable@</code> 替换</h3>
+      <p class="doc-text">
+        <code>@variable@</code> 语法在软件包编译期间被替换，作用于所有可配置字段：
+        环境变量值、网络端口映射、网络域名、卷挂载点、卷配额、卷的 git URL、
+        git 来源的 URL 与分支、模板的 volume 与 path 字段、虚拟机的镜像与内存、
+        Proton 配置，以及说明项的取值。
+      </p>
+      <p class="doc-text">
+        每个提问名称都会成为一个变量。若要写出字面的 <code>@</code> 字符
+        （例如 git SSH URL <code>git@@domain@</code>），请使用 <code>@@</code>——
+        两个连续的 <code>@</code> 会产生一个字面的 <code>@</code>。
+      </p>
+      <p class="doc-text">
+        未能解析的变量（引用了没有对应提问回答的名称）会原样保留在输出中。
+      </p>
+
+      <h3>内置变量</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>变量</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>Town OS 主机的外部主机名或 IP</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>Town OS 主机的内部主机名或 IP</td></tr>
+            <tr><td><code>@PACKAGE_DNS@</code></td><td>该软件包在内部网络上被分配的 DNS 名称</td></tr>
+            <tr><td><code>@dep_KEY_host@</code></td><td>依赖 KEY 的容器主机名（可通过共享网络上的 podman DNS 解析）。仅在软件包声明了依赖时可用。</td></tr>
+            <tr><td><code>@dep_KEY_port_N@</code></td><td>依赖 KEY 的容器端口 N。仅在软件包声明了依赖时可用。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        内置变量会先于用户提问的回答被替换，因此优先级更高。
+        依赖模板变量（<code>@dep_*@</code>）在依赖安装完成后解析，并应用到父包的环境变量值中。
+        其中 KEY 是小写的依赖键名，N 是容器端口号。
+      </p>
+
+      <h3>Go 模板（<code>templates</code> 字段中）</h3>
+      <p class="doc-text">
+        <code>templates</code> 字段使用 Go <code>text/template</code> 语法
+        （<code>&#123;&#123; .Responses.name &#125;&#125;</code>）来渲染写入卷中的文件。
+        可用的数据上下文见<a href="#templates">模板</a>一节。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-runtime">虚拟机运行时</h2>
+      <p class="doc-text">
+        软件包可以运行虚拟机而不是容器，只需指定 <code>vm</code> 字段来代替
+        <code>image</code>：
+      </p>
+      <pre><code>vm:
+  image: "https://example.com/my-vm.qcow2"
+  memory: 2gb
+  cpus: 2
+description: A virtual machine package</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必填。</strong>虚拟机磁盘镜像的 URL（http/https）或文件名。可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>memory</code></td><td>用字节后缀表示的内存分配（例如 <code>1gb</code>、<code>512mb</code>）。默认为 <code>1gb</code>。可包含 <code>@variable@</code> 模板。</td></tr>
+            <tr><td><code>cpus</code></td><td>虚拟 CPU 数量。默认为 1。必须为非负数。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>vm</code> 字段与 <code>image</code> 和 <code>proton</code> 互斥。
+        虚拟机镜像不会像容器镜像那样被归一化。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="proton-runtime">Proton 运行时</h2>
+      <p class="doc-text">
+        软件包可以通过指定 <code>proton</code> 字段，用 Proton 运行 Windows 应用：
+      </p>
+      <pre><code>image:
+  type: oci
+proton:
+  app_image: "mycompany/windows-app:1.0"
+  app_directory: /app
+  volume: app
+  exe: /app/myapp.exe
+  args: ["-fullscreen", "-config", "/app/config.ini"]
+volumes:
+  app:
+    mountpoint: /app</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>说明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>app_image</code></td><td><strong>必填。</strong>包含该 Windows 应用的容器镜像。</td></tr>
+            <tr><td><code>app_directory</code></td><td><strong>必填。</strong>应用所在的绝对路径。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必填。</strong>本软件包中已定义的卷名。</td></tr>
+            <tr><td><code>exe</code></td><td><strong>必填。</strong>Windows 可执行文件的路径。</td></tr>
+            <tr><td><code>args</code></td><td>可选的命令行参数列表。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        设置了 <code>proton</code> 之后，容器命令会自动生成为
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>。容器镜像默认取
+        全系统的 <code>proton_image</code> 设置
+        （<code>quay.io/town/proton:latest</code>），可通过设置 <code>image</code>
+        在软件包层面覆盖。<code>app_image</code> 字段在编译期间会按与普通容器镜像引用
+        相同的规则归一化。<code>proton</code> 字段与 <code>vm</code> 和
+        <code>command</code> 互斥。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="compilation">编译</h2>
+      <p class="doc-text">
+        <strong>编译会把软件包定义和用户的回答，转化为一份完全解析、可直接运行的配置。</strong>
+        编译流水线包含以下步骤：
+      </p>
+      <ul class="doc-list">
+        <li>依据各提问声明的类型校验全部回答</li>
+        <li>执行类型专属的校验（端口范围、主机名模式、字节数解析等）</li>
+        <li>把所有 <code>@variable@</code> 模板标记替换为解析后的取值</li>
+        <li>把容器镜像 URL 归一化为完全限定的引用</li>
+        <li>产出一份可供安装的、已解析的软件包</li>
+      </ul>
+      <p class="doc-text">
+        对于虚拟机软件包，内存字符串（例如 <code>2gb</code>）会被解析为字节数，
+        CPU 的默认值也会被套用。各字段的校验错误会一并收集后统一返回，
+        因此用户可以一次改完，而不必逐个碰壁。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="response-persistence">回答的持久化</h2>
+      <p class="doc-text">
+        <strong>回答按版本保存</strong>在
+        <code>responses/&lt;repo&gt;/&lt;pkg&gt;/&lt;version&gt;.json</code>。
+        同时还会在 <code>responses/last/&lt;repo&gt;/&lt;pkg&gt;.json</code>
+        保存一份 <code>last</code> 副本，供升级以及从已卸载的卷重新安装时复用。
+      </p>
+      <p class="doc-text">
+        安装成功后，last 回答会被清除。这意味着如果一个软件包被卸载后又重新安装，
+        先前的回答会作为默认值提供给你。一旦新的安装成功，缓存的副本就会被移除。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="installation-workflow">安装流程</h2>
+      <p class="doc-text">
+        <strong>安装一个软件包会走完一套既定的步骤序列。</strong>
+        整个过程涵盖从文件准备到服务启动的一切：
+      </p>
+      <ul class="doc-list">
+        <li>从仓库中的软件包文件到已安装目录建立硬链接</li>
+        <li>持久化回答（版本专属的以及 <code>last</code> 副本）</li>
+        <li>创建卷，套用配额和可选的 UID/GID 归属</li>
+        <li>从归档和 git 来源填充卷（仅限容器运行时）</li>
+        <li>套用模板（把文件渲染进卷中）</li>
+        <li>生成 systemd 单元（容器基于 Podman，虚拟机基于 QEMU）</li>
+        <li>创建网络状态文件</li>
+        <li>启动服务</li>
+        <li>成功后清除 last 回答</li>
+      </ul>
+      <p class="doc-text">
+        有两个可选标志用于控制卷的行为：
+      </p>
+      <ul class="doc-list">
+        <li><code>reuse_volumes</code>——复用同一软件包先前已卸载版本的卷</li>
+        <li><code>import_from_version</code>——从指定的旧版本导入卷</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="uninstallation">卸载</h2>
+      <p class="doc-text">
+        <strong>卸载软件包时默认会保留卷中的数据。</strong>
+        卷只是从 <code>installed/</code> 前缀移动到 <code>uninstalled/</code> 前缀，
+        而不是被删除。这样重新安装时原有数据仍然完好。
+      </p>
+      <p class="doc-text">
+        卸载过程还会删除网络状态文件，并停止、禁用并卸载相关的 systemd 单元。
+      </p>
+      <p class="doc-text">
+        如果你想立即删除卷而不是保留它们，请使用 <code>purge_volumes</code> 标志。
+        被清除的卷无法恢复。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="install-preview">安装预览</h2>
+      <p class="doc-text">
+        <strong>在真正开始安装之前，你可以先预览会创建些什么。</strong>
+        安装预览端点（<code>POST /packages/install-preview</code>）会返回一份计划中的安装摘要，
+        且不做任何改动：
+      </p>
+      <ul class="doc-list">
+        <li>将会创建的卷</li>
+        <li>将会映射的端口</li>
+        <li>升级信息（若是从旧版本升级）</li>
+        <li>运行时类型（容器或虚拟机）</li>
+        <li>该软件包是否有需要回答的提问</li>
+        <li>虚拟机软件包的虚拟机配置详情（镜像、内存、CPU 数）</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="featured-packages">精选软件包</h2>
+      <p class="doc-text">
+        软件包仓库可以在根目录（与 <code>packages/</code> 目录并列）放一个
+        <code>featured.json</code> 文件，用于在界面上突出展示选定的软件包。
+      </p>
+      <p class="doc-text">
+        该文件包含一个由软件包名称字符串组成的 JSON 数组——不带版本号或仓库前缀：
+      </p>
+      <pre><code>["wordpress", "nextcloud", "postgres"]</code></pre>
+      <p class="doc-text">
+        列在 <code>featured.json</code> 中的软件包，会在 API 的软件包列表响应中带上
+        <code>featured: true</code>，界面据此加以突出。该文件是可选的——
+        如果没有，就没有任何软件包被标为精选。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="importing-repositories">导入仓库</h2>
+      <p class="doc-text">
+        创建好软件包仓库之后，可以通过网页界面或直接修改文件系统配置，
+        把它添加到你的 Town OS 实例中。
+      </p>
+
+      <h3>通过界面</h3>
+      <p class="doc-text">
+        登录 Town OS 仪表盘，进入 <strong>软件包</strong>，选择
+        <strong>仓库</strong> 标签页，点击 <strong>添加仓库</strong>。填入名称、
+        git URL 和可选的凭据。点击 <strong>刷新</strong> 可以立即拉取软件包元数据。
+      </p>
+
+      <h3>通过文件系统</h3>
+      <p class="doc-text">
+        编辑 btrfs 软件包数据目录中的 <code>repositories.json</code>。该文件是一个
+        由对象组成的 JSON 数组：
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+      <p class="doc-text">
+        顺序是有意义的——当软件包重名时，靠后的条目会覆盖靠前的。
+        私有仓库请把凭据嵌入 URL 中。改动需要重启服务，或在界面上点
+        <strong>刷新</strong> 才会生效。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="validation-rules">校验规则</h2>
+      <p class="doc-text">
+        软件包校验和编译期间会强制执行以下约束：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>字段</th><th>规则</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>镜像 URL</td><td>非空；字符必须匹配 <code>^[a-zA-Z0-9@][a-zA-Z0-9._:/@-]*$</code></td></tr>
+            <tr><td>镜像 type</td><td>为空（默认为 <code>oci</code>）或 <code>oci</code></td></tr>
+            <tr><td>环境变量键名</td><td>必须匹配 <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>（POSIX 惯例）</td></tr>
+            <tr><td>提问名称</td><td>必须匹配 <code>^[a-zA-Z0-9]+$</code></td></tr>
+            <tr><td>卷名</td><td>必须匹配 <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code></td></tr>
+            <tr><td>挂载点</td><td>必须以 <code>/</code> 开头</td></tr>
+            <tr><td>模板名称</td><td>与卷名规则相同</td></tr>
+            <tr><td>模板路径</td><td>非空、相对路径（不带前导 <code>/</code>）、不含 <code>..</code> 穿越</td></tr>
+            <tr><td>归档目录</td><td>必须是绝对路径</td></tr>
+            <tr><td>归档/git 的 volume</td><td>必须引用该软件包中已定义的卷</td></tr>
+            <tr><td>Git URL</td><td>必须有合法的协议和主机（<code>file://</code> 除外）</td></tr>
+            <tr><td>虚拟机 CPU 数</td><td>必须为非负数</td></tr>
+            <tr><td>Proton 的 app_directory</td><td>必须是绝对路径</td></tr>
+            <tr><td>运行时</td><td><code>image</code>/<code>proton</code>（容器）与 <code>vm</code> 之中恰好取其一</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        校验发生在模板替换之前。包含 <code>@variable@</code> 标记的字段，
+        会跳过路径和 URL 校验，直到编译解析完模板之后再检查。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="style-guidelines">风格指引</h2>
+      <ul class="guidelines-list">
+        <li>省略空映射（<code>environment: {}</code>、<code>internal: {}</code>、<code>volumes: {}</code>）——干脆整个不写。</li>
+        <li>接受自由文本的提问请省略 <code>type</code>——不要写一个没有取值的 <code>type:</code>。</li>
+        <li>写上 <code>description</code>，简短说明这个软件包是什么。</li>
+        <li>当软件包提供的是众所周知的服务时，写上带有相应能力标签的 <code>supplies</code>。</li>
+        <li>写上 <code>notes</code>，包含连接 URL 以及任何重要的安装后信息。</li>
+        <li>用 <code>@variable@</code> 模板，让用户在安装时自定义端口、主机名和凭据。</li>
+        <li>需要 Go 模板逻辑的配置文件请使用 <code>templates</code>——它们只写入一次，并会保留用户的修改。</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+  .guidelines-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .guidelines-list li {
+    margin-bottom: 0.6rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-list code {
+    font-size: 0.85em;
+  }
+</style>

@@ -1,0 +1,126 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+
+const screenshots = [
+  { file: 'create-account.webp', w: 2400, h: 1183, title: '创建账户', desc: '首次访问 Town OS 时，设置你的第一个管理员账户。' },
+  { file: 'dashboard.webp', w: 2400, h: 1187, title: '仪表盘', desc: '系统总览，以卡片形式一目了然地展示文件系统、账户、服务、软件包、仓库和审计状态。' },
+  { file: 'packages.webp', w: 2400, h: 1191, title: '软件包', desc: '浏览、搜索并管理所配置仓库中可用的软件包。' },
+  { file: 'installation.webp', w: 2400, h: 1189, title: '安装', desc: '交互式提问会引导你在安装前完成每个软件包的配置。' },
+  { file: 'install-details.webp', w: 2400, h: 1184, title: '安装详情', desc: '查看已安装软件包的配置、安装时的回答以及连接信息。' },
+  { file: 'services.webp', w: 2400, h: 1186, title: '服务', desc: '查看和管理运行中的服务，附带状态指示和快捷操作。' },
+  { file: 'logs.webp', w: 2400, h: 1188, title: '日志', desc: '实时的 journal 输出，支持过滤、跟随，以及为运行中的服务折叠条目。' },
+  { file: 'storage.webp', w: 2400, h: 1190, title: '存储', desc: '管理 btrfs 子卷、配额和已安装软件包的卷。' },
+  { file: 'monitoring.webp', w: 2400, h: 1188, title: '监控', desc: '由 Grafana 和 Prometheus 驱动，仪表盘会自动配置好，并且完全可以自定义。' },
+  { file: 'settings.webp', w: 2400, h: 1186, title: '设置', desc: '为你的 Town OS 配置全系统的设置与偏好。' },
+  { file: 'auditlog.webp', w: 2400, h: 1188, title: '审计日志', desc: '追踪每一次 API 操作——安装、登录、账户变更——并记录时间戳、操作者、请求负载和产生的错误。' },
+  { file: 'dns-dashboard.webp', w: 2400, h: 1244, title: 'DNS——服务地址', desc: '当 rolodex 成为你的网络 DNS 后，每个已安装的软件包都会获得一个易记的 <package>.<repo>.home 地址，并直接列在仪表盘上。' },
+  { file: 'dns-gitea.webp', w: 2400, h: 1234, title: 'DNS——Gitea', desc: '网络中的任何设备都可以通过 gitea.default.home 访问 Gitea，由 rolodex 负责解析。' },
+  { file: 'dns-immich.webp', w: 2400, h: 1234, title: 'DNS——Immich', desc: '在 immich.default.home 上使用 Immich 管理照片——无需记 IP 地址，也不用改 hosts 文件。' },
+  { file: 'dns-jitsi.webp', w: 2400, h: 1234, title: 'DNS——Jitsi Meet', desc: '在 jitsi.default.home 上自托管视频会议，局域网内的手机、笔记本和平板都能访问。' },
+  { file: 'dns-matrix.webp', w: 2400, h: 1239, title: 'DNS——Matrix / Synapse', desc: '运行在 matrix.default.home 上的联邦式 Matrix 主服务器，随时可供客户端连接。' },
+  { file: 'dns-mattermost.webp', w: 2400, h: 1238, title: 'DNS——Mattermost', desc: '团队沟通就在 mattermost.default.home——浏览器里输入这个主机名就能进入。' },
+];
+---
+
+<BaseLayout title="界面截图 — Town OS" lang="zh-Hans">
+  <section class="section">
+    <div class="container">
+      <h1>界面截图</h1>
+      <p class="page-lead">
+        看看 Town OS 的实际运行效果。这些截图来自当前的开发版本——
+        一个可以完整管理软件包、服务、存储和用户的仪表盘。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="gallery">
+        {screenshots.map((shot) => (
+          <div class="gallery-item">
+            <a href={`${base}images/screenshots/${shot.file}`} target="_blank" rel="noopener" class="gallery-link">
+              <img
+                src={`${base}images/screenshots/${shot.file}`}
+                alt={shot.title}
+                width={shot.w}
+                height={shot.h}
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="gallery-caption">
+              <h3>{shot.title}</h3>
+              <p>{shot.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+
+  .gallery-item {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .gallery-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .gallery-link {
+    display: block;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .gallery-link img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .gallery-item:hover .gallery-link img {
+    transform: scale(1.02);
+  }
+
+  .gallery-caption {
+    padding: 1rem 1.25rem;
+  }
+
+  .gallery-caption h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .gallery-caption p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

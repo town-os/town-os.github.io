@@ -1,0 +1,221 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="核心概念 — Town OS" lang="zh-Hant">
+  <section class="section">
+    <div class="container concepts-container">
+      <h1>核心概念</h1>
+      <p class="page-lead">
+        Town OS 建立在一組核心想法之上。理解這些概念，有助於你看清各部分如何組合在一起——
+        從定義一個套件，到管理一個執行中的服務。
+      </p>
+
+      <div class="concepts-grid">
+        <div class="card concept-card">
+          <h3>套件（Packages）</h3>
+          <p>
+            套件是對某個服務的自足式 YAML 定義，從 git 儲存庫拉取。每個套件都會宣告自己的
+            網路連接埠對應、儲存磁碟區、環境變數與互動式問答——執行該服務所需的一切。套件可以
+            以容器方式執行（預設），也可以是基於 QEMU 的虛擬機器，或透過 Valve 的 Proton 相容層
+            執行的 Windows 應用程式。檔案範本（Go 的 <code>text/template</code> 檔案）可以在安裝時
+            算繪進磁碟區，達成動態設定。套件透過 <code>supplies</code> 標籤（例如
+            <code>http</code>、<code>database</code>、<code>cache</code>）描述自身能力。
+            預設套件庫內附一批精選套件，涵蓋 git 託管、視訊會議、媒體串流、團隊訊息
+            與資料庫——而且還在持續增加。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>問答（Questions）</h3>
+          <p>
+            安裝套件時，Town OS 可能會出現一組稱為「問答」的互動式提示。你的回答會填入套件定義中
+            各處的 <code>@variable@</code> 範本佔位符——用來設定主機名稱、連接埠、憑證與其他選項。
+            每個問題都帶有型別化的驗證器（<code>hostname</code>、<code>port</code>、<code>bytes</code>、
+            <code>volume</code>、<code>archive</code>、<code>duration</code>、<code>secret</code>、
+            <code>boolean</code>、<code>oauth</code> 或自由文字）以及選填的預設值，
+            因此設定錯誤在服務啟動前就會被攔下。型別也決定了你看到的控制項——<code>boolean</code>
+            是核取方塊、<code>secret</code> 是遮罩欄位，而 <code>oauth</code> 問題則是一個「連線」按鈕，
+            會帶你登入該廠商並保存它回傳的權杖。有幾種型別在留空時會自動產生值：連接埠在
+            10000–60000 範圍內隨機指派、主機名稱以 <code>package-name-4hex</code> 的形式產生，
+            密鑰則產生 64 位十六進位字串。標為 <code>optional</code> 的問題可以直接留白——
+            你沒有的 SMTP 轉送會維持未設定，而不是被隨便填上一個猜測值。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>服務（Services）</h3>
+          <p>
+            套件安裝完成後就成為一個服務——一個由 systemd unit 管理的執行中容器。Town OS 提供
+            啟動、停止與重新啟動的控制，透過 Server-Sent Events 即時串流記錄，支援以游標分頁瀏覽
+            journal，也可以啟用或停用服務。各服務之間，以及與主機系統之間，都是彼此隔離的。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>網路（Networking）</h3>
+          <p>
+            Town OS 內建
+            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>，
+            這是一套 DNS 伺服器，為你的套件管理權威區域並轉送上游查詢。每個套件都宣告自己的
+            連接埠對應——<code>external</code> 連接埠對外開放給主機，<code>internal</code> 連接埠
+            僅在容器之間可用。連接埠值支援 <code>@variable@</code> 範本，因此使用者可以在安裝時
+            自行選擇連接埠。宣告了相依關係的套件會共用同一個網路，讓同一相依樹中的容器能直接通訊。
+            上層套件可以在環境變數中以 <code>@dep_KEY_host@</code> 和 <code>@dep_KEY_port_N@</code>
+            範本變數參照相依套件，也可以透過執行階段環境變數
+            （<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> 與
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>）存取。UPnP 轉送則會自動處理。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>儲存（Storage）</h3>
+          <p>
+            所有資料都存放在 btrfs 子磁碟區上，並依套件彼此隔離。每個磁碟區都有容器內的掛載點、
+            可設定的配額（例如 <code>512mb</code>、<code>2gb</code>），以及選填的
+            <code>uid</code>/<code>gid</code> 擁有者。磁碟區可以透過 <code>archives</code> 功能
+            從容器映像檔預先填入內容，也可以在安裝時把 git 儲存庫複製進空的磁碟區來初始化。
+            使用者也能自行建立獨立的磁碟區。虛擬機器磁碟映像檔會快取在專用子磁碟區中，之後的安裝
+            可以直接重用。系統支援 btrfs 快照，可用於時間點備份。資料在套件重新安裝與升級之間都會
+            保留——更新服務時你的檔案絕不會遺失。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>套件庫（Repositories）</h3>
+          <p>
+            套件依套件庫組織——也就是內含 <code>packages/</code> 目錄、其中放著帶版本 YAML 定義的
+            git 儲存庫。每套 Town OS 都包含預設套件庫，但任何人都可以建立並分享自訂套件庫。套件庫
+            是有順序的——當套件名稱衝突時，排在後面的會覆蓋前面的。套件庫中的
+            <code>featured.json</code> 檔案可以在介面上突顯特定套件。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>範本與註記（Templates &amp; Notes）</h3>
+          <p>
+            <code>@variable@</code> 範本系統把使用者對問答的回應，連接到環境變數、連接埠對應、
+            磁碟區配額等各處。像 <code>@LOCAL_EXTERNAL_HOST@</code> 與 <code>@LOCAL_INTERNAL_HOST@</code>
+            這類內建變數隨時可用。安裝完成後，<code>notes</code> 會顯示關鍵資訊，例如連線 URL、憑證
+            或聯絡方式——並可對 <code>url</code>、<code>phone</code> 與 <code>email</code> 進行選用的
+            型別驗證。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>頁面（Pages）</h3>
+          <p>
+            Town OS 可以架設靜態網站。每個頁面有三種可用的來源：上傳 tar 封存檔、從容器映像檔擷取
+            檔案，或複製一個 git 儲存庫。每個頁面都有自己的網域，並透過 Caddy 提供服務。封存類型的
+            頁面可以重新上傳來更新；git 與容器映像檔類型的頁面則可以隨時重新建置。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>監控（Monitoring）</h3>
+          <p>
+            內建的可觀測性堆疊開箱即用，不需要任何設定。Prometheus 負責收集指標，Node Exporter
+            回報主機統計資料（CPU、記憶體、磁碟、網路）。有兩種監控後端可選：輕量的內建介面（預設）
+            或自動佈建儀表板的 Grafana。整套元件都以系統服務執行，失敗時會自動重新啟動。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>國際化（Internationalization）</h3>
+          <p>
+            所有面向使用者的字串都會經過以 BCP 47 語言代碼為索引的訊息目錄。介面以母語字體呈現
+            21 種常見語言，另有 87 種以上的國家/地區代碼可用。目前只有英文（<code>en-US</code>）
+            完成全部翻譯——相關基礎架構已經就緒，就等社群參與翻譯。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>帳號與工作階段（Accounts &amp; Sessions）</h3>
+          <p>
+            Town OS 支援管理者帳號與一般使用者帳號。密碼至少需要 8 個字元。身分驗證使用 JWT 權杖，
+            閒置 7 天後過期。工作階段是暫時性的——簽章金鑰會在每次重新開機時重新產生，因而自動
+            清除所有作用中的工作階段。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>稽核記錄（Audit Logging）</h3>
+          <p>
+            每一項管理動作都會被記錄下來，包含帳號名稱、動作、請求路徑、細節、成功旗標與時間戳記。
+            唯讀端點不列入其中。稽核記錄支援分頁、依帳號篩選與全文搜尋。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>設定（Settings）</h3>
+          <p>
+            全系統設定透過介面中的鍵值項目管理。可調整的項目包括預設磁碟區配額（50 GB）、
+            封存檔上傳大小上限（1 GB）、封存解壓逾時（600 秒）、語言地區、Proton 執行器映像檔，
+            以及 DNS 頂層網域。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>套件升級（Package Upgrades）</h3>
+          <p>
+            當你設定的套件庫中出現更新版本時，Town OS 會自動偵測。儀表板上的標記會顯示待處理的
+            升級數量。你可以忽略不想升級的版本——忽略記錄以 SHA256 雜湊追蹤，只有在可升級的集合
+            改變時才會再次出現。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>系統服務（System Services）</h3>
+          <p>
+            基礎架構容器——監控、DNS 與網頁介面——與使用者安裝的套件分開管理。它們使用不同的
+            systemd 前綴（<code>town-os-system--</code>），失敗時一律重新啟動，且使用者無法停用。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .concepts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .concepts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .concept-card {
+    text-align: left;
+  }
+
+  .concept-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
