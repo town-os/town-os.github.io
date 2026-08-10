@@ -7,6 +7,8 @@ export const defaultLang = 'en';
  */
 export const languages = {
   en: { label: 'English', short: 'EN' },
+  'es-MX': { label: 'Español (México)', short: 'MX' },
+  'es-ES': { label: 'Español (España)', short: 'ES' },
   'zh-Hans': { label: '简体中文', short: '简' },
   'zh-Hant': { label: '繁體中文', short: '繁' },
 } as const;
@@ -38,6 +40,46 @@ export const ui = {
     'footer.packages': 'Packages',
     'footer.github': 'GitHub',
     'footer.license': 'Licensed under GNU Affero GPL 3.0',
+  },
+  'es-MX': {
+    'site.description':
+      'Town OS — Tu nube en tu clóset. Una plataforma autoalojada que corre por completo desde una memoria USB.',
+    'nav.try': 'Pruébalo',
+    'nav.toggle': 'Alternar navegación',
+    'nav.home': 'Inicio',
+    'nav.guide': 'Guía',
+    'nav.concepts': 'Conceptos',
+    'nav.packaging': 'Empaquetado',
+    'nav.api': 'API',
+    'nav.screenshots': 'Capturas',
+    'nav.community': 'Comunidad',
+    'nav.source': 'Código fuente',
+    'lang.label': 'Idioma',
+    'footer.tagline': 'Tu nube en tu clóset',
+    'footer.gitea': 'Gitea',
+    'footer.packages': 'Paquetes',
+    'footer.github': 'GitHub',
+    'footer.license': 'Bajo licencia GNU Affero GPL 3.0',
+  },
+  'es-ES': {
+    'site.description':
+      'Town OS — Tu nube en tu armario. Una plataforma autoalojada que se ejecuta por completo desde una memoria USB.',
+    'nav.try': 'Pruébalo',
+    'nav.toggle': 'Alternar navegación',
+    'nav.home': 'Inicio',
+    'nav.guide': 'Guía',
+    'nav.concepts': 'Conceptos',
+    'nav.packaging': 'Empaquetado',
+    'nav.api': 'API',
+    'nav.screenshots': 'Capturas',
+    'nav.community': 'Comunidad',
+    'nav.source': 'Código fuente',
+    'lang.label': 'Idioma',
+    'footer.tagline': 'Tu nube en tu armario',
+    'footer.gitea': 'Gitea',
+    'footer.packages': 'Paquetes',
+    'footer.github': 'GitHub',
+    'footer.license': 'Bajo licencia GNU Affero GPL 3.0',
   },
   'zh-Hans': {
     'site.description':

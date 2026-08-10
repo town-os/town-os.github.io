@@ -9,6 +9,8 @@ src/
   layouts/BaseLayout.astro    — Master layout (sticky header, footer, nav, language switcher, CSS imports)
   i18n/ui.ts                  — Locale list, shared chrome strings, path helpers
   pages/                      — English pages (index, guide, concepts, packaging, api, screenshots, community, repositories)
+  pages/es-MX/                — Mexican Spanish translations (same eight filenames)
+  pages/es-ES/                — Spain Spanish translations (same eight filenames)
   pages/zh-Hans/              — Simplified Chinese translations (same eight filenames)
   pages/zh-Hant/              — Traditional Chinese translations (same eight filenames)
   components/diagrams/        — Diagram components (DiagramFlow, DiagramBox, DiagramArrow, DiagramStack, DiagramLayer, DiagramTag)
@@ -109,8 +111,15 @@ Tailwind mirrors these as `--color-town-*` in `tailwind.css` (used only in diagr
 
 ## Internationalization
 
-The site ships in three locales: English (`en`, default, unprefixed), Simplified Chinese
-(`zh-Hans`, under `/zh-Hans/`) and Traditional Chinese (`zh-Hant`, under `/zh-Hant/`).
+The site ships in five locales, each served from its own URL prefix except the default:
+
+| Locale | Path | Notes |
+|---|---|---|
+| `en` | `/` | Default, unprefixed |
+| `es-MX` | `/es-MX/` | Mexican Spanish — also serves the rest of Latin America |
+| `es-ES` | `/es-ES/` | Spain Spanish — also the target for a bare `es` |
+| `zh-Hans` | `/zh-Hans/` | Simplified Chinese |
+| `zh-Hant` | `/zh-Hant/` | Traditional Chinese |
 
 ### Where things live
 - `src/i18n/ui.ts` — the locale registry (`languages`, `defaultLang`), the shared-chrome
@@ -120,38 +129,47 @@ The site ships in three locales: English (`en`, default, unprefixed), Simplified
   never hardcode `${base}guide/` in a locale page, or the reader gets bounced to English.
 - `getLangFromUrl` / `stripLang` derive the active locale and the locale-free path from
   `Astro.url`; `BaseLayout` uses them for the switcher and the `hreflang` tags.
-- `astro.config.mjs` declares the same three locales with `prefixDefaultLocale: false`.
+- `astro.config.mjs` declares the same five locales with `prefixDefaultLocale: false`.
 
 ### Language selection
 - Every page carries an inline `<head>` script that redirects before first paint. A stored
   preference (`localStorage['town-os:lang']`) always wins; otherwise `navigator.languages`
-  decides — first `zh*` entry wins (`hant|tw|hk|mo` → `zh-Hant`, everything else →
-  `zh-Hans`), a first `en*` entry stops the search, and any other language keeps scanning.
+  is scanned in order and the first entry that matches a locale family decides:
+  - `zh*` → `zh-Hant` if the tag contains `hant|tw|hk|mo`, else `zh-Hans`
+  - `es*` → `es-MX` for `es-419` and the Latin American regions, else `es-ES`
+    (so a bare `es` lands on the European edition)
+  - `en*` → stops the search on English
+  - anything else keeps scanning — we have nothing better to offer it
 - Auto-detection runs **once per session** (`sessionStorage['town-os:lang-auto']`), so
   someone who navigates back to `/guide/` by hand is not dragged away again.
 - Clicking the switcher (nav dropdown or footer row) writes the choice to `localStorage`,
   which pins it permanently. The switcher links to the *same page* in the other locale.
 - `BaseLayout` emits `<html lang>`, `og:locale`, and `hreflang` alternates (plus
-  `x-default` → English) for all three locales on every page.
+  `x-default` → English) for all five locales on every page.
 
 ### Adding or changing a page
 1. Write the English page in `src/pages/`.
-2. Add both translations at `src/pages/zh-Hans/<name>.astro` and
-   `src/pages/zh-Hant/<name>.astro`, passing `lang="zh-Hans"` / `lang="zh-Hant"` to
-   `BaseLayout` and using `localizePath` for internal links.
+2. Add a translation under **every** locale directory — `src/pages/es-MX/<name>.astro`,
+   `es-ES`, `zh-Hans`, `zh-Hant` — passing the matching `lang="…"` to `BaseLayout` and
+   using `localizePath` for internal links.
 3. Keep every `id="..."` anchor, image path, code sample, and CSS class **identical** to
    the English page — only prose is translated. Anchors are shared across locales.
-4. The page's `<style>` block is **duplicated verbatim** into both locale copies. Astro
+4. The page's `<style>` block is **duplicated verbatim** into every locale copy. Astro
    scopes styles per component, so a shared stylesheet would lose the scoping. Any style
-   edit to an English page must be mirrored into both translations.
+   edit to an English page must be mirrored into all four translations.
 5. Add nav/footer strings to the `ui` table in `src/i18n/ui.ts`, not to the layout markup.
 6. Run `make check-i18n` (or `./scripts/check-i18n.sh`) — it fails on a missing translation
    or on a locale page whose `<style>` block has drifted from the English original.
 
 ### Translation conventions
-- `zh-Hans` uses mainland vocabulary (软件、网络、硬盘、默认、内存、卷、镜像、端口);
+Each pair is a genuinely separate translation, not a mechanical conversion of the other.
+
+- **Chinese** — `zh-Hans` uses mainland vocabulary (软件、网络、硬盘、默认、内存、卷、镜像、端口);
   `zh-Hant` uses Taiwan vocabulary (軟體、網路、硬碟、預設、記憶體、磁碟區、映像檔、連接埠).
-  They are separate translations, not a character-by-character conversion.
+- **Spanish** — `es-MX` uses *computadora, administrar, archivo, correr, monitoreo, bitácora
+  de auditoría, celular, video, agregar, llave SSH*; `es-ES` uses *ordenador, gestionar,
+  fichero, ejecutar, monitorización, registro de auditoría, móvil, vídeo, añadir, clave SSH*,
+  and prefers *pulsa* over *haz clic*. Both address the reader as **tú**.
 - Leave untranslated: commands, code blocks, YAML/JSON samples, API paths, field names,
   env var names, product names, and `make` targets.
 - Prose in code comments inside `<script>` blocks (button labels like Copy/复制/複製) *is*

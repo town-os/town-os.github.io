@@ -1,0 +1,126 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+
+const screenshots = [
+  { file: 'create-account.webp', w: 2400, h: 1183, title: 'Crear cuenta', desc: 'Configura tu primera cuenta de administrador la primera vez que entras en Town OS.' },
+  { file: 'dashboard.webp', w: 2400, h: 1187, title: 'Panel', desc: 'Vista general del sistema con tarjetas de un vistazo para sistemas de ficheros, cuentas, servicios, paquetes, repositorios y estado de auditoría.' },
+  { file: 'packages.webp', w: 2400, h: 1191, title: 'Paquetes', desc: 'Explora, busca y gestiona los paquetes disponibles en los repositorios que tengas configurados.' },
+  { file: 'installation.webp', w: 2400, h: 1189, title: 'Instalación', desc: 'Unas preguntas interactivas te guían para configurar cada paquete antes de instalarlo.' },
+  { file: 'install-details.webp', w: 2400, h: 1184, title: 'Detalles de la instalación', desc: 'Revisa la configuración del paquete instalado, las respuestas que diste y los datos de conexión.' },
+  { file: 'services.webp', w: 2400, h: 1186, title: 'Servicios', desc: 'Consulta y gestiona los servicios en marcha con indicadores de estado y acciones rápidas.' },
+  { file: 'logs.webp', w: 2400, h: 1188, title: 'Registros', desc: 'Salida del journal en vivo, con filtrado, seguimiento continuo y entradas plegables para los servicios en marcha.' },
+  { file: 'storage.webp', w: 2400, h: 1190, title: 'Almacenamiento', desc: 'Gestiona subvolúmenes btrfs, cuotas y los volúmenes de los paquetes instalados.' },
+  { file: 'monitoring.webp', w: 2400, h: 1188, title: 'Monitorización', desc: 'Con Grafana y Prometheus por debajo, los paneles se configuran solos y son totalmente personalizables.' },
+  { file: 'settings.webp', w: 2400, h: 1186, title: 'Ajustes', desc: 'Configura los ajustes y las preferencias de todo el sistema para tu instalación de Town OS.' },
+  { file: 'auditlog.webp', w: 2400, h: 1188, title: 'Registro de auditoría', desc: 'Sigue cada acción de la API — instalaciones, inicios de sesión, cambios de cuenta — con marcas de tiempo, atribución al usuario, contenido de las peticiones y los errores que se generaron.' },
+  { file: 'dns-dashboard.webp', w: 2400, h: 1244, title: 'DNS — URLs de servicios', desc: 'Con rolodex como DNS de tu red, cada paquete instalado obtiene una URL amigable <paquete>.<repo>.home listada directamente en el panel.' },
+  { file: 'dns-gitea.webp', w: 2400, h: 1234, title: 'DNS — Gitea', desc: 'Gitea accesible desde cualquier dispositivo de la red en gitea.default.home, resuelto por rolodex.' },
+  { file: 'dns-immich.webp', w: 2400, h: 1234, title: 'DNS — Immich', desc: 'Gestión de fotos con Immich en immich.default.home — sin direcciones IP ni ediciones al fichero hosts.' },
+  { file: 'dns-jitsi.webp', w: 2400, h: 1234, title: 'DNS — Jitsi Meet', desc: 'Videoconferencias autoalojadas en jitsi.default.home, accesibles desde móviles, portátiles y tabletas de tu red local.' },
+  { file: 'dns-matrix.webp', w: 2400, h: 1239, title: 'DNS — Matrix / Synapse', desc: 'Un servidor Matrix federado funcionando en matrix.default.home, listo para que se conecten los clientes.' },
+  { file: 'dns-mattermost.webp', w: 2400, h: 1238, title: 'DNS — Mattermost', desc: 'Chat de equipo en mattermost.default.home — apunta el navegador al nombre de host y ya estás dentro.' },
+];
+---
+
+<BaseLayout title="Capturas de pantalla — Town OS" lang="es-ES">
+  <section class="section">
+    <div class="container">
+      <h1>Capturas de pantalla</h1>
+      <p class="page-lead">
+        Mira Town OS en acción. Estas capturas muestran la versión de desarrollo actual —
+        un panel completamente funcional para gestionar paquetes, servicios, almacenamiento y usuarios.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="gallery">
+        {screenshots.map((shot) => (
+          <div class="gallery-item">
+            <a href={`${base}images/screenshots/${shot.file}`} target="_blank" rel="noopener" class="gallery-link">
+              <img
+                src={`${base}images/screenshots/${shot.file}`}
+                alt={shot.title}
+                width={shot.w}
+                height={shot.h}
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="gallery-caption">
+              <h3>{shot.title}</h3>
+              <p>{shot.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+
+  .gallery-item {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .gallery-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .gallery-link {
+    display: block;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .gallery-link img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .gallery-item:hover .gallery-link img {
+    transform: scale(1.02);
+  }
+
+  .gallery-caption {
+    padding: 1rem 1.25rem;
+  }
+
+  .gallery-caption h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .gallery-caption p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

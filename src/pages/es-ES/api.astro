@@ -1,0 +1,1963 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Documentación de la API — Town OS" lang="es-ES">
+  <section class="section">
+    <div class="container">
+      <h1>Documentación de la API</h1>
+      <p class="page-lead">
+        Referencia completa de la API del systemcontroller de Town OS — 77 endpoints entre
+        cuentas, almacenamiento, repositorios, paquetes, systemd, ajustes, auditoría, páginas,
+        DNS, monitorización, servicios del sistema, idiomas, imágenes de máquina virtual y estado.
+      </p>
+      <div class="client-libs-cards">
+        <a href="#go-client" class="card client-lib-card">
+          <h3>Cliente de Go</h3>
+          <p><code>src/svc/systemcontroller/client.go</code></p>
+          <p>La interfaz <code>Client</code> completa, con soporte de socket Unix y de HTTP.</p>
+          <p class="forthcoming">Empaquetado próximamente</p>
+        </a>
+        <a href="#js-client" class="card client-lib-card">
+          <h3>Cliente de JavaScript</h3>
+          <p><code>ui/src/api/</code></p>
+          <p>Cliente modular basado en mixins que usa el panel de Town OS.</p>
+          <p class="forthcoming">Empaquetado próximamente</p>
+        </a>
+      </div>
+
+      <nav class="toc">
+        <ul>
+          <li><a href="#overview">Visión general</a></li>
+          <li><a href="#authentication">Autenticación</a></li>
+          <li><a href="#pagination">Paginación</a></li>
+          <li><a href="#status">Estado</a></li>
+          <li><a href="#accounts">Cuentas</a></li>
+          <li><a href="#storage">Almacenamiento</a></li>
+          <li><a href="#repositories">Repositorios</a></li>
+          <li><a href="#packages">Paquetes</a></li>
+          <li><a href="#systemd">Systemd</a></li>
+          <li><a href="#settings">Ajustes</a></li>
+          <li><a href="#audit">Registro de auditoría</a></li>
+          <li><a href="#pages">Páginas</a></li>
+          <li><a href="#dns">DNS</a></li>
+          <li><a href="#monitoring">Monitorización</a></li>
+          <li><a href="#system-services">Servicios del sistema</a></li>
+          <li><a href="#locales">Idiomas</a></li>
+          <li><a href="#vm-images">Imágenes de máquina virtual</a></li>
+          <li><a href="#client-libraries">Bibliotecas cliente</a></li>
+          <li><a href="#development">Referencia de desarrollo</a></li>
+          <li><a href="#prerequisites">Requisitos previos</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Overview -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="overview">Visión general</h2>
+      <p class="doc-text">
+        El systemcontroller es el servicio central del backend de Town OS. Está construido sobre
+        <strong>Echo v5</strong> y en producción escucha en el puerto <strong>5309</strong> (TCP) o
+        en un socket de dominio Unix. Todos los cuerpos de petición y respuesta usan JSON. Los
+        errores siguen el
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        (<code>application/problem+json</code>).
+      </p>
+      <p class="doc-text">
+        CORS está habilitado para desarrollo. En producción, la API se sirve desde el mismo origen
+        que la interfaz.
+      </p>
+    </div>
+  </section>
+
+  <!-- Authentication -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="authentication">Autenticación</h2>
+      <p class="doc-text">
+        Autentícate llamando a <code>POST /account/authenticate</code> con un usuario y una
+        contraseña. La respuesta trae un token Bearer. Inclúyelo en las peticiones siguientes:
+      </p>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+      <p class="doc-text">
+        Las sesiones caducan a los 7 días de inactividad. Hay tres niveles de autorización:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Nivel</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="auth-badge auth-public">Público</span></td><td>No requiere token.</td></tr>
+            <tr><td><span class="auth-badge auth-authenticated">Autenticado</span></td><td>Cualquier token de sesión válido.</td></tr>
+            <tr><td><span class="auth-badge auth-admin">Administrador</span></td><td>Token de sesión de una cuenta de administrador.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pagination -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pagination">Paginación</h2>
+      <p class="doc-text">
+        Todos los endpoints de listado aceptan estos parámetros de consulta y devuelven una
+        envoltura común:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Parámetro</th><th>Tipo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sort_by</code></td><td>string</td><td>Nombre del campo por el que ordenar.</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> o <code>desc</code>.</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>Tamaño de página (20 por omisión).</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>Desplazamiento de paginación.</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>Coincidencia de subcadena, sin distinguir mayúsculas, sobre todos los campos de texto.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>Envoltura de la respuesta</h3>
+      <pre><code set:html={'{\n  "entries":     [...],\n  "has_more":    true,\n  "total_pages": 5,\n  "total_count": 97\n}'} /></pre>
+    </div>
+  </section>
+
+  <!-- Status -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="status">Estado</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/status/ping</code>
+          <span class="auth-badge auth-public">Público</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Comprobación de salud y visión general del sistema. Quien llame sin autenticarse recibe una
+        respuesta mínima con <code>status</code> y <code>needs_setup</code>. Quien llame autenticado
+        recibe los datos completos del panel, incluyendo el número de sistemas de ficheros, los
+        recuentos de paquetes, el resumen del estado de las unidades, el uso de disco, la IP externa
+        e interna y si hay actualizaciones disponibles.
+      </p>
+    </div>
+  </section>
+
+  <!-- Accounts -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="accounts">Cuentas</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/authenticate</code>
+          <span class="auth-badge auth-public">Público</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Autentica con usuario y contraseña. Devuelve un token de sesión y el objeto de la cuenta.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>Obligatorio.</strong> Usuario de la cuenta.</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>Obligatorio.</strong> Contraseña de la cuenta.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/create</code>
+          <span class="auth-badge auth-public">Público</span>
+          /
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Crea una cuenta nueva. En modo de arranque inicial (cuando no existe ninguna cuenta de
+        administrador habilitada), este endpoint es público. Si no, requiere autenticación de
+        administrador. La primera cuenta creada se convierte en la administradora. La contraseña
+        debe tener al menos 8 caracteres. El correo, el teléfono y el nombre real son obligatorios.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>Obligatorio.</strong></td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>Obligatorio.</strong> Mínimo 8 caracteres.</td></tr>
+            <tr><td><code>email</code></td><td>string</td><td><strong>Obligatorio.</strong></td></tr>
+            <tr><td><code>phone</code></td><td>string</td><td><strong>Obligatorio.</strong></td></tr>
+            <tr><td><code>real_name</code></td><td>string</td><td><strong>Obligatorio.</strong></td></tr>
+            <tr><td><code>admin</code></td><td>boolean</td><td>Si la cuenta tiene privilegios de administrador.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene una sola cuenta por su usuario. Cuerpo de la petición:
+        <code>&lbrace;"username": "alice"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todas las cuentas. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/update</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Actualiza campos de una cuenta. Envía <code>username</code> para identificarla y un objeto
+        <code>fields</code> con cualquier combinación de <code>password</code>, <code>email</code>,
+        <code>phone</code>, <code>real_name</code> y <code>admin</code>. Solo se cambian los campos
+        que envíes.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/me</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Devuelve el usuario asociado al token de la cabecera Authorization.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/sessions</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todas las sesiones activas del usuario autenticado. Cada sesión incluye su ID, el
+        usuario, la hora de creación y la del último uso.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/session/revoke</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Revoca una sesión por su ID. Cuerpo de la petición:
+        <code>&lbrace;"session_id": "..."&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/disable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Deshabilita una cuenta. Cuerpo de la petición:
+        <code>&lbrace;"username": "bob"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/enable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Vuelve a habilitar una cuenta deshabilitada. Cuerpo de la petición:
+        <code>&lbrace;"username": "bob"&rbrace;</code>.
+      </p>
+    </div>
+  </section>
+
+  <!-- Storage -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="storage">Almacenamiento</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los sistemas de ficheros. Además de los parámetros de paginación, acepta en el cuerpo
+        un <code>name</code> opcional (filtro por prefijo) y un <code>state</code>
+        (<code>user</code>, <code>installed</code> o <code>uninstalled</code>).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/create</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Crea un subvolumen btrfs nuevo. Envía <code>name</code> y, si quieres, <code>quota</code>
+        (en bytes). Si la cuota es 0 o se omite, se usa el valor predeterminado del sistema (50 GB).
+        Los nombres reservados (<code>installed</code>, <code>uninstalled</code>,
+        <code>archives</code>) se rechazan.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/modify</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Modifica un sistema de ficheros existente. Envía <code>name</code> para identificarlo y un
+        objeto <code>filesystem</code> con el <code>name</code> y/o la <code>quota</code>
+        actualizados.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina un sistema de ficheros. Cuerpo de la petición:
+        <code>&lbrace;"name": "mydata"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/upload-archive</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Sube y descomprime un fichero dentro de un subvolumen de destino. Acepta
+        <code>multipart/form-data</code> con un campo <code>subvolume</code> y un fichero
+        <code>archive</code>. Admite <code>.tar.gz</code>, <code>.tgz</code>,
+        <code>.tar.bz2</code>, <code>.tbz2</code>, <code>.tar.xz</code>, <code>.txz</code>,
+        <code>.tar</code>, <code>.zip</code> y <code>.7z</code>.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>Obligatorio.</strong> Ruta del subvolumen de destino.</td></tr>
+            <tr><td><code>archive</code></td><td>file</td><td><strong>Obligatorio.</strong> Fichero comprimido que se va a subir.</td></tr>
+            <tr><td><code>subpath</code></td><td>string</td><td>Opcional. Ruta relativa dentro del volumen donde descomprimir; se crea si hace falta.</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>Opcional. Nombre de la unidad de systemd que se detiene antes de descomprimir y se reinicia al terminar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Ajuste</th><th>Por omisión</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>max_archive_size</code></td><td>1 GB</td><td>Tamaño máximo de subida.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 segundos</td><td>Tiempo máximo para descomprimir.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/download-archive</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Descarga un fichero comprimido con el contenido de un subvolumen. Devuelve un fichero
+        transmitido en el formato solicitado.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>Obligatorio.</strong> Ruta del subvolumen de origen.</td></tr>
+            <tr><td><code>paths</code></td><td>string[]</td><td>Opcional. Array de rutas concretas dentro del subvolumen que se van a incluir.</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>Opcional. Nombre de la unidad de systemd que se detiene mientras se comprime y se reinicia después.</td></tr>
+            <tr><td><code>format</code></td><td>string</td><td>Opcional. Formato de compresión: <code>tar.gz</code> (por omisión), <code>tar.bz2</code> o <code>tar.xz</code>.</td></tr>
+            <tr><td><code>filename</code></td><td>string</td><td>Opcional. Nombre base personalizado para el fichero descargado. El servidor le añade la extensión que corresponda. Por omisión, <code>download</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/package-volumes</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los volúmenes de los paquetes agrupados por paquete, con la opción de incluir los
+        volúmenes desinstalados.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra un volumen concreto de un paquete usando su nombre interno.
+      </p>
+    </div>
+  </section>
+
+  <!-- Repositories -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="repositories">Repositorios</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/repository</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todos los repositorios de paquetes configurados, con su nombre, su URL y cualquier
+        estado de error. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/add</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Añade un repositorio de paquetes nuevo. Dispara una actualización inmediata.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code></td><td>string</td><td><strong>Obligatorio.</strong> Nombre visible del repositorio.</td></tr>
+            <tr><td><code>url</code></td><td>string</td><td><strong>Obligatorio.</strong> URL de git del repositorio.</td></tr>
+            <tr><td><code>username</code></td><td>string</td><td>Opcional. Usuario de autenticación para repositorios privados.</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td>Opcional. Contraseña de autenticación para repositorios privados.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/remove</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina un repositorio por su nombre. Dispara una actualización inmediata. Cuerpo de la
+        petición: <code>&lbrace;"name": "my-repo"&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/move</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Reordena un repositorio a una posición nueva (empezando en cero). Los repositorios
+        posteriores prevalecen sobre los anteriores cuando los nombres de paquete chocan. Cuerpo de
+        la petición: <code>&lbrace;"name": "my-repo", "position": 0&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/refresh</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Fuerza una actualización inmediata de los metadatos de todos los repositorios. Devuelve un
+        cuerpo vacío si sale bien, o un objeto JSON que asocia nombres de repositorio a cadenas de
+        error si alguno falla.
+      </p>
+    </div>
+  </section>
+
+  <!-- Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="packages">Paquetes</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todos los paquetes disponibles en todos los repositorios. Cada entrada incluye el
+        repositorio, el nombre, la versión, la descripción, las etiquetas supplies, el estado de
+        instalación y si hay una actualización disponible. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/by-repo</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los paquetes agrupados por repositorio. Acepta un parámetro de consulta
+        <code>search</code> opcional. Devuelve un array de grupos
+        <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/timezones</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todos los nombres de zona horaria IANA disponibles para la configuración de paquetes.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/installed</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los identificadores de los paquetes instalados. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/installed/info</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene información detallada de un paquete instalado. Envía <code>repo</code>,
+        <code>name</code> y <code>version</code>. Devuelve las preguntas, las respuestas del
+        usuario, las notas y los tipos de nota.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/responses</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene las respuestas guardadas de un paquete instalado. Envía <code>repo</code>,
+        <code>name</code> y <code>version</code>. Devuelve un mapa de clave y valor.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/versions</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las versiones disponibles de un paquete. Cuerpo de la petición:
+        <code>&lbrace;"name": "nginx"&rbrace;</code>. Devuelve un array de cadenas con los
+        identificadores de versión.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/children</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los paquetes hijos. Envía <code>repo</code> y <code>name</code>. Devuelve un array de
+        cadenas.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene las preguntas de instalación de un paquete. Cuerpo de la petición:
+        <code>&lbrace;"name": "nginx"&rbrace;</code>. Devuelve un mapa de clave de pregunta a
+        <code>&lbrace;"query": "...", "type": "..."&rbrace;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions/identity</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene las preguntas de una versión concreta de un paquete. Envía <code>repo</code>,
+        <code>name</code> y <code>version</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/start</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Inicia el flujo de dispositivo OAuth de una pregunta <code>oauth</code>. Envía
+        <code>repo</code>, <code>name</code>, <code>version</code> y <code>question</code>. El
+        controlador del sistema ejecuta el paso inicial del flujo contra el proveedor y devuelve
+        <code>flow_id</code>, <code>approve_url</code> (ábrela en el navegador del usuario), un
+        <code>user_code</code> opcional y <code>interval_ms</code> — cada cuánto sondear.
+      </p>
+      <p class="doc-text">
+        Las URL del proveedor vienen del paquete, no de Town OS, así que se comprueban antes de
+        llamarlas: solo <code>https</code>, y nunca una dirección de la propia red del anfitrión.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/poll</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Sondea un flujo iniciado arriba. Envía <code>flow_id</code>. Devuelve <code>status</code>:
+        <code>pending</code> mientras el usuario no haya aprobado, <code>approved</code> junto con
+        el <code>token</code>, o <code>expired</code> una vez que el flujo ha caducado o su token ya
+        se ha recogido — cada flujo es de un solo uso. El token después se envía como respuesta de
+        esa pregunta a <code>/packages/install</code>, igual que una respuesta escrita a mano.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install-preview</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Muestra qué hará una instalación antes de comprometerse. Envía <code>repo</code>,
+        <code>name</code> y <code>version</code>. Devuelve los detalles de los volúmenes, las
+        asignaciones de puertos, el uso de disco, la información de cuotas, la versión de origen de
+        la actualización y un resumen legible.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Instala un paquete.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>repo</code></td><td>string</td><td><strong>Obligatorio.</strong> Nombre del repositorio.</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td><strong>Obligatorio.</strong> Nombre del paquete.</td></tr>
+            <tr><td><code>version</code></td><td>string</td><td><strong>Obligatorio.</strong> Versión que se va a instalar.</td></tr>
+            <tr><td><code>responses</code></td><td>object</td><td><strong>Obligatorio.</strong> Respuestas de clave y valor a las preguntas de instalación.</td></tr>
+            <tr><td><code>reuse_volumes</code></td><td>boolean</td><td>Reutilizar los volúmenes de datos de una instalación anterior.</td></tr>
+            <tr><td><code>import_from_version</code></td><td>string</td><td>Versión desde la que importar los volúmenes al actualizar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstall</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Desinstala un paquete. Envía <code>repo</code>, <code>name</code>, <code>version</code> y,
+        si quieres borrar los datos asociados, <code>purge_volumes</code> (booleano).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/disable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Deshabilita un paquete instalado (detiene su servicio). Envía <code>repo</code> y
+        <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/enable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Vuelve a habilitar un paquete deshabilitado (arranca su servicio). Envía <code>repo</code> y
+        <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-volumes</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra todos los volúmenes de datos de un paquete instalado. Envía <code>repo</code> y
+        <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Comprueba si un paquete tiene volúmenes sobrantes de una instalación anterior. Envía
+        <code>repo</code> y <code>name</code>. Devuelve <code>has_uninstalled_volumes</code>,
+        <code>uninstalled_versions</code> e <code>installed_versions</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra los volúmenes que quedaron de versiones desinstaladas anteriormente. Envía
+        <code>repo</code> y <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/upgrades</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las actualizaciones disponibles de los paquetes instalados. Cada entrada incluye
+        <code>installed_version</code>, <code>latest_version</code> y si la definición del paquete
+        ha <code>changed</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/upgrades/dismiss</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Descarta las notificaciones de actualización actuales. Envía un objeto JSON vacío.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/manifest</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Devuelve la definición YAML en bruto del paquete. Envía <code>repo</code>, <code>name</code>
+        y <code>version</code>. Devuelve el contenido del fichero con
+        <code>Content-Type: text/x-yaml</code>. Devuelve 404 si el fichero del paquete no existe.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/featured</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los paquetes destacados de todos los repositorios.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/last-responses</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Recupera las últimas respuestas en caché de un paquete. Envía <code>repo</code> y
+        <code>name</code>. Devuelve las respuestas guardadas de una desinstalación previa, para
+        reutilizarlas al reinstalar.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/clear-last-responses</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra el fichero de últimas respuestas en caché de un paquete. Envía <code>repo</code> y
+        <code>name</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/rebuild-git</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Trae los últimos cambios de los volúmenes inicializados por git de un paquete instalado y
+        reinicia el servicio que depende de ellos. Envía <code>repo</code>, <code>name</code> y
+        <code>version</code>. Las variables de plantilla se vuelven a evaluar con las respuestas
+        guardadas antes de recompilar.
+      </p>
+    </div>
+  </section>
+
+  <!-- Systemd -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="systemd">Systemd</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las unidades de systemd que gestiona Town OS. Cada entrada incluye el nombre de la
+        unidad, la descripción, los estados load/active/sub, el identificador y la descripción del
+        paquete asociado, y un indicador de fallo. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Controla una unidad de systemd. Envía <code>name</code> (el nombre de la unidad) y
+        <code>action</code> (<code>start</code>, <code>stop</code>, <code>restart</code>,
+        <code>enable</code> o <code>disable</code>).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Transmite las entradas del journal de una unidad en tiempo real mediante Server-Sent Events.
+        Pasa el parámetro de consulta <code>unit</code>; si va vacío o vale <code>__system__</code>,
+        devuelve los registros de todo el sistema. Cada evento SSE contiene una entrada del journal
+        codificada en JSON, con campos como <code>Message</code>, <code>Priority</code>,
+        <code>RealtimeTimestamp</code> y <code>SystemdUnit</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tail</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Trae una página de entradas del journal, con paginación basada en cursores y filtrado.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Parámetro</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>unit</code></td><td>string</td><td>Nombre de la unidad de systemd. Vacío o <code>__system__</code> para los registros de todo el sistema.</td></tr>
+            <tr><td><code>lines</code></td><td>int</td><td>Cantidad de entradas que devolver (100 por omisión).</td></tr>
+            <tr><td><code>before</code></td><td>string</td><td>Cursor — devuelve las entradas anteriores a esa posición.</td></tr>
+            <tr><td><code>after</code></td><td>string</td><td>Cursor — devuelve las entradas posteriores a esa posición.</td></tr>
+            <tr><td><code>grep</code></td><td>string</td><td>Filtro de subcadena sobre el texto del mensaje, sin distinguir mayúsculas.</td></tr>
+            <tr><td><code>since</code></td><td>int</td><td>Marca de tiempo Unix — devuelve las entradas desde ese momento en adelante.</td></tr>
+            <tr><td><code>until</code></td><td>int</td><td>Marca de tiempo Unix — deja de recolectar en ese momento.</td></tr>
+            <tr><td><code>priority</code></td><td>int</td><td>Filtro por severidad de syslog (0 = sin filtro).</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Devuelve <code>entries</code>, <code>cursor</code> (la primera entrada) y
+        <code>end_cursor</code> (la última) para seguir paginando.
+      </p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="settings">Ajustes</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/settings</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene todos los ajustes como un objeto de clave y valor.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/get</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene un solo ajuste. Cuerpo de la petición:
+        <code>&lbrace;"key": "default_quota"&rbrace;</code>. Devuelve <code>key</code> y
+        <code>value</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/set</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Establece el valor de un ajuste. Cuerpo de la petición:
+        <code>&lbrace;"key": "default_quota", "value": "107374182400"&rbrace;</code>.
+      </p>
+
+      <h3>Ajustes predeterminados</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Clave</th><th>Por omisión</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>default_quota</code></td><td>53687091200 (50 GB)</td><td>Cuota predeterminada de los sistemas de ficheros nuevos.</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>1073741824 (1 GB)</td><td>Tamaño máximo de fichero comprimido que se puede subir.</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 (segundos)</td><td>Tiempo máximo para descomprimir un fichero.</td></tr>
+            <tr><td><code>locale</code></td><td>en-US</td><td>Idioma de todo el sistema para la internacionalización.</td></tr>
+            <tr><td><code>proton_image</code></td><td>quay.io/town/proton:latest</td><td>Imagen de contenedor del ejecutor de Proton/Wine.</td></tr>
+            <tr><td><code>dns_tld</code></td><td>home</td><td>Dominio de nivel superior para la resolución DNS local.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="audit">Registro de auditoría</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/audit/log</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las entradas del registro de auditoría. Todos los campos del cuerpo son opcionales.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Campo</th><th>Tipo</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>before_id</code></td><td>int</td><td>Paginación por conjunto de claves — devuelve las entradas con ID menor a este.</td></tr>
+            <tr><td><code>account</code></td><td>string</td><td>Filtrar por el usuario de la cuenta.</td></tr>
+            <tr><td><code>sort_by</code></td><td>string</td><td>Campo por el que ordenar.</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> o <code>desc</code>.</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>Tamaño de página.</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>Desplazamiento de paginación.</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>Filtro de búsqueda.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Cada entrada de auditoría contiene <code>id</code>, <code>account</code>,
+        <code>action</code>, <code>path</code>, <code>detail</code>, <code>success</code>,
+        <code>error</code> y <code>created_at</code>. Entre las acciones auditadas están:
+        autenticarse, crear/actualizar/deshabilitar una cuenta, revocar una sesión,
+        instalar/desinstalar/deshabilitar/habilitar un paquete, crear/modificar/eliminar un sistema
+        de ficheros, añadir/eliminar/mover/actualizar un repositorio, subir/descargar un fichero
+        comprimido, actualizar un ajuste, descartar actualizaciones y purgar volúmenes.
+      </p>
+    </div>
+  </section>
+
+  <!-- Pages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="pages">Páginas</h2>
+      <p class="doc-text">
+        Alojamiento de sitios estáticos con tres tipos de origen de contenido: subir un fichero
+        comprimido, imágenes de contenedor y repositorios git. Los usuarios asignan un dominio y el
+        sistema sirve el contenido desde un contenedor de Caddy. Todos los endpoints que modifican
+        algo requieren autenticación de administrador; el de listado requiere autenticación normal.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/pages</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todas las páginas, con ordenación, búsqueda y paginación. Se puede ordenar por nombre,
+        URL del repositorio, rama, dominio, tipo de origen, estado y marcas de tiempo.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/create</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Crea una página nueva. Acepta el nombre, el tipo de origen (<code>archive</code>,
+        <code>container_image</code> o <code>git</code>), la URL del repositorio, la rama, el
+        dominio, la imagen de contenedor y el directorio dentro de la imagen. El tipo de origen es
+        <code>archive</code> por omisión. Las páginas de git y de imagen de contenedor se
+        aprovisionan de forma asíncrona.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/upload</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Sube un fichero tar con el contenido de una página de tipo fichero. Acepta un formulario
+        multiparte con <code>name</code> y el fichero <code>archive</code>. Solo es válido para
+        páginas con tipo de origen <code>archive</code>; para otros tipos devuelve 400.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/update</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Actualización parcial de la URL del repositorio, la rama, el dominio, el tipo de origen, la
+        imagen de contenedor o el directorio de la imagen de una página. Solo se cambian los campos
+        que envíes.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra una página de la base de datos, quita el enlace simbólico del webroot y elimina el
+        subvolumen btrfs.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/rebuild</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Recompila el contenido de una página desde su origen. Las páginas de git traen los últimos
+        cambios; las de imagen de contenedor vuelven a extraer desde la imagen. Las páginas de
+        fichero devuelven 400 (vuelve a subirlo con <code>/pages/upload</code>).
+      </p>
+    </div>
+  </section>
+
+  <!-- DNS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns">DNS</h2>
+      <p class="doc-text">
+        Resolutor DNS local integrado, impulsado por un contenedor <code>rolodex-dns</code>.
+        Gestiona los ficheros de zona y los registros de los paquetes instalados, y ofrece
+        resolución de nombres local a través de una interfaz gRPC sobre socket Unix.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/status</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Devuelve el estado del DNS, incluyendo si está habilitado, si está en marcha, el TLD y el
+        número de registros.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/records</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista todos los registros DNS.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/add</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Añade un registro DNS. Acepta el nombre, el tipo de registro, el valor y el TTL.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina un registro DNS por nombre y tipo.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene el ajuste actual del dominio de nivel superior.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Establece el TLD. Cambia el TLD existente y vuelve a registrar todos los paquetes
+        instalados.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/setup</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Inicializa o reinicia el servidor DNS y registra todos los paquetes instalados.
+      </p>
+    </div>
+  </section>
+
+  <!-- Monitoring -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="monitoring">Monitorización</h2>
+      <p class="doc-text">
+        Conjunto integrado de Prometheus, Node Exporter y Grafana para la monitorización del
+        sistema. Todo se ejecuta como contenedores de podman supervisados por systemd con
+        <code>Restart=always</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/status</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Devuelve el estado del contenedor (nombre, imagen, si está en marcha, puerto) de cada
+        servicio de monitorización. Devuelve <code>&lbrace;"status": "disabled"&rbrace;</code>
+        cuando la monitorización no está configurada.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/grafana/*</code>
+          <span class="auth-badge auth-public">Público</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Proxy inverso hacia la instancia local de Grafana, quitando el prefijo
+        <code>/monitoring/grafana</code> de la ruta. Devuelve 503 si la monitorización no está
+        configurada. Este endpoint se salta la autenticación.
+      </p>
+    </div>
+  </section>
+
+  <!-- System Services -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="system-services">Servicios del sistema</h2>
+      <p class="doc-text">
+        Los servicios del sistema son contenedores de infraestructura gestionados por systemd
+        (distintos de los servicios de los paquetes que instala el usuario). Usan el prefijo de
+        nombre de unidad <code>town-os-system--</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/system-services</code>
+          <span class="auth-badge auth-public">Público</span>
+          /
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los servicios del sistema con el estado de sus unidades en vivo. Accesible desde el
+        propio equipo sin autenticación. Cada entrada incluye la clave, el nombre visible, la
+        imagen, el puerto y los campos de estado de la unidad de systemd.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/status</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Controla un servicio del sistema. Acepta <code>key</code> y <code>action</code>
+        (<code>start</code>, <code>stop</code> o <code>restart</code>).
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/refresh</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Actualiza los ficheros de unidad y el estado de los servicios del sistema.
+      </p>
+    </div>
+  </section>
+
+  <!-- Locales -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="locales">Idiomas</h2>
+      <p class="doc-text">
+        Información de idiomas del sistema para la internacionalización.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/locales</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Devuelve el idioma actual, la lista de idiomas ya poblados, los idiomas comunes (con sus
+        nombres en su propia escritura) y los idiomas extendidos. Usa códigos de idioma BCP 47.
+      </p>
+    </div>
+  </section>
+
+  <!-- VM Images -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-images">Imágenes de máquina virtual</h2>
+      <p class="doc-text">
+        Gestión de las imágenes de disco en caché que usan los paquetes de máquina virtual. Las
+        imágenes remotas se descargan y se convierten a formato raw con
+        <code>qemu-img convert</code>; la imagen convertida queda en caché en el subvolumen
+        <code>vm-images</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/vm-images</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las imágenes de disco de máquina virtual en caché. Devuelve el nombre y el tamaño de
+        fichero de cada una.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/upload</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Descarga una imagen de máquina virtual desde una URL y la convierte a formato raw. Acepta
+        una URL y un nombre opcional. Por omisión, el nombre es el del fichero de la URL con
+        extensión <code>.raw</code>. Las descargas tienen un límite de 30 minutos.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/delete</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina por nombre una imagen de máquina virtual en caché.
+      </p>
+    </div>
+  </section>
+
+  <!-- Client Libraries -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="client-libraries">Bibliotecas cliente</h2>
+      <p class="doc-text">
+        Town OS trae bibliotecas cliente de Go y de JavaScript que cubren la API completa. Ambos
+        clientes lanzan errores con tipo ante respuestas distintas de 200, usando el detalle de
+        problema del
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>.
+      </p>
+
+      <h3 id="go-client">Cliente de Go</h3>
+      <p class="doc-text">
+        El cliente de Go vive en <code>src/svc/systemcontroller/client.go</code> e implementa la
+        interfaz <code>Client</code>. Admite tanto conexiones por socket Unix como por HTTP.
+      </p>
+      <pre><code>// Conectar por socket de dominio Unix (producción)
+client := systemcontroller.InitClient("/run/town-os/systemcontroller.sock")
+
+// Conectar por HTTP (desarrollo / pruebas)
+client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309")</code></pre>
+      <p class="doc-text">
+        Establece <code>client.Token</code> después de autenticarte. Todos los métodos reciben un
+        <code>context.Context</code> como primer parámetro.
+      </p>
+
+      <h4>Almacenamiento</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateFilesystem(ctx, fs)</code></td><td>Crea un subvolumen btrfs nuevo.</td></tr>
+            <tr><td><code>ModifyFilesystem(ctx, name, fs)</code></td><td>Renombra o redimensiona un sistema de ficheros.</td></tr>
+            <tr><td><code>RemoveFilesystem(ctx, name)</code></td><td>Borra un sistema de ficheros por su nombre.</td></tr>
+            <tr><td><code>ListFilesystems(ctx, prefix, state, params)</code></td><td>Listado paginado filtrado por prefijo de nombre y por estado (<code>"user"</code>, <code>"installed"</code>, <code>"uninstalled"</code>).</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Repositorios</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRepository(ctx, name, rawURL, username, password)</code></td><td>Registra un repositorio de paquetes, con credenciales opcionales.</td></tr>
+            <tr><td><code>RemoveRepository(ctx, name)</code></td><td>Elimina un repositorio por su nombre.</td></tr>
+            <tr><td><code>MoveRepository(ctx, name, position)</code></td><td>Cambia la prioridad (0 = la más alta).</td></tr>
+            <tr><td><code>RefreshRepositories(ctx)</code></td><td>Actualiza todos los metadatos. Devuelve un mapa de errores.</td></tr>
+            <tr><td><code>ListRepositories(ctx, params)</code></td><td>Listado paginado de repositorios.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Paquetes</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListPackages(ctx, params)</code></td><td>Listado paginado de los paquetes disponibles.</td></tr>
+            <tr><td><code>ListPackagesByRepo(ctx, params)</code></td><td>Paquetes agrupados por repositorio.</td></tr>
+            <tr><td><code>ListPackageVersions(ctx, name)</code></td><td>Versiones disponibles de un paquete.</td></tr>
+            <tr><td><code>GetPackageQuestions(ctx, name)</code></td><td>Preguntas de configuración por nombre.</td></tr>
+            <tr><td><code>GetPackageQuestionsByIdentity(ctx, repo, name, version)</code></td><td>Preguntas de una versión concreta.</td></tr>
+            <tr><td><code>ListChildren(ctx, repo, name)</code></td><td>Nombres de los paquetes hijos.</td></tr>
+            <tr><td><code>InstallPreview(ctx, repo, name, version)</code></td><td>Vista previa de volúmenes y puertos sin instalar.</td></tr>
+            <tr><td><code>InstallPackage(ctx, name, version, responses, reuseVolumes, importFromVersion, skipResponseReuse)</code></td><td>Instala un paquete. El nombre usa el formato <code>"repo/paquete"</code>.</td></tr>
+            <tr><td><code>UninstallPackage(ctx, repo, name, version, purgeVolumes)</code></td><td>Elimina un paquete instalado.</td></tr>
+            <tr><td><code>DisablePackage(ctx, repo, name)</code></td><td>Detiene los servicios sin desinstalar.</td></tr>
+            <tr><td><code>EnablePackage(ctx, repo, name)</code></td><td>Vuelve a habilitar un paquete deshabilitado.</td></tr>
+            <tr><td><code>PurgeVolumes(ctx, repo, name)</code></td><td>Borra todos los volúmenes de datos de un paquete.</td></tr>
+            <tr><td><code>ListUninstalledVolumes(ctx, repo, name)</code></td><td>Comprueba si hay volúmenes sobrantes.</td></tr>
+            <tr><td><code>PurgeUninstalledVolumes(ctx, repo, name)</code></td><td>Borra los volúmenes sobrantes.</td></tr>
+            <tr><td><code>ListInstalled(ctx, params)</code></td><td>Paquetes instalados como <code>"repo/nombre@versión"</code>.</td></tr>
+            <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>Respuestas de configuración guardadas.</td></tr>
+            <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>Información detallada, con preguntas, respuestas y notas.</td></tr>
+            <tr><td><code>ListTimezones(ctx)</code></td><td>Nombres de zona horaria IANA disponibles.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListUnits(ctx, params)</code></td><td>Listado paginado de unidades de systemd.</td></tr>
+            <tr><td><code>SetUnitStatus(ctx, name, action)</code></td><td>Aplica <code>"start"</code>, <code>"stop"</code> o <code>"restart"</code>.</td></tr>
+            <tr><td><code>LogReplay(ctx, name)</code></td><td>Transmite entradas del journal por SSE. Devuelve un canal.</td></tr>
+            <tr><td><code>LogTail(ctx, params)</code></td><td>Página de entradas del journal con paginación por cursor, grep, rango de tiempo y filtro de prioridad.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Cuentas</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>Authenticate(ctx, username, password)</code></td><td>Devuelve el token de sesión y la cuenta.</td></tr>
+            <tr><td><code>CreateAccount(ctx, username, password, email, phone, realName, admin)</code></td><td>Crea un usuario. Contraseña de mínimo 8 caracteres.</td></tr>
+            <tr><td><code>GetAccount(ctx, username)</code></td><td>Obtiene una cuenta por su usuario.</td></tr>
+            <tr><td><code>UpdateAccount(ctx, username, fields)</code></td><td>Modifica campos de la cuenta (password, email, phone, real_name, admin).</td></tr>
+            <tr><td><code>ListAccounts(ctx, params)</code></td><td>Listado paginado de cuentas.</td></tr>
+            <tr><td><code>DisableAccount(ctx, username)</code></td><td>Impide la autenticación.</td></tr>
+            <tr><td><code>EnableAccount(ctx, username)</code></td><td>Vuelve a habilitar una cuenta deshabilitada.</td></tr>
+            <tr><td><code>ListSessions(ctx, token)</code></td><td>Sesiones activas del usuario dueño del token.</td></tr>
+            <tr><td><code>SessionUsername(ctx, token)</code></td><td>Usuario asociado a un token de sesión.</td></tr>
+            <tr><td><code>RevokeSession(ctx, sessionID)</code></td><td>Invalida una sesión.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Auditoría, ajustes y actualizaciones</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListAuditLog(ctx, opts, token)</code></td><td>Registro de auditoría paginado con filtros.</td></tr>
+            <tr><td><code>GetSettings(ctx)</code></td><td>Todos los ajustes como mapa de clave y valor.</td></tr>
+            <tr><td><code>GetSetting(ctx, key)</code></td><td>Un solo ajuste por su clave.</td></tr>
+            <tr><td><code>SetSetting(ctx, key, value)</code></td><td>Actualiza un ajuste.</td></tr>
+            <tr><td><code>ListUpgrades(ctx)</code></td><td>Paquetes con versiones más nuevas disponibles.</td></tr>
+            <tr><td><code>DismissUpgrades(ctx)</code></td><td>Marca como descartadas las actualizaciones pendientes.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Ficheros comprimidos</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>UploadArchive(ctx, subvolume, archiveReader, filename, subpath, stopService)</code></td><td>Sube y extrae un fichero comprimido dentro de un subvolumen. Formatos: tar.gz, tar.bz2, tar.xz.</td></tr>
+            <tr><td><code>DownloadArchive(ctx, subvolume, paths, stopService, format)</code></td><td>Crea un fichero comprimido con el contenido de un subvolumen. Devuelve un <code>io.ReadCloser</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Salud</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>Ping(ctx)</code></td><td>Salud del servicio y recuentos de resumen.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- JavaScript Client -->
+  <section class="section alt-section">
+    <div class="container">
+      <h3 id="js-client">Cliente de JavaScript</h3>
+      <p class="doc-text">
+        El cliente de JavaScript vive en <code>ui/src/api/</code> y lo usa el panel de Town OS. Está
+        construido como un conjunto modular de mixins sobre la clase
+        <code>SystemControllerClient</code>. Las respuestas distintas de 200 lanzan
+        <code>ApiError</code> con el detalle de problema RFC 9457 ya interpretado.
+      </p>
+      <pre><code>import SystemControllerClient from './api/client.js';
+
+const client = new SystemControllerClient('http://localhost:5309');
+
+// Después de autenticarse
+const result = await client.authenticate('admin', 'password');
+client.setToken(result.token);</code></pre>
+
+      <h4>Almacenamiento</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>createFilesystem(fs)</code></td><td>Crea un subvolumen btrfs nuevo.</td></tr>
+            <tr><td><code>modifyFilesystem(name, fs)</code></td><td>Renombra o redimensiona un sistema de ficheros.</td></tr>
+            <tr><td><code>removeFilesystem(name)</code></td><td>Borra un sistema de ficheros por su nombre.</td></tr>
+            <tr><td><code>listFilesystems(prefix, sortBy, sortOrder, state, limit, offset, search)</code></td><td>Listado paginado con filtros.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Repositorios</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>addRepository(name, url, username?, password?)</code></td><td>Registra un repositorio, con credenciales opcionales.</td></tr>
+            <tr><td><code>removeRepository(name)</code></td><td>Elimina un repositorio por su nombre.</td></tr>
+            <tr><td><code>moveRepository(name, position)</code></td><td>Cambia la prioridad (0 = la más alta).</td></tr>
+            <tr><td><code>refreshRepositories()</code></td><td>Actualiza todos los metadatos. Devuelve un mapa de errores o null.</td></tr>
+            <tr><td><code>listRepositories(sortBy, sortOrder, limit, offset, search)</code></td><td>Listado paginado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Paquetes</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>listPackages(sortBy, sortOrder, limit, offset, search)</code></td><td>Listado paginado de los paquetes disponibles.</td></tr>
+            <tr><td><code>listPackagesByRepo(search)</code></td><td>Paquetes agrupados por repositorio.</td></tr>
+            <tr><td><code>listPackageVersions(name)</code></td><td>Versiones disponibles de un paquete.</td></tr>
+            <tr><td><code>getPackageQuestions(name)</code></td><td>Preguntas de configuración por nombre.</td></tr>
+            <tr><td><code>getPackageQuestionsByIdentity(repo, name, version)</code></td><td>Preguntas de una versión concreta.</td></tr>
+            <tr><td><code>installPreview(repo, name, version)</code></td><td>Vista previa de volúmenes y puertos sin instalar.</td></tr>
+            <tr><td><code>installPackage(repo, name, version, responses, reuseVolumes?, importFromVersion?)</code></td><td>Instala un paquete con las respuestas de configuración.</td></tr>
+            <tr><td><code>uninstallPackage(repo, name, version, purgeVolumes?)</code></td><td>Elimina un paquete instalado.</td></tr>
+            <tr><td><code>disablePackage(repo, name)</code></td><td>Detiene los servicios sin desinstalar.</td></tr>
+            <tr><td><code>enablePackage(repo, name)</code></td><td>Vuelve a habilitar un paquete deshabilitado.</td></tr>
+            <tr><td><code>purgeVolumes(repo, name)</code></td><td>Borra todos los volúmenes de datos de un paquete.</td></tr>
+            <tr><td><code>listUninstalledVolumes(repo, name)</code></td><td>Comprueba si hay volúmenes sobrantes.</td></tr>
+            <tr><td><code>purgeUninstalledVolumes(repo, name)</code></td><td>Borra los volúmenes sobrantes.</td></tr>
+            <tr><td><code>listInstalled(sortBy, sortOrder, limit, offset, search)</code></td><td>Paquetes instalados como <code>"repo/nombre@versión"</code>.</td></tr>
+            <tr><td><code>getResponses(repo, name, version)</code></td><td>Respuestas de configuración guardadas.</td></tr>
+            <tr><td><code>getInstalledInfo(repo, name, version)</code></td><td>Información detallada, con preguntas, respuestas y notas.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>listUnits(sortBy, sortOrder, limit, offset, search)</code></td><td>Listado paginado de unidades de systemd.</td></tr>
+            <tr><td><code>setUnitStatus(name, action)</code></td><td>Aplica <code>"start"</code>, <code>"stop"</code> o <code>"restart"</code>.</td></tr>
+            <tr><td><code>logReplay(unit)</code></td><td>Transmite entradas del journal por SSE. Devuelve un <code>AsyncGenerator</code>.</td></tr>
+            <tr><td><code>logTail(unit, lines?, before?, after?, grep?, since?, until?, priority?)</code></td><td>Página de entradas del journal con paginación por cursor, grep, rango de tiempo y filtro de prioridad.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Cuentas</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>authenticate(username, password)</code></td><td>Devuelve el token de sesión y la cuenta.</td></tr>
+            <tr><td><code>createAccount(username, password, email, phone, realName, admin)</code></td><td>Crea un usuario. Contraseña de mínimo 8 caracteres.</td></tr>
+            <tr><td><code>getAccount(username)</code></td><td>Obtiene una cuenta por su usuario.</td></tr>
+            <tr><td><code>updateAccount(username, fields)</code></td><td>Modifica campos de la cuenta.</td></tr>
+            <tr><td><code>listAccounts(sortBy, sortOrder, limit, offset, search)</code></td><td>Listado paginado de cuentas.</td></tr>
+            <tr><td><code>disableAccount(username)</code></td><td>Impide la autenticación.</td></tr>
+            <tr><td><code>enableAccount(username)</code></td><td>Vuelve a habilitar una cuenta deshabilitada.</td></tr>
+            <tr><td><code>listSessions(token)</code></td><td>Sesiones activas del usuario dueño del token.</td></tr>
+            <tr><td><code>sessionUsername(token)</code></td><td>Usuario asociado a un token de sesión.</td></tr>
+            <tr><td><code>revokeSession(sessionID)</code></td><td>Invalida una sesión.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Auditoría, ajustes y actualizaciones</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>listAuditLog(opts)</code></td><td>Registro de auditoría paginado con filtros.</td></tr>
+            <tr><td><code>getSettings()</code></td><td>Todos los ajustes como objeto de clave y valor.</td></tr>
+            <tr><td><code>getSetting(key)</code></td><td>Un solo ajuste por su clave.</td></tr>
+            <tr><td><code>setSetting(key, value)</code></td><td>Actualiza un ajuste.</td></tr>
+            <tr><td><code>listUpgrades()</code></td><td>Paquetes con versiones más nuevas disponibles.</td></tr>
+            <tr><td><code>dismissUpgrades()</code></td><td>Marca como descartadas las actualizaciones pendientes.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Ficheros comprimidos</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>uploadArchive(subvolume, file, subpath?, stopService?)</code></td><td>Sube y extrae un fichero comprimido con <code>FormData</code>. Devuelve <code>&lbrace;needs_restart, message&rbrace;</code>.</td></tr>
+            <tr><td><code>downloadArchive(subvolume, paths?, stopService?, format?)</code></td><td>Descarga un fichero comprimido del subvolumen. Devuelve la <code>Response</code> en bruto para transmitirla.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Salud</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Descripción</th></tr></thead>
+          <tbody>
+            <tr><td><code>ping()</code></td><td>Salud del servicio y recuentos de resumen.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dev Targets -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="development">Referencia de desarrollo</h2>
+      <p class="doc-text">
+        El backend de Town OS se ejecuta en el puerto 5309, con un servidor de desarrollo de Vite en
+        el 5173. Usa <code>make dev</code> para levantar todo el entorno de desarrollo.
+      </p>
+
+      <h3>Objetivos principales</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Objetivo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>Levanta todo el entorno de desarrollo (backend + servidor de Vite).</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>Detiene y elimina el contenedor del backend de desarrollo.</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>Sigue journalctl dentro del contenedor de desarrollo en marcha.</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>Detiene el contenedor y desmonta el volumen btrfs de desarrollo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Objetivos de pruebas</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Objetivo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>Lanza el análisis estático y las pruebas unitarias de Go y de JS.</td></tr>
+            <tr><td><code>make test-integration</code></td><td>Lanza las pruebas de integración de Go en un contenedor de Podman con privilegios.</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>Lanza las pruebas de integración de la interfaz con Bun contra un contenedor del backend.</td></tr>
+            <tr><td><code>make test-full</code></td><td>Lanza todas las baterías de pruebas en orden.</td></tr>
+            <tr><td><code>make auto-test</code></td><td>Vigila los cambios de ficheros y vuelve a lanzar las pruebas solo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Objetivos de compilación</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Objetivo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make production-image</code></td><td>Compila la imagen de contenedor de producción.</td></tr>
+            <tr><td><code>make test-image</code></td><td>Compila la imagen de contenedor de pruebas.</td></tr>
+            <tr><td><code>make pull-images</code></td><td>Descarga las imágenes base de contenedor desde Docker Hub.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prerequisites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="prerequisites">Requisitos previos</h2>
+      <ul class="prereq-list">
+        <li><strong>Go 1.25+</strong></li>
+        <li><strong>Bun</strong> — entorno de ejecución de JavaScript</li>
+        <li><strong>Podman</strong> — en modo rootful, con <code>sudo</code></li>
+        <li><strong>btrfs-progs</strong> — <code>mkfs.btrfs</code></li>
+        <li><strong>golangci-lint</strong></li>
+      </ul>
+      <p class="doc-text">
+        Crea un fichero <code>.env</code> con las credenciales del repositorio:
+      </p>
+      <pre><code>TOWN_OS_REPO_USERNAME=&lt;usuario&gt;
+TOWN_OS_REPO_PASSWORD=&lt;contraseña&gt;</code></pre>
+      <p class="doc-text">
+        Después de instalar los requisitos previos, ejecuta <code>make pull-images</code> antes que
+        cualquier otro objetivo.
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .endpoint {
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+  }
+
+  .endpoint:first-child {
+    margin-top: 0;
+  }
+
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .method {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .method.post {
+    background: #2d6a4f;
+    color: #95d5b2;
+  }
+
+  .method.get {
+    background: #1b4965;
+    color: #a8dadc;
+  }
+
+  .endpoint-path {
+    font-size: 1.1rem;
+    background: var(--color-code-bg);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+  }
+
+  .auth-badge {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .auth-public {
+    background: #264653;
+    color: #a8dadc;
+  }
+
+  .auth-authenticated {
+    background: var(--color-primary-dim);
+    color: var(--color-text-muted);
+  }
+
+  .auth-admin {
+    background: #6b2737;
+    color: #f4a5b8;
+  }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1.5rem;
+  }
+
+  .format-tags code {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .client-libs-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .client-lib-card {
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--color-primary-dim);
+  }
+
+  .client-lib-card:hover {
+    border-color: var(--color-accent);
+  }
+
+  .client-lib-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.4rem;
+  }
+
+  .client-lib-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .client-lib-card .forthcoming {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--color-primary-light);
+    margin-top: 0.4rem;
+  }
+
+  @media (max-width: 768px) {
+    .client-libs-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .prereq-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+</style>

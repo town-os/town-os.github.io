@@ -1,0 +1,1920 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DiagramFlow from '../../components/diagrams/DiagramFlow.astro';
+import DiagramBox from '../../components/diagrams/DiagramBox.astro';
+import DiagramArrow from '../../components/diagrams/DiagramArrow.astro';
+import DiagramStack from '../../components/diagrams/DiagramStack.astro';
+import DiagramLayer from '../../components/diagrams/DiagramLayer.astro';
+import DiagramTag from '../../components/diagrams/DiagramTag.astro';
+import { localizePath } from '../../i18n/ui';
+const base = import.meta.env.BASE_URL;
+const L = (path: string) => localizePath(path, 'es-ES');
+---
+
+<BaseLayout title="Guía del usuario — Town OS" lang="es-ES">
+  <section class="section">
+    <div class="container">
+      <h1>Guía del usuario</h1>
+      <p class="page-lead">
+        Un recorrido práctico por Town OS — desde grabar una memoria USB hasta informar de
+        fallos. Tanto si eres usuario primerizo como si eres desarrollador creando paquetes,
+        esta guía cubre todo lo que necesitas para empezar.
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#quick-start">Inicio rápido</a></li>
+          <li><a href="#building-the-usb-image">Compilar la imagen USB desde el código</a></li>
+          <li><a href="#sledgehammer">La opción de arranque sledgehammer</a></li>
+          <li><a href="#dns-setup">Configurar el DNS en tu router</a></li>
+          <li><a href="#trusting-the-ca">Confiar en la autoridad de certificación</a></li>
+          <li><a href="#networks">Redes y acceso remoto</a></li>
+          <li><a href="#android-app">Town OS en Android</a></li>
+          <li><a href="#building-vms">Crear máquinas virtuales desde imágenes USB</a></li>
+          <li><a href="#raid-installation">Instalación con RAID</a></li>
+          <li><a href="#using-the-ui">Usar la interfaz</a></li>
+          <li><a href="#pages">Alojar sitios estáticos</a></li>
+          <li><a href="#updating">Actualizar Town OS</a></li>
+          <li><a href="#building-a-package">Crear un paquete</a></li>
+          <li><a href="#self-hosting-ideas">Cosas que puedes autoalojar</a></li>
+          <li><a href="#dev-environment">Entorno de desarrollo y batería de pruebas</a></li>
+          <li><a href="#reporting-bugs">Informar de fallos</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section quickstart-section">
+    <div class="container">
+      <h2 class="section-title" id="quick-start">Inicio rápido</h2>
+      <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
+        Pon Town OS en marcha en un ordenador que te sobre, en cuestión de minutos. Solo
+        necesitas una memoria USB-C (de 4 GB o más) y una máquina con Linux para grabarla.
+      </p>
+
+      <h3>1. Graba la memoria USB</h3>
+      <p class="doc-text">
+        Ejecuta el script de instalación en cualquier máquina con Linux que tenga instalados
+        <code>podman</code>, <code>curl</code>, <code>bzip2</code>, <code>dd</code>,
+        <code>lsblk</code> y <code>tar</code> — <strong>Podman es obligatorio</strong>, porque
+        el script lo usa para descargar la imagen del instalador (y tiene que funcionar de
+        verdad, no basta con tenerlo instalado). El script descarga la imagen más reciente de
+        Town OS y la graba directamente en la memoria USB.
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code></pre>
+      <p class="doc-text">
+        El script busca los dispositivos USB conectados, te muestra una lista con nombres y
+        tamaños, y te pide que elijas uno. Cuando confirmas, descomprime la imagen sobre la
+        marcha y la escribe en el dispositivo de una sola pasada. Todo el proceso tarda unos
+        minutos, según tu conexión a internet.
+      </p>
+
+      <p class="doc-text">
+        <strong>Raspberry Pi (4 / 400 / CM4, 5 / CM5):</strong> pasa <code>RPI=1</code> para
+        grabar la imagen de arranque nativo para Raspberry Pi en una tarjeta SD, una memoria USB
+        o un NVMe, en lugar de la imagen estándar para PC:
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && RPI=1 bash install.sh</code></pre>
+      <p class="doc-text">
+        La imagen de Pi siempre es Arm de 64 bits y arranca sin UEFI, así que funciona incluso si
+        ejecutas el instalador desde una máquina x86_64. Una Raspberry Pi arranca directamente
+        desde la tarjeta o el disco que le pongas, sin menú de arranque; para arrancar por NVMe en
+        una Pi 5, asegúrate de que el orden de arranque de la EEPROM incluya NVMe (se ajusta con
+        <code>rpi-eeprom-config</code>).
+      </p>
+
+      <div class="data-warning">
+        <div class="data-warning-badge">ADVERTENCIA DE DESTRUCCIÓN DE DATOS</div>
+        <p class="data-warning-text">
+          Town OS <strong>formatea y usa todos los dispositivos de almacenamiento locales que
+          detecte</strong> (NVMe, SATA, SAS, tarjetas SD). Arrancar Town OS en una máquina
+          <strong>destruye de forma permanente todos los datos existentes</strong> en cada disco
+          interno.
+        </p>
+        <p class="data-warning-text">
+          Arranca Town OS solo en una máquina dedicada, sin datos que quieras conservar, o usa las
+          <a href="#building-vms">instrucciones de máquinas virtuales</a> para probarlo con
+          seguridad primero — incluyendo
+          <a href="#qemu-usb"><code>make qemu-usb</code></a>, que arranca dentro de QEMU (en modo
+          de solo lectura) la memoria que acabas de grabar, sin tocar ningún disco real.
+        </p>
+      </div>
+
+      <h3>2. Arranca desde la memoria USB</h3>
+      <p class="doc-text">
+        Conecta la memoria USB al ordenador de destino y arranca desde ella. Puede que tengas que
+        pulsar una tecla durante el encendido para llegar al menú de arranque — las teclas más
+        habituales son <strong>F12</strong>, <strong>F2</strong>, <strong>Esc</strong> o
+        <strong>Supr</strong>, según tu hardware.
+      </p>
+
+      <h3>3. Primer arranque: usa sledgehammer</h3>
+      <p class="doc-text">
+        Si la máquina de destino ya se ha usado antes para otra cosa, <strong>elige la opción de
+        arranque sledgehammer</strong> en el menú de arranque la primera vez. Sledgehammer borra
+        todos los dispositivos de almacenamiento detectados y garantiza que Town OS empiece con la
+        pizarra completamente limpia. Así evitas problemas causados por tablas de particiones,
+        sistemas de ficheros o metadatos de RAID que dejó el sistema operativo anterior.
+      </p>
+      <p class="doc-text">
+        Cuando sledgehammer termina, la máquina se reinicia sola y Town OS hace la configuración
+        de almacenamiento desde cero. Todos los detalles están en
+        <a href="#sledgehammer">La opción de arranque sledgehammer</a>.
+      </p>
+
+      <h3>4. Qué pasa al arrancar</h3>
+      <p class="doc-text">
+        Town OS se carga por completo en RAM desde la memoria USB y después lanza
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>,
+        un instalador interactivo de texto que te guía por la configuración directamente en la
+        consola de la máquina.
+      </p>
+      <ul class="doc-list">
+        <li><strong>Configuración de red</strong> — ttyforce detecta las interfaces disponibles. Si hay una conexión por cable con enlace, avanza sola. Si no, te muestra la selección de redes WiFi con la intensidad de la señal, el tipo de seguridad y la introducción de contraseñas WPA2/WPA3.</li>
+        <li><strong>Aprovisionamiento de discos</strong> — ttyforce agrupa los discos detectados por tipo y tamaño, y luego elige automáticamente el <a href="#raid-installation">nivel de RAID</a> adecuado: disco único con 1 disco, RAID1 (espejo) con 2, o RAID5 (con paridad distribuida) con 3 o más. Todo el almacenamiento usa btrfs.</li>
+        <li><strong>Importar claves SSH</strong> — puedes escribir nombres de usuario de GitHub para importar claves SSH públicas y tener acceso remoto seguro.</li>
+      </ul>
+      <p class="doc-text">
+        Terminado el aprovisionamiento, el sistema se reinicia y ttyforce pasa a modo getty — una
+        pantalla de estado en vivo que muestra la salud de los servicios, las métricas del sistema
+        y la salida del journal en la consola. Desde ahí puedes iniciar sesión, reconfigurar la red
+        o lanzar un borrado con sledgehammer.
+      </p>
+
+      <h3>5. Crea tu cuenta y empieza a usarlo</h3>
+      <p class="doc-text">
+        Desde cualquier dispositivo de la misma red, abre un navegador y ve a
+        <code>http://town-os.local</code>. Si eso no funciona, busca en la lista de clientes DHCP
+        de tu router un dispositivo llamado «town-os» y usa su dirección IP directamente. Se te
+        pedirá crear una cuenta de administrador. Una vez dentro, puedes instalar paquetes,
+        gestionar el almacenamiento y configurar servicios desde el panel.
+      </p>
+
+      <h3>6. Apunta el DNS de tu router a Town OS</h3>
+      <p class="doc-text">
+        Town OS trae <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+        un servidor DNS que resuelve los nombres de host de los paquetes y reenvía todo lo demás al
+        exterior. Para que todos los dispositivos de tu red lo usen automáticamente, dale a la
+        máquina con Town OS una IP fija (o una reserva DHCP) y pon esa dirección como
+        <strong>servidor DNS primario</strong> en tu router. En
+        <a href="#dns-setup">Configurar el DNS en tu router</a> están las instrucciones por marca y
+        los pasos de verificación.
+      </p>
+    </div>
+  </section>
+
+  <!-- Creating the USB Drive -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-the-usb-image">Compilar la imagen USB desde el código</h2>
+      <p class="doc-text">
+        La imagen USB de Town OS se compila desde el repositorio
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>. El
+        proceso produce una imagen arrancable con un sistema de ficheros raíz squashfs y un esquema
+        de particiones GPT.
+      </p>
+
+      <h3>Requisitos previos</h3>
+      <p class="doc-text">
+        Necesitas un anfitrión con Linux y una memoria USB (de 4 GB o más). La compilación usa
+        herramientas de Arch Linux (<code>pacstrap</code>, <code>mkinitcpio</code>,
+        <code>arch-chroot</code>), pero <strong>no</strong> hace falta que ejecutes Arch — en
+        cualquier otra distribución, <code>make image</code> lanza la compilación dentro de un
+        contenedor de Arch de la misma arquitectura. Instala las dependencias del anfitrión con el
+        objetivo que corresponda a tu distribución:
+      </p>
+      <ul class="doc-list">
+        <li><code>make deps</code> — Arch (y derivadas) o Fedora/RHEL</li>
+        <li><code>make deps-debian</code> — Debian o Ubuntu</li>
+      </ul>
+      <p class="doc-text">
+        Esos objetivos traen todo lo que necesitan la compilación y las herramientas de máquinas
+        virtuales — <code>make</code>, <code>podman</code>, <code>arch-install-scripts</code>,
+        <code>squashfs-tools</code>, <code>parted</code>, <code>e2fsprogs</code>,
+        <code>dosfstools</code>, <code>qemu</code> y <code>libvirt</code>.
+      </p>
+
+      <h3>Clonar y compilar</h3>
+      <pre><code>git clone https://gitea.com/town-os/install.git
+cd install
+make image</code></pre>
+      <p class="doc-text">
+        Ejecutar <code>make</code> o <code>make image</code> compila la imagen USB completa. El
+        proceso descarga el sistema base, instala los componentes de Town OS, comprime todo en un
+        sistema de ficheros squashfs y monta la imagen de disco final con una tabla de particiones
+        GPT.
+      </p>
+
+      <h3>Particionado y squashfs</h3>
+      <p class="doc-text">
+        La imagen resultante usa un esquema GPT con:
+      </p>
+      <ul class="doc-list">
+        <li>Una partición de arranque BIOS (1 MiB) para el arranque BIOS clásico</li>
+        <li>Una partición de sistema EFI (64 MiB, FAT32) para el arranque UEFI</li>
+        <li>Una partición de datos (ext4) que contiene el sistema de ficheros raíz squashfs y GRUB</li>
+      </ul>
+      <p class="doc-text">
+        Al arrancar, Town OS monta el squashfs como capa inferior de solo lectura, con una capa
+        tmpfs encima. Eso significa que el sistema operativo se ejecuta por completo en RAM — la
+        memoria USB solo se lee al arrancar. Todos los cambios en tiempo de ejecución ocurren en
+        memoria y se descartan al reiniciar, dejándote la pizarra limpia cada vez.
+      </p>
+
+      <h3>Grabar la imagen</h3>
+      <p class="doc-text">
+        Lo más sencillo es <code>make flash</code>, que compila la imagen si está desactualizada y
+        la graba en un dispositivo USB. Si prefieres hacerlo a mano, ten en cuenta que la
+        compilación produce un fichero con la fecha y el sufijo de arquitectura (por ejemplo
+        <code>town-os-2026-07-25-x86_64.img</code>) — grábalo con <code>dd</code>:
+      </p>
+      <pre><code># Encuentra tu dispositivo USB (por ejemplo /dev/sdb)
+lsblk
+
+# Graba la imagen (cambia el nombre del fichero y /dev/sdX por tu dispositivo)
+sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+      <p class="doc-text callout">
+        Comprueba dos veces el dispositivo de destino — <code>dd</code> sobrescribe aquello a lo
+        que le apuntes, sin pedir confirmación.
+      </p>
+
+      <DiagramFlow title="Proceso de arranque">
+        <DiagramBox label="Memoria USB" sub="Tabla de particiones GPT" variant="purple">
+          <DiagramTag variant="purple">Sistema EFI</DiagramTag>
+          <DiagramTag variant="purple">Raíz squashfs</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="arranque" />
+        <DiagramStack>
+          <DiagramLayer variant="top">Sistema en marcha</DiagramLayer>
+          <DiagramLayer variant="teal" badge="lectura-escritura">capa tmpfs</DiagramLayer>
+          <DiagramLayer variant="purple" badge="solo lectura">squashfs</DiagramLayer>
+        </DiagramStack>
+        <DiagramArrow />
+        <DiagramBox label="RAM" sub="El sistema se ejecuta por completo en memoria" variant="teal" />
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Sledgehammer Boot Option -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="sledgehammer">La opción de arranque sledgehammer</h2>
+      <p class="doc-text">
+        La memoria USB de Town OS incluye una opción de arranque llamada
+        <strong>sledgehammer</strong> que borra todos los dispositivos de almacenamiento detectados
+        y devuelve el sistema a un estado limpio. Es útil cuando quieres empezar de cero — por
+        ejemplo, después de hacer pruebas, antes de instalar en hardware nuevo, o cuando el
+        almacenamiento se ha corrompido.
+      </p>
+
+      <h3>Qué hace</h3>
+      <p class="doc-text">
+        Cuando eliges la opción sledgehammer al arrancar, Town OS va a:
+      </p>
+      <ul class="doc-list">
+        <li>Detectar todos los dispositivos de almacenamiento locales (NVMe, SATA/SAS, tarjetas SD) — con la misma detección que usa el arranque normal</li>
+        <li>Borrar las tablas de particiones y los sistemas de ficheros de cada dispositivo detectado</li>
+        <li>Reiniciar el sistema, que después hace la configuración de almacenamiento desde cero, como si fuera el primer arranque</li>
+      </ul>
+      <p class="doc-text callout">
+        Sledgehammer destruye todos los datos de todos los dispositivos de almacenamiento
+        detectados. La memoria USB en sí no se toca — solo los discos internos. Asegúrate de tener
+        copias de seguridad de lo que necesites antes de usar esta opción.
+      </p>
+
+      <h3>Cómo se usa</h3>
+      <ol class="doc-list">
+        <li>Conecta la memoria USB de Town OS en la máquina de destino y arranca desde ella</li>
+        <li>En el menú de arranque, elige la entrada <strong>sledgehammer</strong> en lugar de la opción predeterminada</li>
+        <li>El sistema borra todo el almacenamiento detectado y se reinicia solo</li>
+        <li>En el siguiente arranque, Town OS configura el almacenamiento desde cero usando tu configuración de <code>town-os.yaml</code></li>
+      </ol>
+
+      <h3>Cuándo usarla</h3>
+      <ul class="doc-list">
+        <li><strong>Restablecer de fábrica</strong> — devuelve el sistema a un estado limpio, como recién instalado</li>
+        <li><strong>Cambio de backend de almacenamiento</strong> — pasar de btrfs a ZFS (o al revés) exige limpiar antes el almacenamiento existente</li>
+        <li><strong>Almacenamiento corrupto</strong> — si el sistema de ficheros está dañado más allá de toda reparación, sledgehammer te da un punto de partida limpio</li>
+        <li><strong>Reinstalación</strong> — reaprovechar el hardware con otra configuración de Town OS</li>
+      </ul>
+
+      <DiagramFlow title="Flujo de reinicio con sledgehammer">
+        <DiagramBox label="Menú de arranque" sub="Elige sledgehammer" variant="neutral">
+          <DiagramTag>sledgehammer</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="borrar" />
+        <DiagramBox label="Limpiar almacenamiento" sub="Se borran todos los discos detectados" variant="purple">
+          <DiagramTag variant="purple">NVMe</DiagramTag>
+          <DiagramTag variant="purple">SATA</DiagramTag>
+          <DiagramTag variant="purple">SD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="reiniciar" />
+        <DiagramBox label="Configuración nueva" sub="El almacenamiento se configura desde cero" variant="teal">
+          <DiagramTag variant="teal">town-os.yaml</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- DNS Setup -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns-setup">Configurar el DNS en tu router</h2>
+      <p class="doc-text">
+        Town OS incluye <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+        un servidor DNS que gestiona las zonas autoritativas de tus paquetes y reenvía las consultas
+        al exterior. Para usarlo como servidor DNS de tu red, tienes que decirle a tu router que
+        reparta la dirección IP de la máquina con Town OS como servidor DNS. Así, cada dispositivo
+        de tu red usa rolodex automáticamente — sin configurar nada equipo por equipo.
+      </p>
+
+      <h3>Encuentra la dirección IP de Town OS</h3>
+      <p class="doc-text">
+        Vas a necesitar la dirección IP local de tu máquina con Town OS. Puedes encontrarla así:
+      </p>
+      <ul class="doc-list">
+        <li>Entra en el panel en <code>http://town-os.local</code> después de la configuración inicial y toma la <strong>IP interna</strong> que aparece ahí — esa es la dirección que debes usar como servidor DNS</li>
+        <li>Ejecuta <code>make vm-ip</code> si estás usando una máquina virtual</li>
+        <li>Busca en la lista de clientes DHCP de tu router un dispositivo llamado «town-os»</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard-internal-ip.webp`} alt="El panel de Town OS mostrando la IP externa y la IP interna con botones para copiarlas" width="2296" height="866" loading="lazy" />
+      </div>
+      <p class="doc-text">
+        Para que el DNS funcione de forma fiable, tu máquina con Town OS debería tener una dirección
+        IP fija o una reserva DHCP en el router. Si la IP cambia, el DNS se rompe para toda tu red.
+      </p>
+
+      <h3>Asigna una IP fija o una reserva DHCP</h3>
+      <p class="doc-text">
+        Casi todos los routers permiten reservar una dirección IP para un dispositivo concreto según
+        su dirección MAC. Normalmente está en <strong>Configuración LAN</strong>,
+        <strong>DHCP</strong> o <strong>Reserva de direcciones</strong>. Busca la máquina con Town
+        OS en la lista de clientes y reserva la IP que tiene ahora.
+      </p>
+      <p class="doc-text">
+        Si tu router no admite reservas DHCP, puedes configurar una IP fija en la propia máquina con
+        Town OS añadiéndola a <code>town-os.yaml</code>.
+      </p>
+
+      <h3>Cambia el servidor DNS en tu router</h3>
+      <p class="doc-text">
+        Los pasos exactos varían según la marca del router, pero el proceso general es el mismo:
+      </p>
+      <ol class="doc-list">
+        <li>Entra en la interfaz de administración de tu router (normalmente <code>192.168.1.1</code> o <code>192.168.0.1</code>)</li>
+        <li>Busca la sección <strong>Configuración DHCP</strong>, <strong>Configuración LAN</strong> o <strong>Configuración DNS</strong></li>
+        <li>Cambia el <strong>servidor DNS primario</strong> por la dirección IP de tu máquina con Town OS</li>
+        <li>Si quieres, pon un <strong>servidor DNS secundario</strong> como respaldo (por ejemplo <code>1.1.1.1</code> u <code>8.8.8.8</code>) — se usará cuando Town OS no esté disponible</li>
+        <li>Guarda y aplica la configuración</li>
+      </ol>
+      <p class="doc-text">
+        Después de guardar, los dispositivos de tu red tomarán el nuevo servidor DNS la próxima vez
+        que renueven su concesión DHCP. Puedes forzarlo desconectándote y volviéndote a conectar a
+        la red, o reiniciando el dispositivo.
+      </p>
+
+      <h3>Interfaces de routers habituales</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Marca del router</th><th>Dónde está la configuración de DNS</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ASUS</td><td>LAN → Servidor DHCP → Servidor DNS</td></tr>
+            <tr><td>TP-Link</td><td>DHCP → Configuración DHCP → DNS primario</td></tr>
+            <tr><td>Netgear</td><td>Internet → Dirección del servidor de nombres de dominio (DNS)</td></tr>
+            <tr><td>Linksys</td><td>Conectividad → Red local → Servidor DHCP → DNS estático</td></tr>
+            <tr><td>UniFi</td><td>Configuración → Redes → (tu red) → DHCP Name Server</td></tr>
+            <tr><td>pfSense / OPNsense</td><td>Services → DHCP Server → DNS Servers</td></tr>
+            <tr><td>OpenWrt</td><td>Red → Interfaces → LAN → Servidor DHCP → Avanzado → DHCP-Options: <code>6,&lt;ip-de-town-os&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Desactiva el DNS del navegador</h3>
+      <p class="doc-text">
+        <strong>La mayoría de los navegadores traen su propio resolutor de DNS y se saltan tu router
+        por completo.</strong> El DNS sobre HTTPS (DoH) de Firefox y las funciones equivalentes de
+        «DNS seguro» en Chrome y Edge envían las consultas directamente a un proveedor público como
+        Cloudflare o NextDNS, así que Town OS nunca ve la consulta y los nombres de tus paquetes
+        vuelven como «servidor no encontrado», aunque el resto de la red los resuelva sin problema.
+        Desactívalo en cada dispositivo que deba llegar a tus servicios por nombre:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Firefox</strong> — <strong>Ajustes &rarr; Privacidad y seguridad &rarr; DNS sobre HTTPS</strong>, elige <strong>Desactivado</strong>. (La <strong>protección predeterminada</strong> también puede activar DoH en silencio, así que elige «Desactivado» en lugar de dejar el valor por omisión.)</li>
+        <li><strong>Chrome</strong> — <strong>Configuración &rarr; Privacidad y seguridad &rarr; Seguridad</strong>, desactiva <strong>Usar DNS seguro</strong>.</li>
+        <li><strong>Edge</strong> — <strong>Configuración &rarr; Privacidad, búsqueda y servicios &rarr; Seguridad</strong>, desactiva <strong>Usar DNS seguro para especificar cómo buscar la dirección de red de los sitios web</strong>.</li>
+        <li><strong>Brave, Vivaldi, Opera</strong> — la misma opción que en Chrome, bajo <strong>Privacidad y seguridad &rarr; Seguridad</strong>.</li>
+        <li><strong>Safari</strong> — no trae DoH propio; usa el resolutor del sistema. Comprueba que no haya un perfil de DNS instalado en <strong>Ajustes del Sistema &rarr; General &rarr; VPN, DNS y gestión de dispositivos</strong>.</li>
+      </ul>
+      <p class="doc-text">
+        Lo mismo se aplica a cualquier DNS cifrado que hayas configurado a nivel de sistema — el
+        <strong>DNS privado</strong> de Android, los perfiles DNS de iOS/macOS, o una configuración
+        local de <code>systemd-resolved</code>/<code>dnscrypt</code>. Cualquiera de ellos anula el
+        servidor DNS que reparte tu router. Si quieres DNS cifrado hacia el exterior, déjaselo a
+        Town OS: rolodex puede usar DoH/DoT hacia arriba mientras sigue respondiendo tus nombres
+        locales (mira <a href="#resolution-mode">Elegir un modo de resolución</a> más abajo).
+      </p>
+
+      <h3>Comprueba que funcione</h3>
+      <p class="doc-text">
+        Cuando tu dispositivo tome la nueva configuración de DNS, comprueba que rolodex esté
+        atendiendo tus consultas:
+      </p>
+      <pre><code># Mira qué servidor DNS está usando tu máquina
+nslookup example.com
+
+# O consulta directamente a Town OS
+dig @&lt;ip-de-town-os&gt; example.com
+
+# Consulta un dominio de paquete (si ya tienes paquetes instalados).
+# Los nombres siguen el patrón &lt;nombre&gt;.&lt;repo&gt;.&lt;tld&gt; — .home es el TLD de la red predeterminada
+dig @&lt;ip-de-town-os&gt; gitea.default.home</code></pre>
+      <p class="doc-text">
+        Si <code>example.com</code> se resuelve correctamente, rolodex está funcionando y atendiendo
+        el DNS de tu red.
+      </p>
+
+      <h3 id="resolution-mode">Elegir un modo de resolución</h3>
+      <p class="doc-text">
+        Los nombres que no pertenecen a ninguna de tus redes se resuelven según el <strong>modo de
+        resolución</strong>, que configuras en <strong>Ajustes &rarr; Resolución DNS</strong> dentro
+        del panel. Hay tres modos:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Automático (recomendado)</strong> — el predeterminado. Primero intenta resolver de forma iterativa desde los servidores raíz, y si falla va cayendo a DoH/DoT, a un reenviador local y por último a un resolutor público, quedándose con el nivel que funcionó la última vez. Así conserva la privacidad de la recursión donde la red lo permite y se degrada con elegancia en redes que filtran el DNS saliente.</li>
+        <li><strong>Solo recursivo</strong> — resuelve todo de forma iterativa desde los servidores raíz, sin alternativas. Garantiza que ninguna consulta se entregue a un resolutor de terceros, pero todos los nombres externos fallan en redes que bloquean o secuestran el puerto 53 saliente (hoteles, portales cautivos, algunos ISP).</li>
+        <li><strong>Reenvío</strong> — siempre envía las consultas que no coinciden a resolutores externos (Google Public DNS por omisión). Es el comportamiento clásico de reenvío.</li>
+      </ul>
+
+      <h3 id="blocklists">Bloquear dominios maliciosos</h3>
+      <p class="doc-text">
+        <strong>rolodex puede filtrar cada consulta contra listas de bloqueo públicas, dándote
+        bloqueo de amenazas para toda la red sin necesidad de un Pi-hole aparte.</strong> Esto se
+        gestiona en <strong>DNS &rarr; Listas de bloqueo</strong>. Hay dos clases de proveedor, y
+        actúan sobre cosas distintas:
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNSBL</strong> (lista de bloqueo de dominios) — coincide con el <em>nombre</em> que se está consultando. Este es el lado que afecta a la navegación normal.</li>
+        <li><strong>RBL</strong> (Realtime Blackhole List) — coincide con una <em>dirección IP</em>, y solo en las consultas de DNS inverso.</li>
+      </ul>
+      <p class="doc-text">
+        Ambos vienen <strong>desactivados y con la lista de proveedores vacía</strong>, y ambos se
+        consultan sobre la marcha: Town OS nunca descarga, analiza ni cachea por adelantado una
+        lista de bloqueo. No se comprueba nada hasta que activas una categoría y añades al menos una
+        zona.
+      </p>
+
+      <h4>Cómo funciona una consulta DNSBL</h4>
+      <p class="doc-text">
+        <strong>El nombre que se está resolviendo se antepone a la zona del proveedor y se consulta
+        como una petición DNS normal.</strong> Resolver <code>badsite.example</code> con
+        <code>dbl.spamhaus.org</code> activado lanza una consulta a
+        <code>badsite.example.dbl.spamhaus.org</code>.
+      </p>
+      <ul class="doc-list">
+        <li><strong>Una respuesta significa que está listado</strong> — los proveedores contestan con un registro de dirección (normalmente <code>127.0.0.x</code>) para un nombre listado. rolodex entonces devuelve <code>NXDOMAIN</code> al dispositivo que preguntó.</li>
+        <li><strong>NXDOMAIN significa limpio</strong> — la resolución sigue con normalidad. Un proveedor que da error o agota el tiempo se trata como <em>no</em> listado, así que una lista de bloqueo inalcanzable nunca deja tu red sin conexión.</li>
+        <li><strong>Las listas de bloqueo ganan al mundo exterior, nunca a tus propios registros</strong> — la comprobación ocurre después de los registros locales y de paquetes (así que <code>gitea.default.home</code> siempre resuelve) pero antes de la caché externa y del reenviador, de modo que un nombre listado se rechaza aunque ya hubiera una respuesta reenviada en caché.</li>
+        <li><strong>La coincidencia es por nombre, no por sufijo</strong> — que <code>doubleclick.net</code> esté listado no bloquea <code>stats.g.doubleclick.net</code>, a menos que el proveedor liste también ese nombre. Tumbar un dominio entero por un solo host listado es una decisión tuya, no de la lista.</li>
+        <li><strong>Los resultados se cachean un rato</strong> — un listado durante el TTL del proveedor, un resultado limpio durante cinco minutos.</li>
+      </ul>
+
+      <h4>Proveedores DNSBL</h4>
+      <p class="doc-text">
+        Estos son los que puedes añadir con un clic desde el panel. Todos siguen operando, son
+        gratuitos y responden a un resolutor que recursa por su cuenta sin ningún registro previo —
+        que es justo lo que es un equipo con Town OS. También puedes escribir cualquier otra zona.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Proveedor</th><th>Zona</th><th>A qué apunta</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus DBL</strong></td><td><code>dbl.spamhaus.org</code></td><td>La lista de dominios más usada. Dominios vistos en spam, más dominios de phishing, de alojamiento de malware y de mando y control de botnets. La cobertura más amplia de las cinco.</td></tr>
+            <tr><td><strong>SURBL</strong></td><td><code>multi.surbl.org</code></td><td>Una lista combinada de dominios que aparecen en el cuerpo de mensajes no solicitados — sitios de phishing, malware, sitios comprometidos y redirectores y acortadores de URL abusados.</td></tr>
+            <tr><td><strong>URIBL</strong></td><td><code>black.uribl.com</code></td><td>URIs encontrados en el cuerpo de mensajes de spam. La zona <code>black</code> es la conservadora: dominios que aparecen activamente en spam, con poca tolerancia a los falsos positivos.</td></tr>
+            <tr><td><strong>NordSpam DBL</strong></td><td><code>dbl.nordspam.com</code></td><td>Dominios vistos en spam, con fuentes independientes de las listas anteriores — útil sobre todo como segunda opinión, no como lista principal.</td></tr>
+            <tr><td><strong>Spam Eating Monkey</strong></td><td><code>uribl.spameatingmonkey.net</code></td><td>Dominios extraídos de URIs de spam, incluyendo dominios recién registrados y desechables de vida corta.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Cómo funciona una consulta RBL</h4>
+      <p class="doc-text">
+        <strong>La dirección IP se invierte y se antepone a la zona del proveedor.</strong>
+        Comprobar <code>192.168.1.100</code> contra <code>zen.spamhaus.org</code> lanza una consulta
+        a <code>100.1.168.192.zen.spamhaus.org</code>. Las direcciones IPv6 se expanden a nibbles y
+        se invierten igual. Una respuesta significa listado, <code>NXDOMAIN</code> significa limpio,
+        y los resultados se cachean exactamente igual que los de DNSBL.
+      </p>
+      <p class="doc-text">
+        <strong>El detalle: las zonas RBL solo se consultan para las IPs que aparecen en consultas
+        de DNS inverso</strong> (<code>in-addr.arpa</code> e <code>ip6.arpa</code>), y la navegación
+        normal apenas genera de esas. Estas listas existen para que un servidor de correo rechace a
+        un remitente que se conecta, y ahí es donde se ganan su lugar. En el router de una casa son
+        prácticamente inútiles — el lado DNSBL de arriba es el que de verdad afecta a la navegación.
+        Actívalas si tienes un servicio de correo detrás de Town OS; si no, las listas de dominios
+        son las que merecen tu atención.
+      </p>
+
+      <h4>Proveedores RBL</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Proveedor</th><th>Zona</th><th>A qué apunta</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus ZEN</strong></td><td><code>zen.spamhaus.org</code></td><td>Cuatro listas de Spamhaus en una sola consulta: <strong>SBL</strong> (fuentes de spam verificadas), <strong>CSS</strong> (operaciones de spam tipo snowshoe), <strong>XBL</strong> (máquinas comprometidas e infectadas, proxies abiertos) y <strong>PBL</strong> (rangos dinámicos y de usuario final que nunca deberían enviar correo directamente).</td></tr>
+            <tr><td><strong>SpamCop</strong></td><td><code>bl.spamcop.net</code></td><td>IPs denunciadas por la red de reportes de usuarios de SpamCop. Los registros caducan solos cuando dejan de llegar denuncias, así que reacciona rápido y olvida rápido.</td></tr>
+            <tr><td><strong>PSBL</strong></td><td><code>psbl.surriel.com</code></td><td>La Passive Spam Block List: IPs pilladas tocando direcciones trampa, con caducidad automática. Deliberadamente conservadora y de poco volumen.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Listas que a propósito no se ofrecen</h4>
+      <p class="doc-text">
+        <strong>Tres zonas conocidas quedan fuera de la lista de un clic a propósito</strong>, porque
+        cada una falla <em>en silencio</em> — verías un proveedor configurado y darías por hecho que
+        estás protegido. Aun así puedes añadirlas a mano si sabes lo que haces.
+      </p>
+      <ul class="doc-list">
+        <li><strong>SORBS</strong> (<code>dnsbl.sorbs.net</code>) — dada de baja el 5 de junio de 2024 y con sus zonas vaciadas. Responde, solo que nunca lista nada: una operación nula permanente que parece protección.</li>
+        <li><strong>Barracuda</strong> (<code>b.barracudacentral.org</code>) — gratis, pero exige registrar antes la IP que consulta. Un equipo sin registrar puede funcionar un rato y luego quedar cortado sin aviso.</li>
+        <li><strong>UCEPROTECT niveles 2 y 3</strong> — listan bloques de red y ASN completos, así que un solo vecino problemático en tu ISP bloquea al ISP entero.</li>
+      </ul>
+
+      <h4>Entradas locales y listas de permitidos</h4>
+      <ul class="doc-list">
+        <li><strong>Entradas locales</strong> (<strong>DNS &rarr; Listas de bloqueo</strong>) — bloquea a mano un dominio o una IP concreta, con un motivo anotado al lado. Una entrada de dominio devuelve <code>NXDOMAIN</code> en las consultas directas y surte efecto de inmediato. Se comprueba antes que cualquier proveedor externo, y es la forma de bloquear un host específico sin suscribirte a una lista entera.</li>
+        <li><strong>Listas de permitidos</strong> (<strong>DNS &rarr; Listas de permitidos</strong>) — tu salida de emergencia ante un falso positivo. Un nombre permitido se salta toda la comprobación por nombre: no se compara ni con los proveedores DNSBL ni con tus entradas locales, y no se emite ninguna consulta al proveedor por él. A diferencia del bloqueo, permitir <em>sí</em> funciona por sufijo — eximir <code>vendor.example</code> también exime <code>cdn.vendor.example</code>. Las entradas son solo nombres, nunca IPs, así que el camino de RBL por IP inversa queda intacto.</li>
+      </ul>
+
+      <h4>Qué esperar</h4>
+      <p class="doc-text">
+        <strong>Estas listas están hechas para el correo, no para la publicidad.</strong> Son
+        excelentes con dominios de phishing, malware y carga útil de spam, y mediocres con anuncios
+        y rastreadores — ese trabajo es territorio de las listas descargables tipo hosts, que Town OS
+        deliberadamente no consume. No se descarga nada de forma programada, no se analiza nada y no
+        se cachea nada a tus espaldas. Si quieres que un dominio de anuncios o rastreo concreto
+        desaparezca, añádelo como entrada local.
+      </p>
+
+      <h3>Publicar servicios en el DNS</h3>
+      <p class="doc-text">
+        De forma predeterminada, cada servicio de un paquete instalado se publica en el DNS bajo el
+        TLD de su <a href="#networks">red</a>, para que puedas llegar a él por nombre. En
+        <strong>DNS &rarr; Servicios</strong> puedes activar o desactivar la publicación de cada
+        servicio — un servicio sin publicar sigue funcionando, pero deja de resolverse por nombre.
+        El nombre completo de cada servicio sigue el patrón
+        <code>&lt;nombre&gt;.&lt;repo&gt;.&lt;tld&gt;</code> (en la red predeterminada, ese TLD es
+        <code>.home</code>).
+      </p>
+
+      <DiagramFlow title="Flujo del DNS">
+        <DiagramBox label="Dispositivo" sub="Móvil, portátil, etc." variant="neutral">
+          <DiagramTag>Consulta DNS</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="DHCP" />
+        <DiagramBox label="Router" sub="Reparte Town OS como DNS" variant="neutral">
+          <DiagramTag>DNS = IP de Town OS</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="reenvío" />
+        <DiagramBox label="Town OS" sub="Servidor DNS rolodex" variant="purple">
+          <DiagramTag variant="teal">Zonas autoritativas</DiagramTag>
+          <DiagramTag variant="teal">Reenvío al exterior</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+
+  <!-- Trusting the CA -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="trusting-the-ca">Confiar en la autoridad de certificación</h2>
+      <p class="doc-text">
+        Town OS emite certificados TLS para tus servicios internos a través de la autoridad de
+        certificación integrada en
+        <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>. Para
+        que tu navegador muestre el candado en vez de una advertencia, cada dispositivo necesita
+        confiar una vez en la <strong>CA raíz de Rolodex</strong>. Hay tres maneras de obtenerla
+        &mdash; usa la que le convenga al dispositivo.
+      </p>
+
+      <h3>Opción 1: desde el DNS (funciona donde funcione el DNS)</h3>
+      <p class="doc-text">
+        Rolodex publica la cadena de la CA <em>en el propio DNS</em>, así que cualquier dispositivo
+        capaz de resolver tu zona puede obtenerla &mdash; sin necesidad de entrar en el portal de
+        inscripción. La raíz y el intermedio de cada zona se sirven como registros
+        <code>CERT</code> (RFC&nbsp;4398) en <code>_ca.&lt;zona&gt;</code>, con un respaldo
+        fragmentado en <code>TXT</code> en <code>_rolodex-ca.&lt;zona&gt;</code>:
+      </p>
+      <pre><code># Consulta los registros publicados de la CA
+dig @&lt;ip-de-town-os&gt; CERT _ca.example.home
+
+# Extrae la CA raíz a un fichero PEM (la raíz es la autofirmada)
+dig @&lt;ip-de-town-os&gt; +short CERT _ca.example.home</code></pre>
+      <p class="doc-text">
+        La manera más fácil de aprovechar estos registros en un navegador es la
+        <strong>extensión de navegador de Rolodex</strong> (está en el repositorio de rolodex, en
+        <code>extension/</code>, y se carga sin empaquetar desde <code>chrome://extensions</code> o
+        <code>about:debugging</code> en Firefox). Abre la sección <strong>CA via DNS</strong> del
+        menú emergente, escribe tu URL de DoH
+        (<code>https://&lt;ip-de-town-os&gt;/dns-query</code>) y tu zona, y la extensión obtiene la
+        cadena por DNS-over-HTTPS, prefiere los registros CERT con respaldo automático a TXT, la
+        verifica contra los registros DANE TLSA publicados si le das un nombre de host, y te ofrece
+        la raíz, el intermedio y la cadena completa como descargas PEM.
+      </p>
+
+      <h3>Opción 2: desde el portal de inscripción</h3>
+      <p class="doc-text">
+        Estando en la red de confianza, entra en el portal de inscripción
+        (<code>https://&lt;ip-de-town-os&gt;:8500</code> por omisión) y pulsa
+        <strong>Download root CA (PEM)</strong>. La misma extensión y la consola local
+        <code>rolodex-ca-ui</code> también pueden hacerlo.
+      </p>
+
+      <h3>Opción 3: desde la línea de comandos</h3>
+      <pre><code># Con la CLI de gestión (imprime el PEM de la raíz + el intermedio)
+rolodex-dns-cli ensure-zone-ca --zone example.home
+
+# O descarga directamente desde el portal
+curl -k https://&lt;ip-de-town-os&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pre>
+
+      <h3>Instala la CA raíz en tu dispositivo</h3>
+      <p class="doc-text">
+        Una vez que tengas <code>rolodex-root-ca.pem</code>, añádelo al almacén de confianza:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Plataforma</th><th>Cómo</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Firefox</td><td>Ajustes &rarr; Privacidad y seguridad &rarr; Certificados &rarr; Ver certificados &rarr; Autoridades &rarr; Importar (marca &ldquo;Confiar en esta CA para identificar sitios web&rdquo;)</td></tr>
+            <tr><td>Chrome / Edge (escritorio)</td><td>Usan el almacén de confianza del sistema &mdash; instálala según las filas del sistema operativo de abajo y reinicia el navegador</td></tr>
+            <tr><td>macOS</td><td>Haz doble clic en el PEM para añadirlo a Acceso a Llaveros y ponlo en &ldquo;Confiar siempre&rdquo; bajo SSL</td></tr>
+            <tr><td>Linux (Fedora/RHEL)</td><td><code>sudo cp rolodex-root-ca.pem /etc/pki/ca-trust/source/anchors/ &amp;&amp; sudo update-ca-trust</code></td></tr>
+            <tr><td>Linux (Debian/Ubuntu)</td><td><code>sudo cp rolodex-root-ca.pem /usr/local/share/ca-certificates/rolodex.crt &amp;&amp; sudo update-ca-certificates</code></td></tr>
+            <tr><td>Windows</td><td>Doble clic &rarr; Instalar certificado &rarr; Equipo local &rarr; &ldquo;Entidades de certificación raíz de confianza&rdquo;</td></tr>
+            <tr><td>Android</td><td>Ajustes &rarr; Seguridad &rarr; Cifrado y credenciales &rarr; Instalar un certificado &rarr; Certificado de CA</td></tr>
+            <tr><td>iOS</td><td>Abre el PEM (por AirDrop o correo), instala el perfil y actívalo en Ajustes &rarr; General &rarr; Información &rarr; Ajustes de confianza de certificados</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los servidores con certificados emitidos por el endpoint ACME de Rolodex presentan una
+        cadena de <code>hoja + intermedio</code> que valida contra esta raíz. Los clientes que
+        entienden DANE pueden además verificar el intermedio contra los registros <code>TLSA</code>
+        que rolodex publica solo al emitirlo.
+      </p>
+    </div>
+  </section>
+
+  <!-- Networks and Remote Access -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="networks">Redes y acceso remoto</h2>
+      <p class="doc-text">
+        Town OS agrupa tus servicios en <strong>redes</strong>. Todo equipo empieza con una red
+        integrada llamada <code>home</code> — es solo de red local, resuelve nombres bajo
+        <code>.home</code> y no tiene túnel. Para llegar a tus servicios de forma segura desde fuera
+        de casa, crea redes adicionales: cada una es una <strong>superposición WireGuard</strong>
+        emparejada con su propio TLD de DNS, y se gestiona en <strong>Panel &rarr; Redes</strong>
+        (solo administradores).
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-panel.webp`} alt="La página de Redes mostrando la red integrada home con su TLD, subred, número de pares y un interruptor de acceso remoto, más un botón para crear una red" width="1920" height="891" loading="lazy" decoding="async" />
+      </div>
+
+      <h3>La red predeterminada</h3>
+      <ul class="doc-list">
+        <li><strong>Siempre está y no se puede quitar.</strong> La red <code>home</code> se crea sola y es donde caen los paquetes a menos que elijas otra.</li>
+        <li><strong>Solo local.</strong> No tiene transporte WireGuard — los nombres <code>.home</code> se resuelven en tu red local y a propósito nunca se exponen a los pares remotos.</li>
+        <li><strong>Usa el TLD <code>.home</code></strong>, que viene del ajuste <code>dns_tld</code>.</li>
+      </ul>
+
+      <h3 id="creating-a-network">Crear una red para acceso remoto</h3>
+      <p class="doc-text">
+        Pulsa <strong>Crear red</strong> y dale un nombre (por ejemplo <code>oficina</code>) y, si
+        quieres, un TLD (por omisión toma el nombre de la red). Entonces Town OS:
+      </p>
+      <ul class="doc-list">
+        <li>Genera una interfaz WireGuard con una subred de superposición determinista sacada del rango <code>10.64.0.0/10</code>, con el propio equipo en la dirección <code>.1</code>.</li>
+        <li>Reclama el TLD de la red (los TLD son únicos por equipo — crear una red con un TLD que ya tiene otra se rechaza).</li>
+        <li>Ejecuta un resolutor DNS por red sobre la superposición, para que los dispositivos conectados puedan resolver los nombres de esa red.</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-create.webp`} alt="El diálogo de Crear red con los campos Nombre y TLD, indicando que el TLD toma por omisión el nombre de la red" width="798" height="540" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        El interruptor de <strong>acceso remoto</strong> de cada fila levanta o baja la interfaz
+        WireGuard. Apagarlo corta el acceso remoto pero deja los contenedores funcionando y
+        accesibles en la red local.
+      </p>
+
+      <h3>Dar de alta un dispositivo</h3>
+      <p class="doc-text">
+        Abre el diálogo de <strong>Pares</strong> de una red, escribe el nombre del dispositivo y
+        pulsa <strong>Añadir par</strong>. Town OS te devuelve una configuración de WireGuard lista
+        para importar — pégala en la app de WireGuard de tu móvil o tu portátil.
+      </p>
+      <p class="doc-text callout">
+        <strong>Copia la configuración de inmediato.</strong> Contiene una clave privada recién
+        generada que nunca se guarda — no puedes recuperarla después, y tendrás que dar de alta el
+        dispositivo otra vez si la pierdes.
+      </p>
+      <p class="doc-text">
+        La configuración generada apunta el DNS del dispositivo a la dirección de superposición del
+        equipo, así que los nombres de tu red se resuelven solos en cuanto el túnel está levantado.
+        Deja apagado el interruptor <strong>Ejecuta rolodex DNS</strong> para los dispositivos
+        normales; enciéndelo solo para un par que a su vez ejecute un servidor DNS rolodex al que
+        quieras reenviar.
+      </p>
+
+      <h3>Cuentas solo de WireGuard</h3>
+      <p class="doc-text">
+        Para dejar que alguien dé de alta sus propios dispositivos sin darle vía libre en el panel,
+        crea una <strong>cuenta solo de WireGuard</strong> (una casilla en la pantalla de Crear
+        usuario). Una cuenta así:
+      </p>
+      <ul class="doc-list">
+        <li>Está <strong>limitada a una o más redes concretas</strong> — solo puede dar de alta pares en esas, y nunca en la red <code>home</code>.</li>
+        <li>Es <strong>restrictiva por diseño</strong>: puede autenticarse, dar de alta y renovar sus propios pares, y obtener la CA, pero nada más del plano de control.</li>
+        <li>Da de alta <strong>pares que caducan</strong>. Cada alta trae un tiempo de vida (2 horas por omisión, ajustable en <strong>Ajustes &rarr; Tiempo de vida de pares WireGuard</strong>) y hay que renovarla para seguir conectado; los dispositivos abandonados caducan solos. Los pares que añade un administrador son permanentes.</li>
+      </ul>
+
+      <h3>Vigilar y desconectar pares</h3>
+      <p class="doc-text">
+        El panel de <strong>Pares conectados</strong> en la página de Redes lista todos los pares
+        dados de alta en todas las redes, con su estado de saludo en vivo, su IP de superposición,
+        los datos transferidos y su caducidad. Para cortarle el paso a un dispositivo por la fuerza,
+        usa <strong>Desconectar</strong> — eso quita el par, tira su túnel de inmediato y revoca su
+        clave, así que el dispositivo no puede volver a conectarse hasta darlo de alta otra vez.
+      </p>
+
+      <h3 id="installing-packages-on-a-network">Instalar paquetes en una red</h3>
+      <p class="doc-text">
+        El diálogo de instalación (y el de <a href="#pages">Páginas</a>) incluye un selector de
+        <strong>Red</strong>. La red que elijas determina el nombre DNS del servicio y su
+        <a href="#trusting-the-ca">certificado TLS</a> — un paquete instalado en
+        <code>oficina</code> se resuelve bajo <code>.oficina</code> y su certificado se emite para
+        ese nombre. Los servicios en una red distinta de la predeterminada tienen doble domicilio:
+        se resuelven a la dirección de superposición para los pares por túnel y a la dirección de
+        red local para los clientes locales. Reinstalar un paquete en otra red mueve su DNS y sus
+        certificados al TLD de esa red.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-install.webp`} alt="El diálogo de instalar jitsi con un selector de Red arriba, etiquetado «la red en la que se sirve este paquete», sobre las preguntas de configuración del paquete" width="768" height="625" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        Por ejemplo, instalar Jitsi en una red con el TLD <code>fart</code> lo publica en
+        <code>jitsi.default.fart</code>. Ya en marcha, el servicio aparece en tu
+        <strong>Panel</strong> como un enlace en el que puedes pulsar con esa dirección, listo para
+        abrirse desde cualquier dispositivo de la red.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="La lista de Servicios instalados del panel mostrando jitsi con un enlace a https://jitsi.default.fart/" width="1546" height="414" loading="lazy" decoding="async" />
+      </div>
+
+      <DiagramFlow title="Acceso remoto por una red">
+        <DiagramBox label="Tu dispositivo" sub="Móvil o portátil" variant="neutral">
+          <DiagramTag>WireGuard</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="túnel" />
+        <DiagramBox label="Town OS" sub="Superposición de red + DNS" variant="purple">
+          <DiagramTag variant="purple">subred oficina</DiagramTag>
+          <DiagramTag variant="teal">TLD .oficina</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="resolver" />
+        <DiagramBox label="Tus servicios" sub="Accesibles por nombre" variant="teal">
+          <DiagramTag variant="teal">gitea.default.oficina</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Town OS on Android -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="android-app">Town OS en Android</h2>
+      <p class="doc-text">
+        El <a href="https://github.com/town-os/android-client" target="_blank" rel="noopener">cliente
+        de Android de Town OS</a> conecta tu móvil a una de tus <a href="#networks">redes</a> por
+        WireGuard y configura el DNS para que tus servicios se resuelvan por nombre — desde donde
+        sea. Es un cliente completo de WireGuard que da de alta el móvil como par por ti; no hay
+        ningún fichero de configuración que copiar a mano.
+      </p>
+
+      <div class="phone-shots">
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-login.webp`} alt="Pantalla de inicio de sesión del cliente de Android de Town OS — una tarjeta para conectarse a un equipo con los campos de dirección, usuario administrador y contraseña" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>Iniciar sesión en un equipo</figcaption>
+        </figure>
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-connection.webp`} alt="Pantalla de conexión del cliente de Android de Town OS — estado Desconectado con los botones Conectar y Olvidar esta red, sobre una tarjeta de ajustes del resolutor DNS" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>Gestionar la conexión y el DNS</figcaption>
+        </figure>
+      </div>
+
+      <h3>Instalar la app</h3>
+      <p class="doc-text">
+        La app se distribuye como APK desde la
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">página de versiones</a>
+        del proyecto — no está en Play Store ni en F-Droid.
+      </p>
+      <ul class="doc-list">
+        <li>Descarga el <strong>APK de depuración</strong> (<code>town-os-client-&lt;versión&gt;-debug.apk</code>). El <code>-unsigned.apk</code> de esa misma versión no se puede instalar tal cual — el proyecto no distribuye clave de firma, así que el de depuración es el que debes bajar.</li>
+        <li>Requiere <strong>Android 8.0 (Oreo) o superior</strong>.</li>
+        <li>Como se instala por fuera de la tienda, permite <strong>instalar apps desconocidas</strong> cuando te lo pida tu navegador o tu gestor de ficheros.</li>
+        <li>¿Prefieres compilarla tú? Clona el repositorio y ejecuta <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> con el móvil conectado por USB y la depuración USB activada. <code>make help</code> lista todos los objetivos.</li>
+      </ul>
+      <p class="doc-text">Para instalar el APK descargado en tu móvil:</p>
+      <ol class="doc-list">
+        <li><strong>Pasa el APK al móvil.</strong> Descárgalo directamente en el navegador del móvil, o cópialo desde un ordenador por USB o con <code>adb push</code>.</li>
+        <li><strong>Abre el APK</strong> desde las descargas del navegador o desde un gestor de ficheros. La primera vez, Android te pedirá <strong>permitir instalaciones desde este origen</strong> — concédelo (<strong>Ajustes &rarr; Aplicaciones &rarr; Acceso especial &rarr; Instalar apps desconocidas</strong>) y luego pulsa <strong>Instalar</strong>.</li>
+        <li><strong>O instálalo desde un ordenador</strong> con el móvil en modo de depuración USB: <code>adb install town-os-client-&lt;versión&gt;-debug.apk</code>.</li>
+        <li>Abre <strong>Town OS</strong> desde el cajón de aplicaciones cuando termine de instalarse.</li>
+      </ol>
+
+      <h3>Antes de conectarte</h3>
+      <ul class="doc-list">
+        <li><strong>Crea una red primero.</strong> La app solo puede unirse a redes que tengan una superposición WireGuard — la red integrada <code>home</code> es solo local y no aparecerá. Mira <a href="#creating-a-network">Crear una red para acceso remoto</a>.</li>
+        <li><strong>Ten lista una cuenta de administrador.</strong> Dar de alta un dispositivo es una acción de administrador, así que la app inicia sesión con credenciales de administrador.</li>
+      </ul>
+
+      <h3>Conectarse a una red</h3>
+      <ol class="doc-list">
+        <li><strong>Inicia sesión en tu equipo.</strong> Escribe su dirección — una IP a secas, <code>IP:puerto</code> o una URL completa (se asume el puerto <code>5309</code>) — junto con tu usuario y contraseña de administrador.</li>
+        <li><strong>Únete a una red.</strong> La app lista las redes a las que puedes unirte, cada una con su TLD, su subred y su número de pares. Dale un nombre al dispositivo (por omisión toma el modelo de tu móvil) y pulsa <strong>Unirse</strong>. El par de claves de WireGuard se genera en el móvil y solo se envía la mitad pública al equipo, así que tu clave privada nunca sale del dispositivo.</li>
+        <li><strong>Conéctate.</strong> Pulsa <strong>Conectar</strong> y aprueba la <em>solicitud de conexión</em> (VPN) de Android. La app levanta el túnel e instala el TLD de la red como dominio de búsqueda, así que tanto <code>gitea</code> como <code>gitea.default.&lt;tld&gt;</code> se resuelven.</li>
+        <li>Ya estás en la red por nombre desde donde sea. Usa <strong>Desconectar</strong> para tirar el túnel, u <strong>Olvidar esta red</strong> para borrar el alta guardada.</li>
+      </ol>
+
+      <h3>Solución de problemas</h3>
+      <ul class="doc-list">
+        <li><strong>Los nombres no se resuelven, pero el túnel está levantado.</strong> El culpable de siempre es el <strong>DNS privado</strong> estricto de Android. Si está fijado al nombre de host de un proveedor concreto, Android envía todas las consultas ahí e ignora el túnel, así que los nombres de Town OS vuelven como «no encontrado». Cambia <strong>Ajustes &rarr; Redes e internet &rarr; DNS privado</strong> a <strong>Automático</strong> o <strong>Desactivado</strong>. La app detecta esto y muestra una advertencia con un atajo directo al ajuste. (El modo automático está bien y nunca genera advertencia.)</li>
+        <li><strong>¿Sigue sin funcionar?</strong> En la tarjeta de DNS de la app, pon el <strong>resolutor alternativo</strong> en la dirección local del equipo — la app lo enruta por el túnel, así que el DNS de horizonte partido sigue funcionando.</li>
+        <li><strong>Te ha cerrado la sesión al reiniciar el equipo.</strong> Town OS borra todas las sesiones al reiniciarse; solo vuelve a iniciar sesión.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Building VMs -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-vms">Crear máquinas virtuales desde imágenes USB</h2>
+      <p class="doc-text">
+        El repositorio <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        incluye scripts para levantar Town OS en máquinas virtuales, lo cual sirve para pruebas y
+        desarrollo — ya sea desde una imagen que <a href="#building-the-usb-image">compilaste tú</a>
+        o directamente desde una <a href="#qemu-usb">memoria USB física que ya grabaste</a>.
+        <code>make help</code> lista todos los objetivos y variables.
+      </p>
+
+      <h3 id="qemu">QEMU</h3>
+      <pre><code>make qemu-fg</code></pre>
+      <p class="doc-text">
+        Compila la imagen si está desactualizada y luego levanta una máquina virtual de QEMU en
+        <strong>primer plano</strong>, con la consola serie conectada, aceleración por KVM y cuatro
+        discos virtuales de datos para probar el almacenamiento. Este es el objetivo al que debes
+        recurrir: ves el arranque y el instalador directamente en tu terminal, y Ctrl-C detiene la
+        máquina. Usa <code>make qemu</code> si prefieres que se ejecute en segundo plano (conéctate
+        después con <a href="#serial-console"><code>make serial</code></a>), y
+        <code>make rebuild-qemu</code> para detener, limpiar, recompilar y relanzar de una vez.
+      </p>
+      <p class="doc-text">
+        La máquina virtual se conecta a la red NAT <code>default</code> de libvirt en
+        <code>virbr0</code> y queda fija en <code>VM_IP</code> (<code>192.168.122.50</code> por
+        omisión), así que dale su propia dirección a cada máquina que ejecutes a la vez.
+      </p>
+      <p class="doc-text">
+        Como el huésped está detrás de NAT, <code>VM_LAN=1</code> (el valor por omisión) retransmite
+        la API de control (<code>5309</code>), la interfaz (<code>80</code>/<code>443</code>), ssh
+        (<code>2222</code>) y los puertos UDP de WireGuard desde la dirección de red local del
+        anfitrión hacia el huésped — eso es lo que permite que un móvil con el
+        <a href="#android-app">cliente de Android</a> llegue a una máquina virtual. Pon
+        <code>VM_LAN=0</code> para apagar esas retransmisiones.
+      </p>
+
+      <h3 id="qemu-usb">Arrancar una USB física (qemu-usb)</h3>
+      <pre><code>make qemu-usb USB_DEV=/dev/sdX</code></pre>
+      <p class="doc-text">
+        Arranca QEMU en primer plano directamente desde una memoria USB física ya grabada, en vez de
+        una imagen compilada — práctico para confirmar que la memoria que acabas de grabar realmente
+        arranca. El dispositivo se abre en <strong>solo lectura</strong> (instantánea), así que lo
+        que escriba el huésped se descarta y la USB real nunca se modifica; los cuatro discos
+        virtuales de datos siguen conectados para probar el almacenamiento. Este objetivo no compila
+        nada — clona el repositorio install, graba una memoria con <code>install.sh</code> o
+        <code>make flash</code>, y luego apunta <code>USB_DEV</code> hacia ella. En un anfitrión
+        x86_64, <code>TARGET=aarch64</code> (o <code>rpi</code>) arranca la memoria bajo emulación de
+        sistema completo, así que puedes probar una imagen de otra arquitectura sin tener el
+        hardware correspondiente.
+      </p>
+
+      <h3 id="stopping-vms">Detener y limpiar</h3>
+      <pre><code># Detén la máquina virtual
+make stop
+
+# Detén las máquinas virtuales y borra la imagen y los discos virtuales
+make clean</code></pre>
+
+      <h3 id="vm-environment-variables">Variables de entorno</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>Por omisión</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>Tamaño disperso de la imagen USB durante la compilación — después la imagen se encoge</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>Tamaño de cada uno de los cuatro discos virtuales de datos (se lee de <code>vm_disk_size</code> en <code>town-os.yaml</code>)</td></tr>
+            <tr><td><code>VM_MEMORY</code></td><td>4G</td><td>Memoria de la máquina virtual</td></tr>
+            <tr><td><code>VM_CPUS</code></td><td>4</td><td>vCPUs de la máquina virtual — el valor por omisión de QEMU, 1, deja sin aire al pool de trabajo de rolodex</td></tr>
+            <tr><td><code>VM_BRIDGE</code></td><td>virbr0</td><td>Interfaz puente del anfitrión para la red</td></tr>
+            <tr><td><code>VM_NAME</code></td><td>town-os</td><td>Nombre de la máquina virtual, también sirve para encontrarla y detenerla</td></tr>
+            <tr><td><code>VM_IP</code></td><td>192.168.122.50</td><td>Reserva DHCP de libvirt — dale su propia dirección a cada máquina que ejecutes a la vez</td></tr>
+            <tr><td><code>VM_LAN</code></td><td>1</td><td>Retransmite los puertos del huésped tras NAT a la dirección de red local del anfitrión; <code>0</code> lo desactiva</td></tr>
+            <tr><td><code>USB_DEV</code></td><td>—</td><td>Dispositivo de bloques físico para <code>make flash</code> (escritura) y <code>make qemu-usb</code> (arranque en solo lectura)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="serial-console">Consola serie</h3>
+      <pre><code># Conéctate a la consola serie de la máquina virtual
+make serial
+
+# O manualmente con socat
+socat -,rawer,escape=0x1d unix-connect:/tmp/town-os-serial.sock
+
+# Sal con Ctrl-]</code></pre>
+
+      <h3 id="finding-the-vm">Encontrar la máquina virtual</h3>
+      <pre><code># Obtén la dirección IP de la máquina virtual
+make vm-ip
+
+# O conéctate por mDNS desde el anfitrión
+ssh root@town-os.local</code></pre>
+
+      <DiagramFlow title="Red de la máquina virtual">
+        <DiagramBox label="Máquina anfitriona" sub="virbr0 — red default de libvirt" variant="neutral">
+          <DiagramTag>QEMU</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="NAT" />
+        <DiagramBox label="VM de Town OS" sub="Town OS completo" variant="purple">
+          <DiagramTag variant="purple">192.168.122.50</DiagramTag>
+          <DiagramTag variant="teal">eth0</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="retransmisión VM_LAN" />
+        <DiagramBox label="Red local" sub="Móviles y equipos de la red llegan a la VM" variant="teal">
+          <DiagramTag variant="teal">5309 · 80 · 443 · WireGuard</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- RAID and ZFS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="raid-installation">Instalación con RAID</h2>
+      <p class="doc-text">
+        El aprovisionamiento de discos lo hace de forma interactiva
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
+        durante el primer arranque. Todo el almacenamiento usa btrfs.
+      </p>
+
+      <h3>Selección automática del RAID</h3>
+      <p class="doc-text">
+        ttyforce detecta los discos disponibles, los agrupa por tipo de transporte (NVMe, SATA,
+        etc.) y por tamaño similar, y luego elige automáticamente el nivel de RAID según cuántos
+        discos haya:
+      </p>
+      <ul class="doc-list">
+        <li><strong>1 disco</strong> — modo único (sin redundancia)</li>
+        <li><strong>2 discos</strong> — RAID 1 (espejo de btrfs)</li>
+        <li><strong>3 o más discos</strong> — RAID 5 (btrfs con paridad distribuida)</li>
+      </ul>
+      <p class="doc-text">
+        El punto de montaje por omisión es <code>/town-os</code>. ttyforce crea los subvolúmenes
+        <code>@etc</code> y <code>@var</code> para la persistencia compatible con overlayfs.
+      </p>
+
+      <h3>Detección de discos</h3>
+      <p class="doc-text">
+        ttyforce detecta solo los dispositivos de almacenamiento disponibles. Identifica discos
+        NVMe, discos SATA/SAS y tarjetas SD, y excluye el dispositivo USB de arranque y cualquier
+        medio extraíble. La lógica de detección garantiza que Town OS nunca toque el disco desde el
+        que arrancó.
+      </p>
+
+      <h3>Sistema de ficheros superpuesto</h3>
+      <p class="doc-text">
+        Sin importar el backend de almacenamiento, Town OS usa montajes superpuestos para la
+        persistencia de <code>/var</code> y <code>/etc</code>. La capa inferior viene de la raíz
+        squashfs, mientras que la superior vive en el almacenamiento RAID/ZFS. Así, la configuración
+        del sistema y los datos de los servicios sobreviven a los reinicios mientras el sistema
+        operativo base se mantiene inmutable.
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">Arquitectura de almacenamiento</div>
+        <div class="flex flex-col gap-3">
+          <!-- Disk types -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="NVMe" sub="SSD rápido" variant="neutral" />
+            <DiagramBox label="SATA / SAS" sub="Disco duro o SSD" variant="neutral" />
+            <DiagramBox label="Tarjeta SD" sub="Extraíble" variant="neutral" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr; <span class="text-town-muted text-xs">detección</span></span></div>
+          <!-- RAID layer -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="btrfs single" sub="1 disco" variant="purple" />
+            <DiagramBox label="btrfs RAID 1" sub="2 discos (espejo)" variant="purple" />
+            <DiagramBox label="btrfs RAID 5" sub="3 o más discos (paridad)" variant="purple" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr;</span></div>
+          <!-- Output -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="Subvolúmenes" sub="Almacenamiento por paquete" variant="teal">
+              <DiagramTag variant="teal">pkg-a</DiagramTag>
+              <DiagramTag variant="teal">pkg-b</DiagramTag>
+            </DiagramBox>
+            <DiagramBox label="Montajes superpuestos" sub="Directorios de sistema persistentes" variant="teal">
+              <DiagramTag variant="teal">/var</DiagramTag>
+              <DiagramTag variant="teal">/etc</DiagramTag>
+            </DiagramBox>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Using the UI -->
+  <section class="section ui-section">
+    <div class="container">
+      <h2 class="section-title" id="using-the-ui">Usar la interfaz</h2>
+      <p class="doc-text">
+        Town OS trae un panel web limpio para gestionar tu servidor. Después de arrancar, abre un
+        navegador y ve a la dirección IP de tu máquina con Town OS o a
+        <code>http://town-os.local</code>.
+      </p>
+
+      <h3>Primer arranque: crear tu cuenta</h3>
+      <p class="doc-text">
+        En el primer arranque se te pedirá crear una cuenta de administrador. Elige un usuario y una
+        contraseña — esa cuenta tiene control total sobre el sistema.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/create-account.webp`} alt="Pantalla de creación de cuenta" width="2400" height="1183" loading="lazy" />
+      </div>
+
+      <h3>Panel</h3>
+      <p class="doc-text">
+        El panel muestra un resumen de tu sistema — los paquetes instalados aparecen como tarjetas
+        de servicio con indicadores de estado, acciones rápidas y la salud del sistema de un vistazo.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard.webp`} alt="Vista general del panel" width="2400" height="1187" loading="lazy" />
+      </div>
+
+      <h3>Explorar e instalar paquetes</h3>
+      <p class="doc-text">
+        La vista de Paquetes te deja buscar los paquetes disponibles, ver sus detalles e instalarlos
+        con preguntas guiadas. Las preguntas de cada paquete se presentan como un formulario —
+        rellena los nombres de host, los puertos y demás configuración, y luego pulsa instalar.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/packages.webp`} alt="Explorador de paquetes" width="2400" height="1191" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/installation.webp`} alt="Preguntas de instalación de un paquete" width="2400" height="1189" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/install-details.webp`} alt="Detalles de la instalación" width="2400" height="1184" loading="lazy" />
+      </div>
+
+      <h3>Gestionar servicios</h3>
+      <p class="doc-text">
+        Los servicios instalados se pueden arrancar, detener y reiniciar desde la vista de
+        Servicios. Los indicadores de estado muestran si cada servicio está funcionando, detenido o
+        en error.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/services.webp`} alt="Gestión de servicios" width="2400" height="1186" loading="lazy" />
+      </div>
+
+      <h3>Ver registros</h3>
+      <p class="doc-text">
+        La vista de Registros ofrece la salida del journal en vivo, con filtrado y búsqueda tipo
+        grep. Puedes filtrar por servicio, por nivel de prioridad y buscar texto concreto.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/logs.webp`} alt="Visor de registros" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>Gestión del almacenamiento</h3>
+      <p class="doc-text">
+        Consulta y gestiona subvolúmenes btrfs, configura cuotas por paquete y vigila el uso de
+        disco en todo tu almacenamiento.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/storage.webp`} alt="Gestión del almacenamiento" width="2400" height="1190" loading="lazy" />
+      </div>
+
+      <h3>Monitorización</h3>
+      <p class="doc-text">
+        Town OS incluye monitorización integrada con Prometheus y Node Exporter para seguir las
+        métricas del sistema, la salud de los servicios y el uso de recursos con el tiempo. Trae un
+        panel ligero integrado por omisión, con la opción de pasarse a Grafana.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/monitoring.webp`} alt="Paneles de monitorización" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>Ajustes y registro de auditoría</h3>
+      <p class="doc-text">
+        La página de Ajustes te deja configurar las opciones de todo el sistema. El registro de
+        auditoría anota cada acción administrativa — instalaciones, desinstalaciones, cambios de
+        estado de servicios y modificaciones de configuración — para que siempre sepas qué cambió y
+        cuándo.
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/settings.webp`} alt="Ajustes" width="2400" height="1186" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/auditlog.webp`} alt="Registro de auditoría" width="2400" height="1188" loading="lazy" />
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Hosting Static Sites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pages">Alojar sitios estáticos</h2>
+      <p class="doc-text">
+        Más allá de los paquetes en contenedores, Town OS trae <strong>alojamiento de sitios
+        estáticos</strong> integrado, siempre activo y gestionado en
+        <strong>Panel &rarr; Páginas</strong>. Cada página la sirve un servidor web compartido
+        detrás de la entrada, y obtiene un nombre DNS y un certificado TLS bajo el TLD de su
+        <a href="#networks">red</a>, igual que un paquete.
+      </p>
+
+      <h3>Orígenes del contenido</h3>
+      <p class="doc-text">
+        Al crear una página eliges un <strong>nombre</strong>, un <strong>dominio</strong> (por
+        omisión, el nombre), una <strong>red</strong> (por omisión <code>home</code>) y uno de tres
+        orígenes de contenido:
+      </p>
+      <ul class="doc-list">
+        <li><strong>Subir un fichero</strong> — sube un tarball de tu sitio. La página se queda pendiente hasta que lo subas.</li>
+        <li><strong>Repositorio git</strong> — clona desde la URL de un repo. Puedes indicar una rama (por omisión <code>main</code>), lo cual es cómodo para sitios publicados en <code>gh-pages</code>.</li>
+        <li><strong>Imagen de contenedor</strong> — extrae un directorio de una imagen OCI.</li>
+      </ul>
+      <p class="doc-text">
+        Las páginas de git y de contenedor se aprovisionan de forma asíncrona — la tabla muestra una
+        insignia de <strong>Aprovisionando…</strong> que acaba en activa o en error. Usa
+        <strong>Recompilar</strong> para traer el contenido más reciente en las páginas de git y de
+        contenedor; en una página de fichero, sube un tarball nuevo.
+      </p>
+
+      <h3>Cómo se sirven las páginas</h3>
+      <p class="doc-text">
+        Cada página vive en su propio subvolumen de almacenamiento y se sirve directamente por HTTP
+        en el puerto 80, mientras que los servicios de los paquetes redirigen el puerto 80 a HTTPS.
+        Como una página lleva una red, su nombre se resuelve bajo el TLD de esa red y está accesible
+        desde tu red local y — si la red es una superposición WireGuard — desde tus dispositivos
+        remotos dados de alta.
+      </p>
+    </div>
+  </section>
+
+  <!-- Updating Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="updating">Actualizar Town OS</h2>
+      <p class="doc-text">
+        Town OS actualiza sus servicios centrales en el sitio desde el panel. En
+        <strong>Gestión del sistema</strong>, el botón <strong>Actualizar servicios
+        centrales</strong> descarga las imágenes de contenedor más recientes y reinicia todos los
+        servicios centrales — incluido el propio controlador del sistema, que es como el equipo se
+        actualiza a sí mismo.
+      </p>
+
+      <h3>Qué pasa durante una actualización</h3>
+      <ul class="doc-list">
+        <li>Las imágenes se descargan y los servicios se reinician en orden de dependencias: primero el controlador del sistema (para que su imagen nueva esté lista antes de reiniciarse a sí mismo), luego el DNS y después todo lo demás.</li>
+        <li>Tu sesión se reinicia a propósito cuando el controlador se reinicia, así que el panel deja en pausa sus comprobaciones habituales de sesión mientras se ejecuta la actualización, en lugar de mandarte de vuelta a la pantalla de inicio de sesión.</li>
+        <li>El avance se muestra en cinco pasos: <strong>Arrancando el controlador del sistema</strong> &rarr; <strong>Arrancando el DNS</strong> &rarr; <strong>Iniciando los servicios del sistema</strong> &rarr; <strong>Reiniciando los paquetes</strong> (una fila por cada paquete instalado) &rarr; <strong>Listo</strong>.</li>
+        <li>Cuando la actualización termina, el panel muestra un botón de <strong>Recargar</strong> en vez de recargarse solo y dejarte a media acción.</li>
+      </ul>
+      <p class="doc-text">
+        Esos mismos cinco pasos aparecen en la pantalla de aprovisionamiento durante un arranque
+        normal, así que puedes ver el avance del inicio paquete por paquete.
+      </p>
+    </div>
+  </section>
+
+  <!-- Building a Package -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-a-package">Crear un paquete</h2>
+      <p class="doc-text">
+        Los paquetes de Town OS son ficheros YAML que describen cómo ejecutar un servicio en
+        contenedor. Para la especificación completa, mira la referencia del
+        <a href={L('packaging/')}>formato de empaquetado</a>. Esta sección cubre el flujo práctico.
+      </p>
+
+      <h3>Estructura del repositorio</h3>
+      <p class="doc-text">
+        Un repositorio de paquetes es un repositorio git con un directorio <code>packages/</code>.
+        Cada paquete tiene su subdirectorio con definiciones YAML versionadas:
+      </p>
+      <pre><code>my-packages/
+  packages/
+    my-app/
+      1.0.yaml
+      2.0.yaml</code></pre>
+
+      <h3>Escribir la definición de un paquete</h3>
+      <p class="doc-text">
+        Un paquete mínimo solo necesita un campo <code>image</code>. Un paquete típico incluye
+        además una descripción, red, volúmenes y preguntas para el usuario:
+      </p>
+      <pre><code>image: myapp:latest
+description: My custom application
+supplies: ["http"]
+network:
+  external:
+    "@port@": "8080"
+volumes:
+  data:
+    mountpoint: /app/data
+    quota: 5gb
+questions:
+  port:
+    query: "What external port should this app use?"
+    type: port
+    default: "9000"
+notes:
+  URL:
+    value: "http://@LOCAL_EXTERNAL_HOST@:@port@"
+    type: url</code></pre>
+      <p class="doc-text">
+        Las preguntas admiten varios tipos más allá del texto libre y de <code>port</code>:
+        <code>secret</code> (se genera sola si la dejas en blanco), <code>boolean</code> (se dibuja
+        como casilla), <code>oauth</code> (un botón de <strong>Conectar</strong> que ejecuta el
+        flujo de dispositivo de un proveedor para obtener un token), y cualquier pregunta puede
+        marcarse con <code>optional: true</code> para permitir dejarla vacía. La lista completa está
+        en <a href={`${L('packaging/')}#questions`}>Preguntas</a>, en la referencia del formato de
+        empaquetado. Durante la instalación, el operador también elige en qué
+        <a href="#installing-packages-on-a-network">red</a> se sirve el paquete.
+      </p>
+
+      <h3>Sistema de plantillas</h3>
+      <p class="doc-text">
+        Usa la sintaxis <code>@variable@</code> para referirte a las respuestas de las preguntas y a
+        las variables integradas (<code>@LOCAL_EXTERNAL_HOST@</code>,
+        <code>@LOCAL_INTERNAL_HOST@</code>). Las plantillas funcionan en variables de entorno,
+        asignaciones de puertos, cuotas y valores de las notas.
+      </p>
+
+      <h3>Probar en local</h3>
+      <p class="doc-text">
+        Usa el <a href="#dev-environment">entorno de desarrollo</a> para probar tu paquete. Pon tu
+        repositorio en disco, añádelo desde la interfaz o desde <code>repositories.json</code>, e
+        instala tu paquete. El entorno de desarrollo te da todo Town OS para hacer pruebas.
+      </p>
+
+      <h3>Añadir un repositorio</h3>
+      <p class="doc-text">
+        Añade tu repositorio de paquetes a Town OS desde la interfaz
+        (<strong>Paquetes → Repositorios → Añadir repositorio</strong>) o editando
+        <code>repositories.json</code> directamente:
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+
+      <DiagramFlow title="Ciclo de vida de un paquete">
+        <DiagramBox label="Definición YAML" sub="imagen, volúmenes, preguntas" variant="purple">
+          <DiagramTag variant="purple">1.0.yaml</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="instalar" />
+        <DiagramBox label="Preguntas de configuración" sub="El usuario responde" variant="neutral">
+          <DiagramTag>nombre de host</DiagramTag>
+          <DiagramTag>puerto</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="desplegar" />
+        <DiagramBox label="Contenedor en marcha" sub="Servicio activo con sus volúmenes" variant="teal">
+          <DiagramTag variant="teal">@variable@ &rarr; valor</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Self-Hosting Ideas -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="self-hosting-ideas">Cosas que puedes autoalojar</h2>
+      <p class="doc-text">
+        Town OS está hecho para ejecutar cualquier cosa que se distribuya como imagen de contenedor.
+        Aquí van algunas ideas para empezar — muchas ya están disponibles en el
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">repositorio de paquetes predeterminado</a>,
+        y cualquier imagen de contenedor se puede empaquetar con una definición YAML sencilla.
+      </p>
+
+      <div class="idea-grid">
+        <div class="idea-card">
+          <h3>Medios y entretenimiento</h3>
+          <ul>
+            <li><strong>Plex</strong> / <strong>Jellyfin</strong> — transmite tu colección de películas y series a cualquier dispositivo</li>
+            <li><strong>Navidrome</strong> — servidor personal de música en streaming</li>
+            <li><strong>Calibre-web</strong> — gestiona y lee tu colección de libros electrónicos</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Código y colaboración</h3>
+          <ul>
+            <li><strong>Gitea</strong> / <strong>Forgejo</strong> — Git autoalojado y ligero</li>
+            <li><strong>GitLab</strong> — plataforma DevOps completa</li>
+            <li><strong>Nextcloud</strong> — ficheros, calendario, contactos y más</li>
+            <li><strong>Wiki.js</strong> / <strong>BookStack</strong> — documentación y bases de conocimiento</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Comunicación</h3>
+          <ul>
+            <li><strong>Jitsi Meet</strong> — videoconferencias privadas</li>
+            <li><strong>Matrix / Synapse</strong> — chat cifrado y federado</li>
+            <li><strong>Mattermost</strong> / <strong>Rocket.Chat</strong> — mensajería de equipo</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Servidores de juegos</h3>
+          <ul>
+            <li>Servidores dedicados de <strong>Valheim</strong>, <strong>Minecraft</strong>, <strong>Terraria</strong> y <strong>Satisfactory</strong></li>
+            <li>Soporte de Proton/Steam mediante contenedores de GloriousEggroll</li>
+            <li>Cualquier servidor de juego que se distribuya como binario de Linux o como contenedor</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Domótica</h3>
+          <ul>
+            <li><strong>Home Assistant</strong> — centro de control para el hogar inteligente</li>
+            <li><strong>Node-RED</strong> — flujos de automatización visuales</li>
+            <li><strong>Mosquitto</strong> — broker MQTT para dispositivos IoT</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Privacidad y seguridad</h3>
+          <ul>
+            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong> — bloqueo de anuncios para toda la red</li>
+            <li><strong>WireGuard</strong> / <strong>OpenVPN</strong> — servidores VPN para acceso remoto</li>
+            <li><strong>Vaultwarden</strong> — gestor de contraseñas autoalojado</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>Productividad</h3>
+          <ul>
+            <li><strong>Paperless-ngx</strong> — gestión documental y OCR</li>
+            <li><strong>Immich</strong> — gestión autoalojada de fotos y vídeos</li>
+            <li><strong>Planka</strong> / <strong>Wekan</strong> — tableros kanban y gestión de proyectos</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dev Environment -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dev-environment">Entorno de desarrollo y batería de pruebas</h2>
+      <p class="doc-text">
+        El entorno de desarrollo de Town OS ejecuta todo el sistema en local con contenedores de
+        Podman. Es la manera más rápida de probar cambios, desarrollar paquetes y lanzar la batería
+        de pruebas.
+      </p>
+
+      <h3>Requisitos previos</h3>
+      <ul class="doc-list">
+        <li><strong>Linux</strong> — necesario para btrfs y para los contenedores rootful de Podman</li>
+        <li><strong>Podman</strong> — entorno de contenedores (en modo rootful, con sudo)</li>
+        <li><strong>Go 1.25+</strong> — para el servidor de la API</li>
+        <li><strong>Bun</strong> — para la compilación del frontend y su servidor de desarrollo</li>
+        <li><strong>btrfs-progs</strong> — para gestionar el almacenamiento</li>
+        <li><strong>QEMU</strong> — qemu-system-x86_64 y qemu-img para los paquetes de máquina virtual</li>
+        <li><strong>libsystemd</strong> — cabeceras de desarrollo para la integración con systemd</li>
+        <li><strong>golangci-lint</strong> — para el análisis estático de Go</li>
+        <li><strong>Python 3</strong> — para los scripts de compilación y de pruebas</li>
+      </ul>
+
+      <h3>Arrancar el entorno de desarrollo</h3>
+      <pre><code>git clone https://gitea.com/town-os/town-os.git
+cd town-os
+make dev</code></pre>
+      <p class="doc-text">
+        Eso levanta todo el entorno de desarrollo con recarga en caliente. Cuando esté listo, abre
+        la URL que se imprime en la terminal para entrar en el panel de Town OS.
+      </p>
+
+      <h3>Comandos del entorno de desarrollo</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Comando</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>Arranca todo el entorno de desarrollo</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>Detiene todos los contenedores de desarrollo</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>Sigue los registros de los contenedores de desarrollo</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>Elimina los contenedores y volúmenes de desarrollo</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Lanzar las pruebas</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Comando</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>Lanza las pruebas unitarias</td></tr>
+            <tr><td><code>make test-integration</code></td><td>Lanza las pruebas de integración (requiere Podman con privilegios)</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>Lanza las pruebas de integración de la interfaz</td></tr>
+            <tr><td><code>make test-full</code></td><td>Lanza todas las pruebas (unitarias + integración + interfaz)</td></tr>
+            <tr><td><code>make auto-test</code></td><td>Vigila los cambios y vuelve a lanzar las pruebas solo</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Pruebas de integración</h3>
+      <p class="doc-text">
+        Las pruebas de integración se ejecutan dentro de un contenedor de Podman con privilegios que
+        provee un sistema de ficheros btrfs real, systemd y Podman dentro de Podman. Así las pruebas
+        recorren los mismos caminos de código que una instalación en producción. El contenedor de
+        pruebas es efímero — se crea nuevo en cada ejecución y se limpia al terminar.
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">Flujo de desarrollo</div>
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+          <DiagramBox label="Editor" sub="Escribe código" variant="neutral">
+            <DiagramTag>Go + Bun</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="guardar" />
+          <DiagramBox label="auto-test" sub="Las pruebas se lanzan al guardar" variant="purple">
+            <DiagramTag variant="purple">make auto-test</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="recargar" />
+          <DiagramBox label="Navegador" sub="Vista previa en vivo" variant="teal">
+            <DiagramTag variant="teal">localhost:5173</DiagramTag>
+          </DiagramBox>
+        </div>
+        <div class="flex justify-center mt-2">
+          <span class="text-town-muted text-xs border border-town-border rounded-full px-3 py-1">&#x21bb; iterar &mdash; Backend :5309 &middot; Frontend :5173</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporting Bugs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="reporting-bugs">Informar de fallos</h2>
+      <p class="doc-text">
+        ¿Has encontrado algo roto? Un buen informe de fallo ayuda a arreglar las cosas más rápido.
+        Así se reúne la información necesaria y se presenta un informe útil.
+      </p>
+
+      <h3>Reunir registros con la API</h3>
+      <p class="doc-text">
+        Town OS expone los registros del journal a través de su
+        <a href={`${L('api/')}#systemd`}>API REST</a>. Puedes usar
+        <a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a> para
+        conectarte a la API y generar un resumen de los errores recientes:
+      </p>
+      <pre><code># Trae las entradas del journal con prioridad de error desde Town OS
+curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</code></pre>
+      <p class="doc-text">
+        O usa Claude Code para resumir los errores de forma interactiva:
+      </p>
+      <pre><code># Ejemplo de instrucción para Claude Code:
+"Connect to the Town OS API at http://town-os.local:5309
+ and fetch the last 100 error-priority journal entries from
+ /api/systemd/logs/tail. Summarize the errors, group them
+ by service, and suggest likely causes."</code></pre>
+
+      <h3>Abrir un issue</h3>
+      <p class="doc-text">
+        Los issues se abren en la instancia de Gitea de Town OS, en
+        <a href="https://gitea.com/town-os/town-os/issues" target="_blank" rel="noopener">gitea.com/town-os/town-os/issues</a>.
+      </p>
+
+      <h3>Qué incluir</h3>
+      <ul class="doc-list">
+        <li><strong>Resumen del journal</strong> — la salida del registro de errores o un resumen hecho con Claude Code de los errores recientes</li>
+        <li><strong>Pasos para reproducirlo</strong> — qué hiciste para provocar el problema, paso a paso</li>
+        <li><strong>Versión de Town OS</strong> — la fecha de compilación o el hash del commit que sale en la pantalla de arranque</li>
+        <li><strong>Backend de almacenamiento</strong> — btrfs, btrfs-mdadm o ZFS, y cuántos discos</li>
+        <li><strong>Entorno</strong> — hardware físico o QEMU; tamaños de RAM y de disco</li>
+      </ul>
+
+      <DiagramFlow title="Flujo para informar de fallos">
+        <DiagramBox label="Detectar el problema" sub="Algo se ha roto" variant="neutral">
+          <DiagramTag>&#x26a0; error</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="curl a la API" />
+        <DiagramBox label="Reunir registros" sub="Traer entradas del journal" variant="purple">
+          <DiagramTag variant="purple">:5309/api/systemd/logs</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="resumir" />
+        <DiagramBox label="Resumir" sub="Agrupar por servicio" variant="purple">
+          <DiagramTag variant="teal">Claude Code</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="presentar" />
+        <DiagramBox label="Abrir en Gitea" sub="Crear el issue con detalles" variant="teal">
+          <DiagramTag variant="teal">&#x2713; informado</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <script>
+    document.querySelectorAll('pre').forEach((pre) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-copy-wrapper';
+      pre.parentNode!.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      const clipboardIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+      const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.innerHTML = `${clipboardIcon}<span>Copiar</span>`;
+      btn.setAttribute('aria-label', 'Copiar al portapapeles');
+      wrapper.appendChild(btn);
+
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = (code || pre).textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+          btn.innerHTML = `${checkIcon}<span>¡Copiado!</span>`;
+          setTimeout(() => { btn.innerHTML = `${clipboardIcon}<span>Copiar</span>`; }, 2000);
+        });
+      });
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .container {
+    padding: 0 6rem;
+  }
+
+  .section.alt-section,
+  .quickstart-section {
+    background: linear-gradient(
+      to right,
+      var(--color-bg) 0,
+      var(--color-bg) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% + 600px),
+      var(--color-bg) calc(50% + 600px),
+      var(--color-bg) 100%
+    );
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .quickstart-section {
+    position: relative;
+  }
+
+  .quickstart-section::after {
+    content: '';
+    position: absolute;
+    left: max(0px, calc(50% - 600px));
+    right: max(0px, calc(50% - 600px));
+    bottom: 0;
+    height: 2px;
+    background: var(--color-primary-dim);
+    pointer-events: none;
+  }
+
+  .data-warning {
+    background: #2a0f0f;
+    border: 2px solid #993333;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .data-warning-badge {
+    display: inline-block;
+    background: #993333;
+    color: #d0d0d0;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    padding: 0.35rem 1.25rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .data-warning-text {
+    color: #cc5555;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+    max-width: 800px;
+  }
+
+  .data-warning-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .data-warning-text strong {
+    color: #bb4444;
+  }
+
+  .data-warning-text a {
+    color: var(--color-accent);
+  }
+
+  :global(.code-copy-wrapper) {
+    position: relative;
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  :global(.code-copy-wrapper pre) {
+    margin: 0;
+  }
+
+  pre {
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  h3 + :global(.code-copy-wrapper),
+  h3 + pre {
+    margin-top: 1rem;
+  }
+
+  :global(.code-copy-btn) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: rgba(91, 76, 158, 0.55);
+    color: var(--color-text);
+    border: 1px solid rgba(124, 107, 191, 0.6);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.3;
+  }
+
+  :global(.code-copy-btn svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  :global(.code-copy-wrapper:hover .code-copy-btn),
+  :global(.code-copy-btn:focus-visible) {
+    opacity: 1;
+    background: var(--color-primary);
+    border-color: var(--color-primary-light);
+  }
+
+  :global(.code-copy-btn:hover) {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary-light);
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.75rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 2.75rem;
+    margin-bottom: 1rem;
+  }
+
+  h4 {
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+  }
+
+  .callout {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* UI section — center text and screenshots */
+  .ui-section .doc-text,
+  .ui-section .doc-list {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ui-section h3 {
+    text-align: center;
+  }
+
+  .ui-section .section-title {
+    text-align: center;
+  }
+
+  /* Screenshots */
+  .screenshot-ref {
+    margin: 1rem auto 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 800px;
+  }
+
+  .screenshot-ref img {
+    display: block;
+    width: 100%;
+  }
+
+  /* Phone screenshots — narrow, side by side */
+  .phone-shots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.5rem auto 2rem;
+    max-width: 800px;
+  }
+
+  .phone-shot {
+    flex: 0 1 300px;
+    max-width: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-bg-card);
+  }
+
+  .phone-shot img {
+    display: block;
+    width: 100%;
+  }
+
+  .phone-shot figcaption {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Self-hosting idea grid */
+  .idea-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .idea-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .idea-card:hover {
+    border-color: var(--color-primary-dim);
+  }
+
+  .idea-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--color-accent);
+    font-size: 1.1rem;
+  }
+
+  .idea-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .idea-card li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .idea-card li strong {
+    color: var(--color-text);
+  }
+
+  @media (max-width: 1024px) {
+    .container {
+      padding: 0 2.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
+    .toc ul {
+      columns: 1;
+    }
+
+    .idea-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

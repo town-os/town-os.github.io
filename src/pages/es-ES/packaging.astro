@@ -1,0 +1,1175 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Formato de empaquetado — Town OS" lang="es-ES">
+  <section class="section">
+    <div class="container">
+      <h1>Formato de empaquetado</h1>
+      <p class="page-lead">
+        Los paquetes de Town OS son definiciones YAML que describen cómo ejecutar un servicio en
+        contenedor, incluyendo su imagen, su red, su almacenamiento y las preguntas de
+        configuración que ve el usuario. Los paquetes también pueden ejecutar máquinas virtuales o
+        aplicaciones de Windows mediante Proton.
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#repository-structure">Estructura del repositorio</a></li>
+          <li><a href="#package-definition">Definición de un paquete</a></li>
+          <li><a href="#top-level-fields">Campos de nivel superior</a></li>
+          <li><a href="#image-field">El campo image</a></li>
+          <li><a href="#supplies-tags">Etiquetas supplies</a></li>
+          <li><a href="#network-configuration">Configuración de red</a></li>
+          <li><a href="#volumes">Volúmenes</a></li>
+          <li><a href="#archives">Ficheros comprimidos</a></li>
+          <li><a href="#git-sources">Orígenes git</a></li>
+          <li><a href="#questions">Preguntas</a></li>
+          <li><a href="#templates">Plantillas</a></li>
+          <li><a href="#notes">Notas</a></li>
+          <li><a href="#dependencies">Dependencias</a></li>
+          <li><a href="#template-system">Sistema de plantillas</a></li>
+          <li><a href="#vm-runtime">Entorno de máquina virtual</a></li>
+          <li><a href="#proton-runtime">Entorno Proton</a></li>
+          <li><a href="#compilation">Compilación</a></li>
+          <li><a href="#response-persistence">Persistencia de las respuestas</a></li>
+          <li><a href="#installation-workflow">Flujo de instalación</a></li>
+          <li><a href="#uninstallation">Desinstalación</a></li>
+          <li><a href="#install-preview">Vista previa de la instalación</a></li>
+          <li><a href="#featured-packages">Paquetes destacados</a></li>
+          <li><a href="#importing-repositories">Importar repositorios</a></li>
+          <li><a href="#validation-rules">Reglas de validación</a></li>
+          <li><a href="#style-guidelines">Guía de estilo</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="repository-structure">Estructura del repositorio</h2>
+      <p class="doc-text">
+        Un repositorio de paquetes es cualquier repositorio git que contenga un directorio
+        <code>packages/</code>. Cualquiera puede crear uno — aloja tus propios paquetes para la
+        familia, los amigos o despliegues a medida. La estructura es simple:
+      </p>
+      <pre><code>packages/
+  &lt;nombre-del-paquete&gt;/
+    &lt;versión&gt;.yaml
+featured.json          # opcional
+
+# Ejemplo:
+packages/
+  nginx/
+    1.0.yaml
+    2.0.yaml
+  postgres/
+    1.0.yaml
+featured.json</code></pre>
+      <p class="doc-text">
+        Cada directorio de paquete bajo <code>packages/</code> contiene uno o más ficheros YAML
+        versionados. Las versiones se comparan por segmentos separados por punto — los segmentos
+        numéricos se comparan como números, y el resto en orden lexicográfico. El sistema de
+        almacenamiento admite actualizar entre versiones y desinstalar temporalmente para restaurar
+        después. Town OS trae un
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">repositorio predeterminado</a>
+        de paquetes, pero puedes añadir tantos repositorios extra como necesites.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="package-definition">Definición de un paquete</h2>
+      <p class="doc-text">Una definición completa de paquete en contenedor, con todos los campos disponibles:</p>
+      <pre><code>image:
+  url: nginx:1.26-alpine
+description: Lightweight high-performance web server and reverse proxy
+supplies: ["http"]
+command: ["optional", "command", "override"]
+environment:
+  NGINX_HOST: "@hostname@"
+network:
+  external:
+    "@port@": "80"
+  internal:
+    "5432": "5432"
+  domains:
+    - "@hostname@"
+volumes:
+  html:
+    mountpoint: /usr/share/nginx/html
+    quota: 2gb
+    uid: 1000
+    gid: 1000
+  data:
+    mountpoint: /data
+    archive: seed-data.tar.gz
+questions:
+  hostname:
+    query: "What hostname should nginx serve?"
+    type: hostname
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"
+archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html
+git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: data
+templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      version: &#123;&#123; .Package.Version &#125;&#125;
+notes:
+  URL:
+    value: "http://@hostname@:@port@"
+    type: url
+  Support:
+    value: "+1 (555) 123-4567"
+    type: phone</code></pre>
+      <p class="doc-text">
+        El campo <code>image</code> también acepta una forma abreviada de cadena:
+        <code>image: nginx:1.26-alpine</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="top-level-fields">Campos de nivel superior</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Obligatorio (entorno de contenedor).</strong> Referencia a la imagen del contenedor. Puede ser una cadena o un objeto con <code>url</code> y un <code>type</code> opcional. Mutuamente excluyente con <code>vm</code>.</td></tr>
+            <tr><td><code>description</code></td><td>Resumen breve y legible del paquete.</td></tr>
+            <tr><td><code>supplies</code></td><td>Lista de etiquetas semánticas de las capacidades que ofrece el paquete (por ejemplo <code>["database"]</code>, <code>["http"]</code>).</td></tr>
+            <tr><td><code>command</code></td><td>Comando opcional que sustituye al del contenedor. Mutuamente excluyente con <code>proton</code>.</td></tr>
+            <tr><td><code>environment</code></td><td>Variables de entorno que se le pasan al contenedor. Las claves deben cumplir <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code>. Los valores pueden llevar marcadores de plantilla <code>@variable@</code>.</td></tr>
+            <tr><td><code>network</code></td><td>Configuración de asignación de puertos y de dominios.</td></tr>
+            <tr><td><code>volumes</code></td><td>Volúmenes con nombre y su configuración de montaje.</td></tr>
+            <tr><td><code>questions</code></td><td>Preguntas interactivas que se muestran durante la instalación. Los nombres deben ser alfanuméricos (<code>^[a-zA-Z0-9]+$</code>).</td></tr>
+            <tr><td><code>archives</code></td><td>Especificaciones de extracción para rellenar volúmenes desde imágenes de contenedor.</td></tr>
+            <tr><td><code>git_sources</code></td><td>Repositorios git que se clonan dentro de los volúmenes.</td></tr>
+            <tr><td><code>templates</code></td><td>Plantillas de fichero que se generan con <code>text/template</code> de Go y se escriben en los volúmenes al instalar.</td></tr>
+            <tr><td><code>notes</code></td><td>Datos de clave y valor que se muestran después de instalar. Admiten sustitución de plantillas.</td></tr>
+            <tr><td><code>vm</code></td><td>Configuración de máquina virtual. Mutuamente excluyente con <code>image</code> y <code>proton</code>.</td></tr>
+            <tr><td><code>proton</code></td><td>Configuración de aplicación de Windows mediante Proton. Mutuamente excluyente con <code>vm</code> y <code>command</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Hay dos tipos de entorno de ejecución: <strong>container</strong> (el predeterminado) y
+        <strong>vm</strong>. Un paquete especifica <code>image</code> o <code>proton</code> para el
+        entorno de contenedor, o <code>vm</code> para el de máquina virtual. Proton es una
+        especialización del entorno de contenedor — usa Podman por debajo, pero genera el comando
+        solo y extrae los ficheros de la aplicación de Windows desde otra imagen de contenedor.
+        Estos campos son mutuamente excluyentes: un paquete debe incluir exactamente uno de
+        <code>image</code>/<code>proton</code> o <code>vm</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="image-field">El campo image</h2>
+      <p class="doc-text">
+        El campo <code>image</code> identifica la imagen de contenedor que se va a ejecutar. Acepta
+        dos formas:
+      </p>
+      <pre><code># Forma de objeto
+image:
+  url: nginx:1.26-alpine
+  type: oci                # opcional, por omisión "oci"
+
+# Forma abreviada de cadena
+image: nginx:1.26-alpine</code></pre>
+      <p class="doc-text">
+        Los nombres cortos de imagen se normalizan solos durante la compilación:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Entrada</th><th>Se normaliza a</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nginx</code></td><td><code>docker.io/library/nginx:latest</code></td></tr>
+            <tr><td><code>myuser/myapp</code></td><td><code>docker.io/myuser/myapp:latest</code></td></tr>
+            <tr><td><code>ghcr.io/org/app</code></td><td><code>ghcr.io/org/app:latest</code></td></tr>
+            <tr><td><code>nginx:1.26-alpine</code></td><td><code>docker.io/library/nginx:1.26-alpine</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        El único valor válido de <code>type</code> es <code>oci</code> (el predeterminado). Las URL
+        de imagen solo pueden contener caracteres alfanuméricos, <code>@</code>, <code>.</code>,
+        <code>_</code>, <code>:</code>, <code>/</code> y <code>-</code> — los metacaracteres del
+        shell se rechazan.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="supplies-tags">Etiquetas supplies</h2>
+      <p class="doc-text">
+        El campo <code>supplies</code> declara qué capacidades ofrece un paquete, lo que permite
+        clasificarlos y filtrarlos. Las etiquetas son cadenas libres — estas son las convencionales:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Etiqueta</th><th>Se usa para</th><th>Ejemplos</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>http</code></td><td>Servidores web, plataformas CMS, aplicaciones web</td><td>nginx, wordpress, gitea</td></tr>
+            <tr><td><code>database</code></td><td>Bases de datos relacionales y NoSQL</td><td>postgres, mysql, mongo</td></tr>
+            <tr><td><code>cache</code></td><td>Cachés y almacenes de clave y valor</td><td>redis, memcached, valkey</td></tr>
+            <tr><td><code>search</code></td><td>Motores de búsqueda y analítica</td><td>elasticsearch, opensearch, solr</td></tr>
+            <tr><td><code>messaging</code></td><td>Intermediarios de mensajes y colas</td><td>rabbitmq, nats, kafka</td></tr>
+            <tr><td><code>monitoring</code></td><td>Métricas, alertas y visualización</td><td>prometheus, grafana, telegraf</td></tr>
+            <tr><td><code>storage</code></td><td>Almacenamiento de objetos y alojamiento de ficheros</td><td>minio, registry, nextcloud</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="network-configuration">Configuración de red</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>network.external</code></td><td>Asignaciones de puertos expuestas directamente en el anfitrión. Las claves son puertos del anfitrión y los valores puertos del contenedor. Ambos son cadenas de <code>"puerto"</code> y pueden llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>network.internal</code></td><td>Asignaciones de puertos accesibles solo desde la propia red del paquete (y desde la entrada HTTP compartida). Las claves son puertos del lado del anfitrión o redirigidos, y los valores puertos del contenedor.</td></tr>
+            <tr><td><code>network.domains</code></td><td>Lista opcional de FQDN adicionales de cara a internet para los que la entrada HTTP debe obtener un certificado de confianza pública (Let&rsquo;s Encrypt / ACME). Puede llevar plantillas <code>@variable@</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los valores de puerto deben ser enteros entre 1 y 65535 después de sustituir las plantillas.
+        Omite <code>external</code>, <code>internal</code> o <code>domains</code> por completo si no
+        los usas — no pongas mapas ni listas vacías.
+      </p>
+      <p class="doc-text">
+        La <strong>clave</strong> de una entrada de puerto es o bien una cadena numérica de puerto
+        (<code>"2222": "22"</code>) o bien un <strong>nombre semántico</strong> que cumpla
+        <code>^[a-zA-Z][a-zA-Z0-9_]*$</code> (<code>http: "3000"</code>). Ponerle nombre a un puerto
+        permite que los paquetes padre lo referencien por su papel
+        (<code>@dep_KEY_port_http@</code>) en lugar de por número, y — para el nombre especial
+        <code>http</code> — inscribe ese puerto en la entrada HTTP compartida que se describe abajo.
+      </p>
+
+      <h3>Entrada HTTP (el puerto llamado <code>http</code>)</h3>
+      <p class="doc-text">
+        Town OS ejecuta una sola <strong>entrada compartida en el puerto <code>:443</code></strong>
+        que termina el TLS de todos los paquetes y hace de proxy inverso hacia el puerto HTTP en
+        claro del contenedor. Un paquete se suma a esa entrada llamando <code>http</code> a un
+        puerto <strong>internal</strong>:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"      # puerto HTTP en claro del contenedor</code></pre>
+      <p class="doc-text">Cuando haces esto:</p>
+      <ul class="doc-list">
+        <li>
+          El servicio queda accesible en <code>https://&lt;PACKAGE_DNS&gt;/</code> —
+          <strong>sin puerto en la URL.</strong> No hay puerto del anfitrión que elegir; tampoco
+          asignes el puerto HTTP bajo <code>external</code>.
+        </li>
+        <li>
+          La entrada presenta un <strong>certificado hoja de confianza local</strong> (emitido por
+          la CA integrada de Rolodex) para <code>&lt;PACKAGE_DNS&gt;</code> (por ejemplo
+          <code>gitea.default.home</code>), y Rolodex <strong>publica registros DANE
+          <code>TLSA</code> en <code>_443</code></strong> para que los clientes que entienden DANE
+          puedan fijar el certificado.
+        </li>
+        <li>
+          Como la entrada es dueña del <code>:443</code>, cualquier URL que genere la aplicación
+          tiene que ser <strong>HTTPS sin puerto</strong>. Configura la URL pública de la aplicación
+          en consecuencia (por ejemplo, el
+          <code>GITEA__server__ROOT_URL: "https://@PACKAGE_DNS@/"</code> de gitea) y deja que la
+          aplicación siga escuchando en HTTP en claro dentro del contenedor.
+        </li>
+      </ul>
+      <p class="doc-text">
+        Los protocolos que no son HTTP (SSH, bases de datos, etc.) <strong>no</strong> deben usar el
+        nombre <code>http</code> — no son HTTP y la entrada no puede terminarles el TLS. Redirígelos
+        tal cual con una asignación numérica:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"          # detrás de la entrada :443, con TLS terminado
+    "@sshport@": "22"     # redirección TCP pura, nunca envuelta en TLS</code></pre>
+
+      <h3>Nombres de cara a internet (<code>domains</code>)</h3>
+      <p class="doc-text">
+        De forma predeterminada, la entrada solo sirve el nombre
+        <code>&lt;PACKAGE_DNS&gt;</code> de confianza local. Para exponer además un servicio a
+        internet con un certificado de <strong>confianza pública</strong>, lista los FQDN reales bajo
+        <code>network.domains</code> y apunta el DNS público de ese nombre a este anfitrión. La
+        entrada obtiene un certificado ACME (Let&rsquo;s Encrypt) para cada dominio listado:
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"
+  domains:
+    - git.example.com</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="volumes">Volúmenes</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mountpoint</code></td><td><strong>Obligatorio.</strong> Ruta absoluta dentro del contenedor donde se monta el volumen (debe empezar con <code>/</code>).</td></tr>
+            <tr><td><code>quota</code></td><td>Límite de tamaño opcional (por ejemplo <code>512mb</code>, <code>2gb</code>, <code>1tb</code>). Admite los sufijos <code>mb</code>, <code>gb</code> y <code>tb</code>. Puede llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>archive</code></td><td>Nombre opcional de fichero comprimido con el que rellenar el volumen de antemano.</td></tr>
+            <tr><td><code>git</code></td><td>URL opcional de un repositorio git que se clona dentro del volumen.</td></tr>
+            <tr><td><code>uid</code></td><td>ID numérico de usuario opcional para el propietario del volumen.</td></tr>
+            <tr><td><code>gid</code></td><td>ID numérico de grupo opcional para el propietario del volumen.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los nombres de volumen deben empezar con un carácter alfanumérico y contener solo
+        alfanuméricos, puntos, guiones y guiones bajos (patrón:
+        <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code>). Omite <code>volumes</code> por completo si el
+        paquete no tiene ninguno.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="archives">Ficheros comprimidos</h2>
+      <p class="doc-text">
+        El campo <code>archives</code> extrae ficheros desde imágenes de contenedor hacia los
+        volúmenes durante la instalación:
+      </p>
+      <pre><code>archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Obligatorio.</strong> Imagen de contenedor de la que se extraen los ficheros.</td></tr>
+            <tr><td><code>directory</code></td><td><strong>Obligatorio.</strong> Ruta absoluta dentro de la imagen que se va a extraer.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Obligatorio.</strong> Nombre de un volumen definido en este paquete al que se extraerá.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Si el volumen de destino está vacío durante la instalación o la reconciliación, Podman
+        descarga la imagen, crea un contenedor temporal y copia el directorio indicado dentro del
+        volumen.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="git-sources">Orígenes git</h2>
+      <p class="doc-text">
+        El campo <code>git_sources</code> clona repositorios git dentro de los volúmenes:
+      </p>
+      <pre><code>git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: config</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>url</code></td><td><strong>Obligatorio.</strong> URL del repositorio git (http, https o ssh). Puede llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>branch</code></td><td>Rama que se va a clonar. Puede llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Obligatorio.</strong> Nombre de un volumen definido en este paquete dentro del cual se clonará.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="questions">Preguntas</h2>
+      <p class="doc-text">
+        Las preguntas definen los mensajes interactivos que aparecen al instalar un paquete. Las
+        respuestas del usuario sustituyen los marcadores de plantilla <code>@name@</code> por toda
+        la definición.
+      </p>
+      <pre><code>questions:
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>query</code></td><td><strong>Obligatorio.</strong> El texto del mensaje que ve el usuario.</td></tr>
+            <tr><td><code>type</code></td><td>Tipo de validación opcional. Omítelo para texto libre.</td></tr>
+            <tr><td><code>default</code></td><td>Valor predeterminado opcional que se le sugiere al usuario.</td></tr>
+            <tr><td><code>optional</code></td><td>Ponlo en <code>true</code> para permitir dejar la pregunta en blanco. Cualquier otra pregunta debe responderse con un valor no vacío.</td></tr>
+            <tr><td><code>oauth</code></td><td><strong>Obligatorio con <code>type: oauth</code>, y solo válido ahí.</strong> El flujo de dispositivo que ejecuta el diálogo de instalación para obtener un token.</td></tr>
+            <tr><td><code>show_if</code></td><td>Nombra una pregunta <code>boolean</code> del mismo paquete. Esta pregunta queda oculta en el diálogo de instalación hasta que se marque esa casilla, y mientras esté apagada se compila a la cadena vacía (y queda exenta del requisito de responderla) &mdash; así un paquete puede esconder un grupo avanzado detrás de un solo interruptor. La pregunta referenciada debe existir, ser booleana y no ser ella misma condicional.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Tipos de pregunta</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Tipo</th><th>Qué valida</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hostname</code></td><td>Una letra minúscula seguida de alfanuméricos en minúscula y guiones (patrón: <code>^[a-z][a-z0-9-]*$</code>). Genera solo <code>&lt;nombre-del-paquete&gt;-&lt;4-hex&gt;</code> cuando está vacío.</td></tr>
+            <tr><td><code>port</code></td><td>Entero entre 1 y 65535. Genera solo un puerto libre al azar en el rango 10000-60000 cuando está vacío o puesto en <code>"auto"</code>.</td></tr>
+            <tr><td><code>bytes</code></td><td>Entero o número con sufijo <code>tb</code>, <code>gb</code> o <code>mb</code> (sin distinguir mayúsculas)</td></tr>
+            <tr><td><code>volume</code></td><td>Caracteres alfanuméricos, guiones y guiones bajos (patrón: <code>^[a-zA-Z0-9-_]+$</code>)</td></tr>
+            <tr><td><code>archive</code></td><td>Cualquier cadena no vacía</td></tr>
+            <tr><td><code>secret</code></td><td>Genera sola una cadena hexadecimal de 64 caracteres (256 bits) cuando está vacía o puesta en <code>"auto"</code>. Se puede sobrescribir con un valor explícito.</td></tr>
+            <tr><td><code>duration</code></td><td>Entero o número con sufijo <code>d</code>, <code>h</code>, <code>m</code> o <code>s</code> (sin distinguir mayúsculas). Se convierte a segundos.</td></tr>
+            <tr><td><code>boolean</code></td><td><code>true</code>, <code>false</code>, <code>t</code>, <code>f</code>, <code>1</code> o <code>0</code> (sin distinguir mayúsculas). Se normaliza a la cadena <code>true</code> o <code>false</code>. Se dibuja como casilla en el diálogo de instalación; una pregunta sin responder toma el <code>default</code>, o <code>false</code> si no se declaró ninguno.</td></tr>
+            <tr><td><code>oauth</code></td><td>Un token que se obtiene ejecutando un flujo de dispositivo OAuth desde el diálogo de instalación, en vez de escribiéndolo. Se dibuja como un botón de <strong>Conectar</strong>; el token que vuelve es la respuesta. Se guarda y se muestra igual que un <code>secret</code>.</td></tr>
+            <tr><td><em>(omitido)</em></td><td>Cualquier cadena — sin validación</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Preguntas booleanas</h3>
+      <p class="doc-text">
+        Una pregunta <code>boolean</code> se muestra como casilla en vez de campo de texto, y su
+        respuesta se sustituye como la cadena literal <code>true</code> o <code>false</code>. Como
+        una casilla sin marcar sigue siendo una respuesta de verdad, el usuario puede apagar una
+        pregunta con <code>default: "true"</code> — el <code>false</code> explícito prevalece sobre
+        el predeterminado.
+      </p>
+      <pre><code>environment:
+  REGISTRATION_OPEN: "@open@"
+  METRICS_ENABLED: "@metrics@"
+questions:
+  open:
+    query: "Allow open registration?"
+    type: boolean          # sin responder -&gt; "false"
+  metrics:
+    query: "Enable metrics?"
+    type: boolean
+    default: "true"        # sin responder -&gt; "true"</code></pre>
+      <p class="doc-text">
+        El valor normalizado es también lo que ven las plantillas de fichero, así que
+        <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> se genera como <code>true</code> o
+        <code>false</code> y se puede evaluar con
+        <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code>.
+      </p>
+
+      <h3>Preguntas opcionales</h3>
+      <p class="doc-text">
+        Toda pregunta debe responderse con un valor no vacío, salvo que declare
+        <code>optional: true</code>. Sin eso, un ajuste del que la aplicación realmente puede
+        prescindir — un relay SMTP, una clave de API — no tiene forma honesta de expresarse: el
+        autor tiene que inventarse un valor de relleno y confiar en que el operador lo cambie.
+      </p>
+      <pre><code>environment:
+  SMTP_HOST: "@smtp_host@"
+  SMTP_PORT: "@smtp_port@"
+questions:
+  smtp_host:
+    query: "SMTP server hostname"
+    optional: true
+  smtp_port:
+    query: "SMTP server port"
+    type: port
+    optional: true
+    default: "587"</code></pre>
+      <p class="doc-text">
+        Si se deja en blanco, una pregunta opcional sustituye la <strong>cadena vacía</strong> en sus
+        marcadores <code>@marker@</code>, de modo que la aplicación ve la variable vacía en vez de
+        puesta en algo que nadie eligió. Nunca se genera sola: un <code>secret</code> opcional en
+        blanco se queda en blanco, en lugar de convertirse en una cadena aleatoria con la que la
+        aplicación intentaría autenticarse obedientemente.
+      </p>
+      <p class="doc-text">
+        <code>optional</code> se combina con <code>type</code> — un puerto opcional que sí se
+        respondió se sigue validando como puerto, mientras que uno en blanco se compila hasta
+        desaparecer. No tiene sentido en un <code>boolean</code>, que es una casilla y siempre acaba
+        en uno de sus dos valores.
+      </p>
+
+      <h3>Preguntas OAuth</h3>
+      <p class="doc-text">
+        Algunas aplicaciones se configuran con una credencial que solo su proveedor puede emitir —
+        un token de cuenta de Plex, un token personal de GitHub — y lo normal para conseguirla es
+        ejecutar un script en una terminal y pegar lo que imprime. Una pregunta <code>oauth</code>
+        ejecuta ese flujo desde el diálogo de instalación: el operador pulsa
+        <strong>Conectar</strong>, aprueba en una pestaña del navegador, y el token que vuelve se
+        convierte en la respuesta.
+      </p>
+      <p class="doc-text">
+        <strong>No hay un registro de proveedores</strong>. La pregunta trae un bloque
+        <code>oauth</code> que nombra las URL del propio proveedor, así que cualquier proveedor con
+        un flujo de tipo dispositivo funciona sin cambiarle nada a Town OS.
+      </p>
+      <pre><code>environment:
+  PLEX_TOKEN: "@plextoken@"
+questions:
+  plextoken:
+    query: "Plex account"
+    type: oauth
+    oauth:
+      start:
+        method: POST
+        url: "https://plex.tv/api/v2/pins?strong=true"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      extract:
+        id: id
+        code: code
+      approve: "https://app.plex.tv/auth#?clientID=&#123;&#123;client_id&#125;&#125;&amp;code=&#123;&#123;code&#125;&#125;"
+      poll:
+        url: "https://plex.tv/api/v2/pins/&#123;&#123;id&#125;&#125;"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      token: authToken
+      interval: 2s
+      timeout: 10m</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start</code></td><td><strong>Obligatorio.</strong> La petición que abre el flujo: <code>method</code> (por omisión <code>GET</code>), <code>url</code>, y opcionalmente <code>headers</code> y un cuerpo <code>form</code>.</td></tr>
+            <tr><td><code>extract</code></td><td>Campos JSON que se sacan de la respuesta inicial y quedan disponibles para las plantillas de abajo, escritos como <code>nombre: campo_json</code>.</td></tr>
+            <tr><td><code>approve</code></td><td><strong>Obligatorio.</strong> La URL que abre el operador para aprobar. Se abre en una pestaña nueva y además se muestra como enlace, por si un bloqueador de ventanas emergentes se la come.</td></tr>
+            <tr><td><code>user_code</code></td><td>Plantilla opcional para un código corto que el operador debe escribir en la página de aprobación. GitHub muestra uno; Plex no.</td></tr>
+            <tr><td><code>poll</code></td><td><strong>Obligatorio.</strong> La petición que se repite hasta la aprobación. Con la misma forma que <code>start</code>.</td></tr>
+            <tr><td><code>token</code></td><td><strong>Obligatorio.</strong> El campo JSON de la respuesta del sondeo que contiene el token. Que falte o sea <code>null</code> es la forma en que un proveedor dice &ldquo;todavía no está aprobado&rdquo;.</td></tr>
+            <tr><td><code>interval</code></td><td>Cada cuánto sondear. Por omisión <code>5s</code>; respeta el límite de tasa documentado del proveedor.</td></tr>
+            <tr><td><code>timeout</code></td><td>Cuánto tiempo seguir sondeando antes de rendirse. Por omisión <code>5m</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los marcadores <code>&#123;&#123;...&#125;&#125;</code> en las URL, las cabeceras y los
+        valores de formulario se resuelven con lo que haya nombrado <code>extract</code>, más
+        <code>&#123;&#123;client_id&#125;&#125;</code> — un identificador aleatorio que Town OS
+        genera por cada flujo y envía en cada paso, que es a lo que Plex ata su pin.
+      </p>
+      <p class="doc-text">
+        El token es una credencial, así que se trata como tal: enmascarado en el panel de información
+        del paquete, copiable pero nunca impreso. Se cachea igual que cualquier otra respuesta, así
+        que reinstalar o actualizar lo reutiliza en vez de mandar al operador de vuelta con el
+        proveedor.
+      </p>
+      <p class="doc-text">
+        Como quien llama a esas URL es el controlador del sistema — no el navegador — tienen que ser
+        <code>https</code> y no pueden resolverse a una dirección de bucle local, privada, de enlace
+        local ni de CGNAT. La comprobación se hace cuando la conexión se establece de verdad, y otra
+        vez en cada redirección, así que un paquete no puede usar un flujo para que el controlador
+        meta la mano en la propia red del anfitrión.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="templates">Plantillas</h2>
+      <p class="doc-text">
+        El campo <code>templates</code> define ficheros que se generan con
+        <code>text/template</code> de Go y se escriben en los volúmenes durante la instalación. Las
+        plantillas solo se escriben si el fichero de destino no existe todavía, así se conservan las
+        modificaciones del usuario entre actualizaciones.
+      </p>
+      <pre><code>templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      name: &#123;&#123; .Package.Name &#125;&#125;
+      system: &#123;&#123; .System.Hostname &#125;&#125;</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>volume</code></td><td><strong>Obligatorio.</strong> Nombre de un volumen definido en este paquete.</td></tr>
+            <tr><td><code>path</code></td><td><strong>Obligatorio.</strong> Ruta relativa dentro del volumen. No debe empezar con <code>/</code> ni contener <code>..</code>.</td></tr>
+            <tr><td><code>content</code></td><td><strong>Obligatorio.</strong> El contenido <code>text/template</code> de Go que se va a generar.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Contexto de datos de las plantillas</h3>
+      <p class="doc-text">
+        Dentro de las expresiones <code>&#123;&#123; &#125;&#125;</code> están disponibles estos
+        datos:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Expresión</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.Responses.&lt;nombre&gt;</code></td><td>La respuesta del usuario a la pregunta indicada</td></tr>
+            <tr><td><code>.Package.Name</code></td><td>Nombre del paquete</td></tr>
+            <tr><td><code>.Package.Version</code></td><td>Versión del paquete</td></tr>
+            <tr><td><code>.Package.Repo</code></td><td>Nombre del repositorio</td></tr>
+            <tr><td><code>.Package.Image</code></td><td>Referencia compilada de la imagen de contenedor</td></tr>
+            <tr><td><code>.Package.Description</code></td><td>Descripción del paquete</td></tr>
+            <tr><td><code>.System.Hostname</code></td><td>Nombre de host del sistema</td></tr>
+            <tr><td><code>.System.ExternalIP</code></td><td>Dirección IP externa (si se conoce)</td></tr>
+            <tr><td><code>.System.InternalIP</code></td><td>Dirección IP interna o de red local (si se conoce)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los nombres de plantilla siguen las mismas reglas que los de volumen. Los ficheros se
+        escriben con permisos <code>0600</code> y los directorios padre se crean con
+        <code>0750</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="notes">Notas</h2>
+      <p class="doc-text">
+        Las notas ofrecen datos de clave y valor que se muestran después de instalar.
+      </p>
+      <pre><code>notes:
+  URL:
+    value: "http://localhost:@port@"
+    type: url
+  Info:
+    value: "Default admin credentials are admin/admin"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>value</code></td><td><strong>Obligatorio.</strong> El texto de la nota. Admite sustitución de plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>type</code></td><td>Tipo de validación opcional: <code>url</code>, <code>phone</code> o <code>email</code>. Omítelo para texto simple.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dependencies">Dependencias</h2>
+      <p class="doc-text">
+        Los paquetes pueden declarar dependencias de otros paquetes. Las dependencias comparten la
+        red de podman del paquete padre, lo que permite que los contenedores del mismo árbol de
+        dependencias se comuniquen directamente por nombre de contenedor gracias al DNS integrado de
+        podman.
+      </p>
+      <pre><code>dependencies:
+  db:
+    package: postgres
+    responses:
+      password: "@dbpass@"
+      user: "mattermost"
+      database: "mattermost"
+      port: "5432"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>package</code></td><td><strong>Obligatorio.</strong> Nombre del paquete de la dependencia que se va a instalar.</td></tr>
+            <tr><td><code>repo</code></td><td>Repositorio que contiene la dependencia. Por omisión, el del paquete padre.</td></tr>
+            <tr><td><code>version</code></td><td>Versión que se va a instalar. Por omisión, la más reciente disponible.</td></tr>
+            <tr><td><code>responses</code></td><td>Respuestas a las preguntas de la dependencia. Los valores admiten la sintaxis <code>@variable@</code> con las preguntas del padre.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Los paquetes padre reciben variables de entorno para cada dependencia en tiempo de
+        ejecución: <code>TOWNOS_DEP_&#123;KEY&#125;_HOST</code> (el nombre del contenedor) y
+        <code>TOWNOS_DEP_&#123;KEY&#125;_PORT_&#123;port&#125;</code> (el número de puerto del lado
+        del contenedor). Los padres también pueden usar las variables de plantilla
+        <code>@dep_KEY_host@</code> y <code>@dep_KEY_port_N@</code> en los valores de su entorno
+        (mira el <a href="#template-system">sistema de plantillas</a>).
+      </p>
+      <p class="doc-text">
+        <strong>Ejemplo:</strong> un paquete de Mattermost con una dependencia <code>db</code> de
+        PostgreSQL puede referirse al host de la base de datos en su URL de origen de datos:
+      </p>
+      <pre><code>environment:
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:@dbpass@@@dep_db_host@:@dep_db_port_5432@/mattermost?sslmode=disable"</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="template-system">Sistema de plantillas</h2>
+      <p class="doc-text">
+        Town OS tiene dos sistemas de plantillas que actúan en distintas etapas de la compilación.
+      </p>
+
+      <h3>Sustitución <code>@variable@</code></h3>
+      <p class="doc-text">
+        La sintaxis <code>@variable@</code> se sustituye durante la compilación del paquete en todos
+        los campos configurables: valores de entorno, asignaciones de puertos, dominios de red,
+        puntos de montaje de volúmenes, cuotas de volúmenes, URL git de volúmenes, URL y ramas de los
+        orígenes git, los campos volume y path de las plantillas, la imagen y la memoria de las
+        máquinas virtuales, la configuración de Proton y los valores de las notas.
+      </p>
+      <p class="doc-text">
+        El nombre de cada pregunta se convierte en una variable. Para incluir un carácter
+        <code>@</code> literal (por ejemplo, en una URL SSH de git como <code>git@@domain@</code>),
+        usa <code>@@</code> — dos <code>@</code> seguidos producen un <code>@</code> literal.
+      </p>
+      <p class="doc-text">
+        Las variables sin resolver (las que apuntan a un nombre sin respuesta de pregunta asociada)
+        se dejan tal cual en la salida.
+      </p>
+
+      <h3>Variables integradas</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>El nombre de host o la IP externa del anfitrión con Town OS</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>El nombre de host o la IP interna del anfitrión con Town OS</td></tr>
+            <tr><td><code>@PACKAGE_DNS@</code></td><td>El nombre DNS asignado a este paquete en la red interna</td></tr>
+            <tr><td><code>@dep_KEY_host@</code></td><td>Nombre de host del contenedor de la dependencia KEY (resoluble por el DNS de podman en la red compartida). Solo está disponible si el paquete declara dependencias.</td></tr>
+            <tr><td><code>@dep_KEY_port_N@</code></td><td>Puerto N del contenedor de la dependencia KEY. Solo está disponible si el paquete declara dependencias.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Las variables integradas se sustituyen antes que las respuestas del usuario, así que tienen
+        prioridad. Las variables de plantilla de dependencias (<code>@dep_*@</code>) se resuelven
+        después de instalar la dependencia y se aplican a los valores de entorno del padre. KEY es el
+        nombre de la clave de dependencia en minúsculas, y N es el número de puerto del contenedor.
+      </p>
+
+      <h3>Plantillas de Go (en el campo <code>templates</code>)</h3>
+      <p class="doc-text">
+        El campo <code>templates</code> usa la sintaxis <code>text/template</code> de Go
+        (<code>&#123;&#123; .Responses.name &#125;&#125;</code>) para generar los ficheros que se
+        escriben en los volúmenes. El contexto de datos disponible está en la sección de
+        <a href="#templates">plantillas</a>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-runtime">Entorno de máquina virtual</h2>
+      <p class="doc-text">
+        Los paquetes pueden ejecutar máquinas virtuales en lugar de contenedores, especificando un
+        campo <code>vm</code> en vez de <code>image</code>:
+      </p>
+      <pre><code>vm:
+  image: "https://example.com/my-vm.qcow2"
+  memory: 2gb
+  cpus: 2
+description: A virtual machine package</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>Obligatorio.</strong> URL (http/https) o nombre de fichero de la imagen de disco de la máquina virtual. Puede llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>memory</code></td><td>Memoria asignada con sufijos de bytes (por ejemplo <code>1gb</code>, <code>512mb</code>). Por omisión <code>1gb</code>. Puede llevar plantillas <code>@variable@</code>.</td></tr>
+            <tr><td><code>cpus</code></td><td>Número de CPU virtuales. Por omisión 1. Debe ser no negativo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        El campo <code>vm</code> es mutuamente excluyente con <code>image</code> y
+        <code>proton</code>. Las imágenes de máquina virtual no se normalizan como las de contenedor.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="proton-runtime">Entorno Proton</h2>
+      <p class="doc-text">
+        Los paquetes pueden ejecutar aplicaciones de Windows mediante Proton especificando un campo
+        <code>proton</code>:
+      </p>
+      <pre><code>image:
+  type: oci
+proton:
+  app_image: "mycompany/windows-app:1.0"
+  app_directory: /app
+  volume: app
+  exe: /app/myapp.exe
+  args: ["-fullscreen", "-config", "/app/config.ini"]
+volumes:
+  app:
+    mountpoint: /app</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Descripción</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>app_image</code></td><td><strong>Obligatorio.</strong> Imagen de contenedor que contiene la aplicación de Windows.</td></tr>
+            <tr><td><code>app_directory</code></td><td><strong>Obligatorio.</strong> Ruta absoluta donde se encuentra la aplicación.</td></tr>
+            <tr><td><code>volume</code></td><td><strong>Obligatorio.</strong> Nombre de un volumen definido en este paquete.</td></tr>
+            <tr><td><code>exe</code></td><td><strong>Obligatorio.</strong> Ruta al ejecutable de Windows.</td></tr>
+            <tr><td><code>args</code></td><td>Lista opcional de argumentos de línea de comandos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Cuando se define <code>proton</code>, el comando del contenedor se genera solo como
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code>. La imagen de contenedor toma
+        por omisión el ajuste global <code>proton_image</code>
+        (<code>quay.io/town/proton:latest</code>), que se puede cambiar por paquete definiendo
+        <code>image</code>. El campo <code>app_image</code> se normaliza durante la compilación con
+        las mismas reglas que cualquier referencia de imagen de contenedor. El campo
+        <code>proton</code> es mutuamente excluyente con <code>vm</code> y <code>command</code>.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="compilation">Compilación</h2>
+      <p class="doc-text">
+        <strong>La compilación transforma la definición de un paquete y las respuestas del usuario en
+        una configuración completamente resuelta y lista para ejecutarse.</strong> La secuencia de
+        compilación hace estos pasos:
+      </p>
+      <ul class="doc-list">
+        <li>Valida todas las respuestas contra los tipos declarados</li>
+        <li>Aplica la validación propia de cada tipo (rangos de puertos, patrones de nombre de host, análisis de bytes, etc.)</li>
+        <li>Sustituye todos los marcadores de plantilla <code>@variable@</code> por los valores resueltos</li>
+        <li>Normaliza las URL de las imágenes de contenedor a referencias completamente cualificadas</li>
+        <li>Produce un paquete resuelto y listo para instalarse</li>
+      </ul>
+      <p class="doc-text">
+        En los paquetes de máquina virtual, las cadenas de memoria (por ejemplo <code>2gb</code>) se
+        convierten a cantidad de bytes y se aplican los valores predeterminados de CPU. Los errores
+        de validación se juntan de todos los campos y se devuelven de una vez, para que el usuario
+        pueda arreglarlo todo en una sola pasada en lugar de irse topando con los errores uno por
+        uno.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="response-persistence">Persistencia de las respuestas</h2>
+      <p class="doc-text">
+        <strong>Las respuestas se guardan por versión</strong> en
+        <code>responses/&lt;repo&gt;/&lt;pkg&gt;/&lt;versión&gt;.json</code>. También se guarda una
+        copia <code>last</code> en <code>responses/last/&lt;repo&gt;/&lt;pkg&gt;.json</code> para
+        reutilizarla al actualizar y al reinstalar desde volúmenes desinstalados.
+      </p>
+      <p class="doc-text">
+        Las respuestas de <code>last</code> se borran tras una instalación correcta. Eso significa
+        que si se desinstala un paquete y luego se vuelve a instalar, las respuestas anteriores se
+        ofrecen como predeterminadas. En cuanto la nueva instalación sale bien, la copia en caché se
+        elimina.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="installation-workflow">Flujo de instalación</h2>
+      <p class="doc-text">
+        <strong>Instalar un paquete recorre una secuencia de pasos bien definida.</strong> El proceso
+        se encarga de todo, desde preparar los ficheros hasta arrancar el servicio:
+      </p>
+      <ul class="doc-list">
+        <li>Crear un enlace duro desde el fichero del paquete en el repositorio hacia el directorio de instalados</li>
+        <li>Persistir las respuestas (la de esa versión y la copia <code>last</code>)</li>
+        <li>Crear los volúmenes con sus cuotas y, si procede, con propietario UID/GID</li>
+        <li>Rellenar los volúmenes desde ficheros comprimidos y orígenes git (solo en el entorno de contenedor)</li>
+        <li>Aplicar las plantillas (generar los ficheros dentro de los volúmenes)</li>
+        <li>Generar la unidad de systemd (basada en Podman para contenedores, en QEMU para máquinas virtuales)</li>
+        <li>Crear el fichero de estado de red</li>
+        <li>Arrancar el servicio</li>
+        <li>Borrar las respuestas de <code>last</code> si todo ha ido bien</li>
+      </ul>
+      <p class="doc-text">
+        Hay dos indicadores opcionales que controlan el comportamiento de los volúmenes:
+      </p>
+      <ul class="doc-list">
+        <li><code>reuse_volumes</code> — reutiliza los volúmenes de una versión anterior desinstalada del mismo paquete</li>
+        <li><code>import_from_version</code> — importa los volúmenes de una versión anterior concreta</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="uninstallation">Desinstalación</h2>
+      <p class="doc-text">
+        <strong>Desinstalar un paquete conserva los datos de los volúmenes de forma
+        predeterminada.</strong> Los volúmenes se mueven del prefijo <code>installed/</code> al
+        prefijo <code>uninstalled/</code> en lugar de borrarse. Así se puede reinstalar con los datos
+        originales intactos.
+      </p>
+      <p class="doc-text">
+        El proceso de desinstalación también borra el fichero de estado de red y detiene,
+        deshabilita y desinstala las unidades de systemd asociadas.
+      </p>
+      <p class="doc-text">
+        Para borrar los volúmenes de inmediato en lugar de conservarlos, usa el indicador
+        <code>purge_volumes</code>. Los volúmenes purgados no se pueden recuperar.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="install-preview">Vista previa de la instalación</h2>
+      <p class="doc-text">
+        <strong>Antes de comprometerte con una instalación, puedes ver qué se crearía.</strong> El
+        endpoint de vista previa (<code>POST /packages/install-preview</code>) devuelve un resumen de
+        la instalación planificada sin hacer ningún cambio:
+      </p>
+      <ul class="doc-list">
+        <li>Los volúmenes que se crearían</li>
+        <li>Los puertos que se asignarían</li>
+        <li>Información de la actualización (si vienes de una versión anterior)</li>
+        <li>El tipo de entorno (contenedor o máquina virtual)</li>
+        <li>Si el paquete tiene preguntas que responder</li>
+        <li>Los detalles de la máquina virtual (imagen, memoria, CPU) en los paquetes de ese tipo</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="featured-packages">Paquetes destacados</h2>
+      <p class="doc-text">
+        Un repositorio de paquetes puede incluir un fichero <code>featured.json</code> en su raíz
+        (junto al directorio <code>packages/</code>) para destacar ciertos paquetes en la interfaz.
+      </p>
+      <p class="doc-text">
+        El fichero contiene un array JSON de cadenas con nombres de paquete — sin versión ni prefijo
+        de repositorio:
+      </p>
+      <pre><code>["wordpress", "nextcloud", "postgres"]</code></pre>
+      <p class="doc-text">
+        Los paquetes listados en <code>featured.json</code> aparecen con <code>featured: true</code>
+        en la respuesta del listado de paquetes de la API, lo que permite a la interfaz destacarlos.
+        El fichero es opcional — si no está, no se destaca ningún paquete.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="importing-repositories">Importar repositorios</h2>
+      <p class="doc-text">
+        Una vez que hayas creado un repositorio de paquetes, añádelo a tu instancia de Town OS desde
+        la interfaz web o configurando el sistema de ficheros directamente.
+      </p>
+
+      <h3>Desde la interfaz</h3>
+      <p class="doc-text">
+        Entra en el panel de Town OS, ve a <strong>Paquetes</strong>, elige la pestaña
+        <strong>Repositorios</strong> y pulsa <strong>Añadir repositorio</strong>. Pon un nombre, la
+        URL de git y, si hace falta, las credenciales. Pulsa <strong>Actualizar</strong> para traer
+        los metadatos de los paquetes de inmediato.
+      </p>
+
+      <h3>Desde el sistema de ficheros</h3>
+      <p class="doc-text">
+        Edita <code>repositories.json</code> en el directorio btrfs de datos de paquetes. El fichero
+        es un array JSON de objetos:
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+      <p class="doc-text">
+        El orden importa — las entradas posteriores prevalecen sobre las anteriores cuando los
+        nombres de paquete chocan. Para repositorios privados, mete las credenciales en la URL.
+        Reinicia el servicio o pulsa <strong>Actualizar</strong> en la interfaz para que los cambios
+        surtan efecto.
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="validation-rules">Reglas de validación</h2>
+      <p class="doc-text">
+        Durante la validación y la compilación del paquete se aplican estas restricciones:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Campo</th><th>Regla</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>URL de la imagen</td><td>No vacía; los caracteres deben cumplir <code>^[a-zA-Z0-9@][a-zA-Z0-9._:/@-]*$</code></td></tr>
+            <tr><td>Tipo de imagen</td><td>Vacío (por omisión <code>oci</code>) u <code>oci</code></td></tr>
+            <tr><td>Claves de entorno</td><td>Deben cumplir <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code> (convención POSIX)</td></tr>
+            <tr><td>Nombres de pregunta</td><td>Deben cumplir <code>^[a-zA-Z0-9]+$</code></td></tr>
+            <tr><td>Nombres de volumen</td><td>Deben cumplir <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code></td></tr>
+            <tr><td>Puntos de montaje</td><td>Deben empezar con <code>/</code></td></tr>
+            <tr><td>Nombres de plantilla</td><td>Las mismas reglas que los nombres de volumen</td></tr>
+            <tr><td>Rutas de plantilla</td><td>No vacías, relativas (sin <code>/</code> inicial), sin recorridos <code>..</code></td></tr>
+            <tr><td>Directorio del fichero comprimido</td><td>Debe ser una ruta absoluta</td></tr>
+            <tr><td>Volumen de fichero/git</td><td>Debe referirse a un volumen definido en el paquete</td></tr>
+            <tr><td>URL de git</td><td>Deben tener un esquema y un host válidos (salvo <code>file://</code>)</td></tr>
+            <tr><td>CPU de la máquina virtual</td><td>Deben ser no negativas</td></tr>
+            <tr><td>app_directory de Proton</td><td>Debe ser una ruta absoluta</td></tr>
+            <tr><td>Entorno de ejecución</td><td>Exactamente uno entre <code>image</code>/<code>proton</code> (contenedor) o <code>vm</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        La validación ocurre antes de sustituir las plantillas. Los campos que contienen marcadores
+        <code>@variable@</code> se saltan la validación de rutas y URL hasta que la compilación
+        resuelve las plantillas.
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="style-guidelines">Guía de estilo</h2>
+      <ul class="guidelines-list">
+        <li>Omite los mapas vacíos (<code>environment: {}</code>, <code>internal: {}</code>, <code>volumes: {}</code>) — déjalos fuera por completo.</li>
+        <li>Omite <code>type</code> en las preguntas que aceptan texto libre — no escribas <code>type:</code> sin valor.</li>
+        <li>Incluye <code>description</code> con un resumen breve de qué es el paquete.</li>
+        <li>Incluye <code>supplies</code> con las etiquetas de capacidad que correspondan cuando el paquete ofrezca un servicio conocido.</li>
+        <li>Incluye <code>notes</code> con las URL de conexión y cualquier información importante posterior a la instalación.</li>
+        <li>Usa plantillas <code>@variable@</code> para que el usuario personalice puertos, nombres de host y credenciales durante la instalación.</li>
+        <li>Usa <code>templates</code> para los ficheros de configuración que necesiten lógica de plantillas de Go — solo se escriben una vez y conservan las ediciones del usuario.</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+  .guidelines-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .guidelines-list li {
+    margin-bottom: 0.6rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-list code {
+    font-size: 0.85em;
+  }
+</style>

@@ -6,7 +6,7 @@ export default defineConfig({
   base: '/',
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'zh-Hans', 'zh-Hant'],
+    locales: ['en', 'es-MX', 'es-ES', 'zh-Hans', 'zh-Hant'],
     routing: {
       prefixDefaultLocale: false,
     },

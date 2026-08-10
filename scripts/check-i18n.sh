@@ -5,11 +5,11 @@
 # The locale pages under src/pages/<locale>/ duplicate the English page's
 # scoped <style> block because Astro scopes styles per-component — a shared
 # stylesheet would lose the scoping. Any style change to an English page must
-# be mirrored into both locale copies; this check catches the ones that weren't.
+# be mirrored into every locale copy; this check catches the ones that weren't.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-LOCALES=(zh-Hans zh-Hant)
+LOCALES=(es-MX es-ES zh-Hans zh-Hant)
 status=0
 
 style_block() {

@@ -30,6 +30,8 @@ const L = (path: string) => localizePath(path, lang);
 
 const ogLocales: Record<Lang, string> = {
   en: 'en_US',
+  'es-MX': 'es_MX',
+  'es-ES': 'es_ES',
   'zh-Hans': 'zh_CN',
   'zh-Hant': 'zh_TW',
 };
@@ -96,6 +98,15 @@ const ogLocales: Record<Lang, string> = {
           if (pref.indexOf('zh') === 0) {
             // zh-TW / zh-HK / zh-MO / any -Hant tag means Traditional.
             target = /hant|tw|hk|mo/.test(pref) ? 'zh-Hant' : 'zh-Hans';
+            break;
+          }
+          if (pref.indexOf('es') === 0) {
+            // es-419 and the Latin American regions get the Mexican edition;
+            // bare "es" and everything else gets the European one.
+            target = /^es-(419|ar|bo|cl|co|cr|cu|do|ec|gt|hn|mx|ni|pa|pe|pr|py|sv|us|uy|ve)\b/
+              .test(pref)
+              ? 'es-MX'
+              : 'es-ES';
             break;
           }
           if (pref.indexOf('en') === 0) {
@@ -466,7 +477,9 @@ const ogLocales: Record<Lang, string> = {
 
   .footer-langs {
     display: flex;
-    gap: 1.25rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 1.25rem;
   }
 
   .footer-langs a {

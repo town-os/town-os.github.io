@@ -1,0 +1,264 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Conceptos — Town OS" lang="es-ES">
+  <section class="section">
+    <div class="container concepts-container">
+      <h1>Conceptos</h1>
+      <p class="page-lead">
+        Town OS está construido en torno a un conjunto de ideas centrales. Entender estos
+        conceptos te ayudará a ver cómo encaja todo — desde definir un paquete hasta
+        gestionar un servicio en marcha.
+      </p>
+
+      <div class="concepts-grid">
+        <div class="card concept-card">
+          <h3>Paquetes</h3>
+          <p>
+            Un paquete es una definición YAML autocontenida de un servicio, tomada de un
+            repositorio git. Cada paquete especifica sus asignaciones de puertos de red, sus
+            volúmenes de almacenamiento, sus variables de entorno y sus preguntas interactivas
+            — todo lo necesario para ejecutar el servicio. Los paquetes pueden ejecutarse como
+            contenedores (lo predeterminado), como máquinas virtuales basadas en QEMU o como
+            aplicaciones de Windows mediante la capa de compatibilidad Proton de Valve. Las
+            plantillas de ficheros (ficheros <code>text/template</code> de Go) pueden generarse
+            dentro de los volúmenes durante la instalación para lograr configuraciones
+            dinámicas. Los paquetes declaran etiquetas <code>supplies</code> (como
+            <code>http</code>, <code>database</code>, <code>cache</code>) para describir sus
+            capacidades. El repositorio predeterminado incluye paquetes curados que cubren
+            alojamiento de git, videoconferencias, streaming multimedia, mensajería de equipo
+            y bases de datos — y se añaden más de forma constante.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Preguntas</h3>
+          <p>
+            Al instalar un paquete, Town OS puede mostrarte unos mensajes interactivos llamados
+            preguntas. Tus respuestas rellenan los marcadores de plantilla <code>@variable@</code>
+            repartidos por toda la definición del paquete — fijando nombres de host, puertos,
+            credenciales y otras opciones. Cada pregunta tiene un validador con tipo
+            (<code>hostname</code>, <code>port</code>, <code>bytes</code>,
+            <code>volume</code>, <code>archive</code>, <code>duration</code>, <code>secret</code>,
+            <code>boolean</code>, <code>oauth</code> o texto libre) y un valor predeterminado
+            opcional, de modo que los errores de configuración se detectan antes de que el
+            servicio llegue a arrancar. El tipo también determina el control que ves — un
+            <code>boolean</code> es una casilla, un <code>secret</code> es un campo enmascarado,
+            y una pregunta <code>oauth</code> es un botón de Conectar que te identifica ante el
+            proveedor y guarda el token que este devuelve. Varios tipos generan valores solos
+            cuando los dejas vacíos: los puertos se asignan al azar en el rango 10000–60000, los
+            nombres de host se generan como <code>nombre-del-paquete-4hex</code>, y los secretos
+            producen una cadena hexadecimal de 64 caracteres. Una pregunta marcada como
+            <code>optional</code> simplemente puede dejarse en blanco — un relay SMTP que no
+            tienes se queda sin definir en lugar de rellenarse con una suposición.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Servicios</h3>
+          <p>
+            Una vez instalado, un paquete se convierte en un servicio — un contenedor en marcha
+            gestionado por una unidad de systemd. Town OS te da control de arranque, parada y
+            reinicio, transmisión de registros en vivo mediante Server-Sent Events, paginación
+            del journal basada en cursores, y la posibilidad de habilitar o deshabilitar
+            servicios. Los servicios están aislados entre sí y del sistema anfitrión.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Red</h3>
+          <p>
+            Town OS incluye
+            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>,
+            un servidor DNS que gestiona las zonas autoritativas de tus paquetes y reenvía las
+            consultas al exterior. Cada paquete declara sus propias asignaciones de puertos —
+            los puertos <code>external</code> quedan expuestos al anfitrión y los
+            <code>internal</code> solo están disponibles entre contenedores. Los valores de los
+            puertos admiten plantillas <code>@variable@</code>, así que el usuario puede elegir
+            los puertos durante la instalación. Los paquetes que declaran dependencias comparten
+            una red, lo que permite que los contenedores del mismo árbol de dependencias se
+            comuniquen directamente. Los paquetes padre pueden referirse a sus dependencias con
+            las variables de plantilla <code>@dep_KEY_host@</code> y <code>@dep_KEY_port_N@</code>
+            en su entorno, o mediante variables de entorno en tiempo de ejecución
+            (<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> y
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>). La redirección por UPnP se gestiona sola.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Almacenamiento</h3>
+          <p>
+            Todos los datos se guardan en subvolúmenes btrfs con aislamiento por paquete. Cada
+            volumen tiene un punto de montaje dentro del contenedor, una cuota configurable
+            (por ejemplo <code>512mb</code>, <code>2gb</code>) y, opcionalmente, propietario por
+            <code>uid</code>/<code>gid</code>. Los volúmenes pueden rellenarse de antemano desde
+            imágenes de contenedor con la función <code>archives</code>, o inicializarse clonando
+            un repositorio git dentro de un volumen vacío durante la instalación. Los usuarios
+            también pueden crear sus propios volúmenes independientes. Las imágenes de disco de
+            las máquinas virtuales se guardan en caché en un subvolumen dedicado, de modo que las
+            instalaciones posteriores las reutilizan. Se admiten instantáneas de btrfs para
+            copias de seguridad puntuales. Los datos sobreviven a reinstalaciones y
+            actualizaciones de paquetes — tus ficheros nunca se pierden al actualizar un servicio.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Repositorios</h3>
+          <p>
+            Los paquetes se organizan en repositorios — repos de git con un directorio
+            <code>packages/</code> que contiene definiciones YAML versionadas. Toda instalación
+            de Town OS incluye el repositorio predeterminado, pero cualquiera puede crear y
+            compartir repositorios propios. Los repositorios están ordenados — las entradas
+            posteriores prevalecen sobre las anteriores cuando los nombres de paquete chocan. Un
+            fichero <code>featured.json</code> puede destacar ciertos paquetes en la interfaz.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Plantillas y notas</h3>
+          <p>
+            El sistema de plantillas <code>@variable@</code> conecta las respuestas del usuario
+            con las variables de entorno, las asignaciones de puertos, las cuotas de los
+            volúmenes y más. Variables integradas como <code>@LOCAL_EXTERNAL_HOST@</code> y
+            <code>@LOCAL_INTERNAL_HOST@</code> están siempre disponibles. Ya instalado, las
+            <code>notes</code> muestran datos clave como URLs de conexión, credenciales o
+            información de contacto — con validación de tipo opcional para <code>url</code>,
+            <code>phone</code> y <code>email</code>.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Páginas</h3>
+          <p>
+            Town OS puede alojar sitios web estáticos. Cada página admite tres orígenes posibles:
+            subir un fichero tar, extraer ficheros de una imagen de contenedor o clonar un
+            repositorio git. Cada página obtiene su propio dominio y se sirve a través de Caddy.
+            Las páginas de tipo fichero comprimido se actualizan volviendo a subirlo; las de git
+            y de imagen de contenedor pueden reconstruirse cuando quieras.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Monitorización</h3>
+          <p>
+            Un conjunto de observabilidad integrado funciona de serie, sin configuración alguna.
+            Prometheus recolecta métricas y Node Exporter informa de las estadísticas del
+            anfitrión (CPU, memoria, disco, red). Hay dos backends de monitorización disponibles:
+            una interfaz integrada y ligera (la predeterminada) o Grafana con paneles
+            aprovisionados automáticamente. Todo el conjunto se ejecuta como servicios del sistema
+            y se reinicia solo si algo falla.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Internacionalización</h3>
+          <p>
+            Todas las cadenas de texto que ve el usuario pasan por un catálogo de mensajes
+            indexado por códigos de idioma BCP 47. Se presentan 21 idiomas comunes en su propia
+            escritura, con más de 87 códigos específicos por país disponibles. Hoy solo el inglés
+            (<code>en-US</code>) está traducido por completo — la infraestructura ya está lista
+            para las traducciones de la comunidad.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Cuentas y sesiones</h3>
+          <p>
+            Town OS admite cuentas de administrador y de usuario normal. Las contraseñas
+            requieren un mínimo de 8 caracteres. La autenticación usa tokens JWT que caducan a
+            los 7 días de inactividad. Las sesiones son efímeras — las claves de firma se
+            regeneran en cada reinicio, lo que borra todas las sesiones activas de forma
+            automática.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Registro de auditoría</h3>
+          <p>
+            Cada acción administrativa queda registrada con el nombre de la cuenta, la acción,
+            la ruta de la petición, el detalle, un indicador de éxito y la marca de tiempo. Los
+            endpoints de solo lectura quedan fuera. El registro de auditoría admite paginación,
+            filtrado por cuenta y búsqueda de texto completo.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Ajustes</h3>
+          <p>
+            La configuración de todo el sistema se gestiona con ajustes de clave y valor desde
+            la interfaz. Entre los valores configurables están la cuota predeterminada de los
+            volúmenes (50 GB), el tamaño máximo de fichero subido (1 GB), el tiempo límite para
+            descomprimirlo (600 s), el idioma, la imagen del ejecutor de Proton y el dominio de
+            nivel superior del DNS.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Actualizaciones de paquetes</h3>
+          <p>
+            Town OS detecta solo cuándo hay versiones más nuevas de un paquete en los
+            repositorios que tengas configurados. Una insignia en el panel muestra cuántas
+            actualizaciones están pendientes. Puedes descartar las versiones que no quieras —
+            los descartes se registran con un hash SHA256, así que solo reaparecen cuando cambia
+            el conjunto de actualizaciones.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Servicios del sistema</h3>
+          <p>
+            Los contenedores de infraestructura — monitorización, DNS y la interfaz web — se
+            gestionan aparte de los paquetes que instala el usuario. Usan un prefijo de systemd
+            distinto (<code>town-os-system--</code>), siempre se reinician si fallan y los
+            usuarios no pueden deshabilitarlos.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .concepts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .concepts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .concept-card {
+    text-align: left;
+  }
+
+  .concept-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
