@@ -782,6 +782,24 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>安装完成后，从应用抽屉中打开 <strong>Town OS</strong>。</li>
       </ol>
 
+      <h4>开启开发者模式</h4>
+      <p class="doc-text">
+        只有走 <code>adb</code> 这条路才需要它——直接从手机自己的下载列表安装 APK 并不需要。
+        <code>adb install</code> 和 <code>make install</code> 都要通过 USB 调试与手机通信，
+        而 USB 调试藏在 Android 隐藏的<strong>开发者选项</strong>菜单里。
+      </p>
+      <ol class="doc-list">
+        <li>打开<strong>设置 &rarr; 关于手机</strong>。三星手机上是<strong>设置 &rarr; 关于手机 &rarr; 软件信息</strong>。</li>
+        <li>连续点击<strong>版本号</strong>七次。Android 会倒数提示（「再点击 3 次即可成为开发者」），并在完成前要求输入你的 PIN、图案或密码。</li>
+        <li>屏幕会提示<strong>你现在已是开发者</strong>。此后<strong>开发者选项</strong>会出现在<strong>设置 &rarr; 系统</strong>里——有些手机把它放在设置的第一层，如果不在你预期的位置，就在设置里搜索一下。</li>
+        <li>打开<strong>开发者选项</strong>，启用 <strong>USB 调试</strong>。</li>
+        <li>把手机连到电脑上。Android 会弹出<em>允许 USB 调试吗？</em>对话框，并显示该电脑的密钥指纹——勾选<strong>始终允许使用这台电脑进行调试</strong>并确认。运行 <code>adb devices</code>，确认手机显示为 <code>device</code> 而不是 <code>unauthorized</code>。</li>
+      </ol>
+      <p class="doc-text">
+        用完之后请把 <strong>USB 调试</strong>关掉。它会让你授权过的每一台电脑都能通过调试桥完全访问这台手机，
+        日常一直开着是没有必要的风险。
+      </p>
+
       <h3>连接之前</h3>
       <ul class="doc-list">
         <li><strong>先创建一个网络。</strong>应用只能加入带有 WireGuard 覆盖层的网络——内置的 <code>home</code> 网络仅限局域网，因此不会出现在列表中。参见<a href="#creating-a-network">创建用于远程访问的网络</a>。</li>

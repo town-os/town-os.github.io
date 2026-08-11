@@ -782,6 +782,24 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>安裝完成後，從應用程式匣開啟 <strong>Town OS</strong>。</li>
       </ol>
 
+      <h4>開啟開發人員模式</h4>
+      <p class="doc-text">
+        只有走 <code>adb</code> 這條路才需要它——直接從手機自己的下載清單安裝 APK 並不需要。
+        <code>adb install</code> 與 <code>make install</code> 都要透過 USB 偵錯和手機溝通，
+        而 USB 偵錯藏在 Android 隱藏的<strong>開發人員選項</strong>選單裡。
+      </p>
+      <ol class="doc-list">
+        <li>開啟<strong>設定 &rarr; 關於手機</strong>。三星手機上是<strong>設定 &rarr; 關於手機 &rarr; 軟體資訊</strong>。</li>
+        <li>連續點<strong>版本號碼</strong>七次。Android 會倒數提示（「再點 3 次就能成為開發人員」），並在完成前要求輸入你的 PIN、圖形或密碼。</li>
+        <li>畫面會提示<strong>你現在已是開發人員</strong>。此後<strong>開發人員選項</strong>會出現在<strong>設定 &rarr; 系統</strong>裡——有些手機把它放在設定的第一層，如果不在你預期的位置，就在設定裡搜尋一下。</li>
+        <li>開啟<strong>開發人員選項</strong>，啟用 <strong>USB 偵錯</strong>。</li>
+        <li>把手機接到電腦上。Android 會跳出<em>允許 USB 偵錯嗎？</em>對話框，並顯示該電腦的金鑰指紋——勾選<strong>一律允許透過這台電腦進行偵錯</strong>並確認。執行 <code>adb devices</code>，確認手機顯示為 <code>device</code> 而不是 <code>unauthorized</code>。</li>
+      </ol>
+      <p class="doc-text">
+        用完之後請把 <strong>USB 偵錯</strong>關掉。它會讓你授權過的每一台電腦都能透過偵錯橋接完全存取這支手機，
+        日常一直開著是沒有必要的風險。
+      </p>
+
       <h3>連線之前</h3>
       <ul class="doc-list">
         <li><strong>先建立一個網路。</strong>應用程式只能加入帶有 WireGuard 疊加層的網路——內建的 <code>home</code> 網路僅限區域網路，因此不會出現在清單中。請見<a href="#creating-a-network">建立可遠端存取的網路</a>。</li>

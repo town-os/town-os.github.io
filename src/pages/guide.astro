@@ -832,6 +832,26 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         <li>Open <strong>Town OS</strong> from your app drawer once it finishes installing.</li>
       </ol>
 
+      <h4>Enabling Developer Mode</h4>
+      <p class="doc-text">
+        You only need this for the <code>adb</code> route — installing the APK from the phone's own
+        downloads works without it. Both <code>adb install</code> and <code>make install</code> talk
+        to the phone over USB debugging, which lives behind Android's hidden
+        <strong>Developer options</strong> menu.
+      </p>
+      <ol class="doc-list">
+        <li>Open <strong>Settings &rarr; About phone</strong>. On Samsung phones it is <strong>Settings &rarr; About phone &rarr; Software information</strong>.</li>
+        <li>Tap <strong>Build number</strong> seven times. Android counts down ("You are now 3 steps away from being a developer") and asks for your PIN, pattern, or password before it finishes.</li>
+        <li>A message confirms <strong>You are now a developer</strong>. <strong>Developer options</strong> then appears under <strong>Settings &rarr; System</strong> — some phones put it at the top level of Settings instead, so search Settings for it if it isn't where you expect.</li>
+        <li>Open <strong>Developer options</strong> and turn on <strong>USB debugging</strong>.</li>
+        <li>Plug the phone into the computer. Android shows an <em>Allow USB debugging?</em> dialog with the computer's key fingerprint — tick <strong>Always allow from this computer</strong> and accept it. Run <code>adb devices</code> to confirm the phone is listed as <code>device</code> rather than <code>unauthorized</code>.</li>
+      </ol>
+      <p class="doc-text">
+        Turn <strong>USB debugging</strong> back off when you are done. It gives every computer you
+        have authorized full access to the phone over the debug bridge, so leaving it on for daily
+        use is a needless risk.
+      </p>
+
       <h3>Before You Connect</h3>
       <ul class="doc-list">
         <li><strong>Create a network first.</strong> The app can only join networks that carry a WireGuard overlay — the built-in <code>home</code> network is LAN-only and won't appear. See <a href="#creating-a-network">Creating a Network for Remote Access</a>.</li>

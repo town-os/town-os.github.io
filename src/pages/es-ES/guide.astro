@@ -840,6 +840,26 @@ curl -k https://&lt;ip-de-town-os&gt;:8500/api/ca -o rolodex-root-ca.pem</code><
         <li>Abre <strong>Town OS</strong> desde el cajón de aplicaciones cuando termine de instalarse.</li>
       </ol>
 
+      <h4>Activar el modo de desarrollador</h4>
+      <p class="doc-text">
+        Esto solo hace falta para la vía de <code>adb</code> — instalar el APK desde las descargas
+        del propio móvil funciona sin ello. Tanto <code>adb install</code> como
+        <code>make install</code> se comunican con el móvil por depuración USB, que vive detrás del
+        menú oculto <strong>Opciones de desarrollador</strong> de Android.
+      </p>
+      <ol class="doc-list">
+        <li>Abre <strong>Ajustes &rarr; Información del teléfono</strong>. En los móviles Samsung es <strong>Ajustes &rarr; Información del teléfono &rarr; Información del software</strong>.</li>
+        <li>Pulsa <strong>Número de compilación</strong> siete veces. Android va contando ("Ya te faltan 3 pasos para ser desarrollador") y te pide tu PIN, patrón o contraseña antes de terminar.</li>
+        <li>Un mensaje confirma <strong>Ya eres desarrollador</strong>. Entonces <strong>Opciones de desarrollador</strong> aparece en <strong>Ajustes &rarr; Sistema</strong> — algunos móviles la colocan en el primer nivel de Ajustes, así que búscala ahí si no está donde esperas.</li>
+        <li>Abre <strong>Opciones de desarrollador</strong> y activa la <strong>Depuración por USB</strong>.</li>
+        <li>Conecta el móvil al ordenador. Android muestra el diálogo <em>¿Permitir la depuración por USB?</em> con la huella digital de la clave del ordenador — marca <strong>Permitir siempre desde este ordenador</strong> y acéptalo. Ejecuta <code>adb devices</code> para confirmar que el móvil aparece como <code>device</code> y no como <code>unauthorized</code>.</li>
+      </ol>
+      <p class="doc-text">
+        Vuelve a desactivar la <strong>Depuración por USB</strong> cuando termines. Da a cada
+        ordenador que hayas autorizado acceso completo al móvil por el puente de depuración, así
+        que dejarla activada para el uso diario es un riesgo innecesario.
+      </p>
+
       <h3>Antes de conectarte</h3>
       <ul class="doc-list">
         <li><strong>Crea una red primero.</strong> La app solo puede unirse a redes que tengan una superposición WireGuard — la red integrada <code>home</code> es solo local y no aparecerá. Mira <a href="#creating-a-network">Crear una red para acceso remoto</a>.</li>
