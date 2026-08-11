@@ -821,16 +821,30 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
       <ul class="doc-list">
         <li>Download the <strong>debug APK</strong> (<code>town-os-client-&lt;version&gt;-debug.apk</code>). The <code>-unsigned.apk</code> on the same release cannot be installed as-is — the project ships no signing key, so the debug build is the one to grab.</li>
         <li>Requires <strong>Android 8.0 (Oreo) or newer</strong>.</li>
-        <li>Because it is sideloaded, allow <strong>installing unknown apps</strong> when your browser or file manager prompts.</li>
         <li>Prefer to build it yourself? Clone the repo and run <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> with the phone connected over USB and USB debugging enabled. <code>make help</code> lists every target.</li>
       </ul>
-      <p class="doc-text">To install the downloaded APK on your phone:</p>
+      <p class="doc-text">
+        There are two ways to get it installed: straight from the phone, or over USB from a
+        computer. The first needs nothing but the phone.
+      </p>
+
+      <h4>Installing Straight from the Phone</h4>
+      <p class="doc-text">
+        No computer, no cable, and <strong>no developer mode</strong> — developer options and USB
+        debugging matter only for the <code>adb</code> route below. All Android wants is permission
+        to install an app that did not come from a store.
+      </p>
       <ol class="doc-list">
-        <li><strong>Get the APK onto the phone.</strong> Download it directly in the phone's browser, or copy it over from a computer via USB or <code>adb push</code>.</li>
-        <li><strong>Open the APK</strong> from your browser's downloads or a file manager. The first time, Android asks to <strong>allow installs from this source</strong> — grant it (<strong>Settings &rarr; Apps &rarr; Special access &rarr; Install unknown apps</strong>), then tap <strong>Install</strong>.</li>
-        <li><strong>Or install from a computer</strong> with the phone in USB-debugging mode: <code>adb install town-os-client-&lt;version&gt;-debug.apk</code>.</li>
+        <li><strong>Download the APK in the phone's browser.</strong> Open the <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">releases page</a> and tap the <code>town-os-client-&lt;version&gt;-debug.apk</code> asset. The browser warns that this kind of file can harm your device — that warning shows for every APK; choose <strong>Download anyway</strong>.</li>
+        <li><strong>Open it</strong> from the download notification, the browser's <strong>Downloads</strong> list, or the Files app.</li>
+        <li><strong>Allow the source.</strong> The first time, Android says the app doing the opening isn't allowed to install unknown apps and offers a <strong>Settings</strong> button — tap it, turn on <strong>Allow from this source</strong> for that app (your browser or file manager), and go back. The same switch lives at <strong>Settings &rarr; Apps &rarr; Special access &rarr; Install unknown apps</strong>.</li>
+        <li><strong>Tap Install.</strong> Play Protect may offer to scan the app, or warn that it comes from an unrecognized developer — expected for a sideloaded build. Choose <strong>Install anyway</strong>.</li>
         <li>Open <strong>Town OS</strong> from your app drawer once it finishes installing.</li>
       </ol>
+      <p class="doc-text">
+        Copying the APK over from a computer first — USB file transfer, <code>adb push</code>, or
+        any file-sync app — and then opening it in a file manager works exactly the same way.
+      </p>
 
       <h4>Enabling Developer Mode</h4>
       <p class="doc-text">
@@ -851,6 +865,44 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         have authorized full access to the phone over the debug bridge, so leaving it on for daily
         use is a needless risk.
       </p>
+
+      <h4>Installing with adb, Without the Repository</h4>
+      <p class="doc-text">
+        You do not need the client's source tree to install over USB — <code>make install</code> is
+        only a convenience wrapper. All the <code>adb</code> route needs is the released APK and the
+        <code>adb</code> binary itself, which comes from Google's <strong>Android SDK Platform
+        Tools</strong>.
+      </p>
+      <ul class="doc-list">
+        <li><strong>Ubuntu / Debian</strong> — <code>sudo apt install adb android-sdk-platform-tools-common</code>. The second package carries the udev rules that let your user account reach the phone without root; unplug and replug the phone afterwards.</li>
+        <li><strong>Arch / Manjaro</strong> — <code>sudo pacman -S android-tools android-udev</code>, then put yourself in the <code>adbusers</code> group with <code>sudo usermod -aG adbusers $USER</code> and log out and back in.</li>
+        <li><strong>macOS</strong> — <code>brew install --cask android-platform-tools</code>. Nothing else to set up; macOS talks to the phone without drivers.</li>
+        <li><strong>Windows</strong> — <code>winget install Google.PlatformTools</code> in PowerShell, or grab the ZIP below. Most phones work with the driver Windows installs on its own; a few vendors (Samsung, Xiaomi) want their own USB driver before <code>adb</code> sees the device at all.</li>
+        <li><strong>Any other system</strong> — download the
+          <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">platform-tools ZIP</a>
+          from Google and unzip it anywhere. There is nothing to install — run <code>adb</code>
+          out of that folder (<code>.\adb.exe</code> on Windows).</li>
+      </ul>
+      <p class="doc-text">
+        Confirm it landed with <code>adb version</code>. Then download the debug APK from the
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">releases page</a>,
+        enable USB debugging as above, plug the phone in, and:
+      </p>
+      <pre><code># Confirm the phone is connected and authorized
+adb devices
+
+# Install the APK
+adb install town-os-client-&lt;version&gt;-debug.apk</code></pre>
+      <p class="doc-text">
+        A few things that trip people up:
+      </p>
+      <ul class="doc-list">
+        <li><strong><code>no devices/emulators found</code></strong> — the cable is charge-only, or the phone hasn't been told to allow this computer. Reseat the cable, then look for the <em>Allow USB debugging?</em> prompt on the phone's screen.</li>
+        <li><strong><code>no permissions</code> on Linux</strong> — the udev rules package above is missing, or the phone was plugged in before it was installed. Install it, replug the phone, and run <code>adb kill-server &amp;&amp; adb devices</code>.</li>
+        <li><strong><code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code></strong> — a copy signed with a different key is already installed, which happens if you built one yourself earlier. Remove the old app (long-press it in the app drawer, or <code>adb uninstall</code> its package name from <code>adb shell pm list packages town</code>) and install again.</li>
+        <li><strong>Upgrading in place</strong> — <code>adb install -r town-os-client-&lt;version&gt;-debug.apk</code> replaces an existing install and keeps its data, as long as both came from the releases page.</li>
+        <li>Nothing here touches the phone's storage — <code>adb install</code> pushes and installs in one step, so you never need to find the file in a file manager afterwards.</li>
+      </ul>
 
       <h3>Before You Connect</h3>
       <ul class="doc-list">

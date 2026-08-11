@@ -771,16 +771,28 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
       <ul class="doc-list">
         <li>請下載 <strong>debug 版 APK</strong>（<code>town-os-client-&lt;version&gt;-debug.apk</code>）。同一版本中的 <code>-unsigned.apk</code> 無法直接安裝——專案並未提供簽署金鑰，所以要拿的是 debug 版。</li>
         <li>需要 <strong>Android 8.0（Oreo）或更新版本</strong>。</li>
-        <li>由於是側載安裝，當瀏覽器或檔案管理員詢問時，請允許<strong>安裝不明應用程式</strong>。</li>
         <li>比較想自己建置？複製儲存庫，在手機以 USB 連接並開啟 USB 偵錯的情況下執行 <code>make deps &amp;&amp; make debug &amp;&amp; make install</code>。<code>make help</code> 會列出所有目標。</li>
       </ul>
-      <p class="doc-text">把下載好的 APK 安裝到手機上：</p>
+      <p class="doc-text">
+        安裝方式有兩種：直接在手機上裝，或是從電腦透過 USB 裝。前者除了手機之外什麼都不需要。
+      </p>
+
+      <h4>直接在手機上安裝</h4>
+      <p class="doc-text">
+        不用電腦、不用傳輸線，也<strong>不用開發人員模式</strong>——開發人員選項與 USB 偵錯只跟下面
+        <code>adb</code> 那條路有關。Android 唯一要的，就是允許安裝一個並非來自應用程式商店的應用程式。
+      </p>
       <ol class="doc-list">
-        <li><strong>先把 APK 弄到手機上。</strong>可以直接用手機瀏覽器下載，也可以透過 USB 或 <code>adb push</code> 從電腦傳過去。</li>
-        <li>從瀏覽器的下載清單或檔案管理員<strong>開啟這個 APK</strong>。第一次時 Android 會要求<strong>允許來自此來源的安裝</strong>——請予以允許（<strong>設定 &rarr; 應用程式 &rarr; 特殊存取權 &rarr; 安裝不明應用程式</strong>），然後點<strong>安裝</strong>。</li>
-        <li><strong>或者從電腦安裝</strong>，讓手機處於 USB 偵錯模式：<code>adb install town-os-client-&lt;version&gt;-debug.apk</code>。</li>
+        <li><strong>用手機瀏覽器下載 APK。</strong>開啟<a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">釋出頁面</a>，點 <code>town-os-client-&lt;version&gt;-debug.apk</code> 這個檔案。瀏覽器會警告這類檔案可能會傷害你的裝置——任何 APK 都會跳這個提示，請選<strong>仍要下載</strong>。</li>
+        <li>從下載完成的通知、瀏覽器的<strong>下載</strong>清單，或是「檔案」應用程式裡<strong>開啟它</strong>。</li>
+        <li><strong>允許來源。</strong>第一次時，Android 會說開啟它的那個應用程式沒有安裝不明應用程式的權限，並給你一個<strong>設定</strong>按鈕——點進去，為該應用程式（你的瀏覽器或檔案管理員）開啟<strong>允許來自此來源</strong>，然後返回。同一個開關也在<strong>設定 &rarr; 應用程式 &rarr; 特殊存取權 &rarr; 安裝不明應用程式</strong>裡。</li>
+        <li><strong>點安裝。</strong>Play 保護機制可能會提議掃描這個應用程式，或提示它來自未知的開發人員——對於商店之外安裝的應用程式，這是預期之中的。請選<strong>仍要安裝</strong>。</li>
         <li>安裝完成後，從應用程式匣開啟 <strong>Town OS</strong>。</li>
       </ol>
+      <p class="doc-text">
+        先從電腦把 APK 傳過去——用 USB 檔案傳輸、<code>adb push</code>，或任何一款同步應用程式——
+        再用檔案管理員開啟它，效果完全一樣。
+      </p>
 
       <h4>開啟開發人員模式</h4>
       <p class="doc-text">
@@ -799,6 +811,42 @@ curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pr
         用完之後請把 <strong>USB 偵錯</strong>關掉。它會讓你授權過的每一台電腦都能透過偵錯橋接完全存取這支手機，
         日常一直開著是沒有必要的風險。
       </p>
+
+      <h4>不用儲存庫，只用 adb 安裝</h4>
+      <p class="doc-text">
+        透過 USB 安裝並不需要用戶端的原始碼樹——<code>make install</code> 只是一層方便的包裝。
+        走 <code>adb</code> 這條路只需要釋出的 APK，以及 <code>adb</code> 這個執行檔本身，
+        它來自 Google 的 <strong>Android SDK Platform Tools</strong>。
+      </p>
+      <ul class="doc-list">
+        <li><strong>Ubuntu / Debian</strong>——<code>sudo apt install adb android-sdk-platform-tools-common</code>。後一個套件帶的是 udev 規則，讓你的一般使用者帳號不必用 root 就能存取手機；裝完之後把手機拔掉重插一次。</li>
+        <li><strong>Arch / Manjaro</strong>——<code>sudo pacman -S android-tools android-udev</code>，然後用 <code>sudo usermod -aG adbusers $USER</code> 把自己加進 <code>adbusers</code> 群組，再登出並重新登入。</li>
+        <li><strong>macOS</strong>——<code>brew install --cask android-platform-tools</code>。沒有別的要設定的；macOS 不需要驅動程式就能跟手機溝通。</li>
+        <li><strong>Windows</strong>——在 PowerShell 裡執行 <code>winget install Google.PlatformTools</code>，或是下載下面的壓縮檔。大多數手機用 Windows 自己裝的驅動程式就能運作；少數廠商（三星、小米）要裝它們自己的 USB 驅動程式，<code>adb</code> 才看得到裝置。</li>
+        <li><strong>其他任何系統</strong>——從 Google 下載
+          <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">platform-tools 壓縮檔</a>，
+          解壓縮到任意位置即可。沒有什麼需要安裝的——直接在那個資料夾裡執行 <code>adb</code>
+          （Windows 上是 <code>.\adb.exe</code>）。</li>
+      </ul>
+      <p class="doc-text">
+        用 <code>adb version</code> 確認裝好了。接著從<a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">釋出頁面</a>下載
+        debug 版 APK，照上面的說明開啟 USB 偵錯，把手機接上，然後：
+      </p>
+      <pre><code># 確認手機已連接並已授權
+adb devices
+
+# 安裝 APK
+adb install town-os-client-&lt;version&gt;-debug.apk</code></pre>
+      <p class="doc-text">
+        有幾個地方容易卡住：
+      </p>
+      <ul class="doc-list">
+        <li><strong><code>no devices/emulators found</code></strong>——線材只能充電，或是還沒在手機上授權這台電腦。重新插拔線材，然後留意手機螢幕上的<em>允許 USB 偵錯嗎？</em>提示。</li>
+        <li><strong>Linux 上出現 <code>no permissions</code></strong>——上面那個 udev 規則套件沒裝，或是手機在裝它之前就已經插著了。裝上它，重新插一次手機，然後執行 <code>adb kill-server &amp;&amp; adb devices</code>。</li>
+        <li><strong><code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code></strong>——手機上已經裝了一份以不同金鑰簽署的副本，如果你先前自己建置過就會這樣。先移除舊的應用程式（在應用程式匣裡長按它，或用 <code>adb shell pm list packages town</code> 查到套件名稱後 <code>adb uninstall</code>），再重新安裝。</li>
+        <li><strong>原地升級</strong>——<code>adb install -r town-os-client-&lt;version&gt;-debug.apk</code> 會取代既有的安裝並保留其資料，前提是兩者都來自釋出頁面。</li>
+        <li>這一整套都不會在手機的儲存空間留下東西——<code>adb install</code> 一步完成傳輸與安裝，事後不必再到檔案管理員裡找那個檔案。</li>
+      </ul>
 
       <h3>連線之前</h3>
       <ul class="doc-list">

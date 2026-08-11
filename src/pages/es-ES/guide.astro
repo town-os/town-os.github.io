@@ -829,16 +829,32 @@ curl -k https://&lt;ip-de-town-os&gt;:8500/api/ca -o rolodex-root-ca.pem</code><
       <ul class="doc-list">
         <li>Descarga el <strong>APK de depuración</strong> (<code>town-os-client-&lt;versión&gt;-debug.apk</code>). El <code>-unsigned.apk</code> de esa misma versión no se puede instalar tal cual — el proyecto no distribuye clave de firma, así que el de depuración es el que debes bajar.</li>
         <li>Requiere <strong>Android 8.0 (Oreo) o superior</strong>.</li>
-        <li>Como se instala por fuera de la tienda, permite <strong>instalar apps desconocidas</strong> cuando te lo pida tu navegador o tu gestor de ficheros.</li>
         <li>¿Prefieres compilarla tú? Clona el repositorio y ejecuta <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> con el móvil conectado por USB y la depuración USB activada. <code>make help</code> lista todos los objetivos.</li>
       </ul>
-      <p class="doc-text">Para instalar el APK descargado en tu móvil:</p>
+      <p class="doc-text">
+        Hay dos formas de instalarla: directamente desde el móvil, o por USB desde un ordenador.
+        La primera no necesita nada más que el móvil.
+      </p>
+
+      <h4>Instalar directamente desde el móvil</h4>
+      <p class="doc-text">
+        Sin ordenador, sin cable y <strong>sin modo de desarrollador</strong> — las opciones de
+        desarrollador y la depuración por USB solo importan para la vía de <code>adb</code> de más
+        abajo. Lo único que pide Android es permiso para instalar una app que no viene de una
+        tienda.
+      </p>
       <ol class="doc-list">
-        <li><strong>Pasa el APK al móvil.</strong> Descárgalo directamente en el navegador del móvil, o cópialo desde un ordenador por USB o con <code>adb push</code>.</li>
-        <li><strong>Abre el APK</strong> desde las descargas del navegador o desde un gestor de ficheros. La primera vez, Android te pedirá <strong>permitir instalaciones desde este origen</strong> — concédelo (<strong>Ajustes &rarr; Aplicaciones &rarr; Acceso especial &rarr; Instalar apps desconocidas</strong>) y luego pulsa <strong>Instalar</strong>.</li>
-        <li><strong>O instálalo desde un ordenador</strong> con el móvil en modo de depuración USB: <code>adb install town-os-client-&lt;versión&gt;-debug.apk</code>.</li>
+        <li><strong>Descarga el APK en el navegador del móvil.</strong> Abre la <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">página de versiones</a> y pulsa el fichero <code>town-os-client-&lt;versión&gt;-debug.apk</code>. El navegador avisa de que este tipo de fichero puede dañar tu dispositivo — ese aviso sale con cualquier APK; elige <strong>Descargar de todos modos</strong>.</li>
+        <li><strong>Ábrelo</strong> desde la notificación de descarga, desde la lista de <strong>Descargas</strong> del navegador, o desde la app Archivos.</li>
+        <li><strong>Autoriza el origen.</strong> La primera vez, Android dirá que la app que lo está abriendo no tiene permiso para instalar apps desconocidas y te ofrecerá un botón de <strong>Ajustes</strong> — púlsalo, activa <strong>Permitir desde este origen</strong> para esa app (tu navegador o tu gestor de ficheros) y vuelve atrás. Ese mismo interruptor está en <strong>Ajustes &rarr; Aplicaciones &rarr; Acceso especial &rarr; Instalar apps desconocidas</strong>.</li>
+        <li><strong>Pulsa Instalar.</strong> Puede que Play Protect ofrezca analizar la app, o que avise de que viene de un desarrollador no reconocido — algo esperable en una app instalada fuera de la tienda. Elige <strong>Instalar de todos modos</strong>.</li>
         <li>Abre <strong>Town OS</strong> desde el cajón de aplicaciones cuando termine de instalarse.</li>
       </ol>
+      <p class="doc-text">
+        Copiar antes el APK desde un ordenador — por transferencia de ficheros por USB, con
+        <code>adb push</code>, o con cualquier app de sincronización — y abrirlo después en un
+        gestor de ficheros funciona exactamente igual.
+      </p>
 
       <h4>Activar el modo de desarrollador</h4>
       <p class="doc-text">
@@ -859,6 +875,44 @@ curl -k https://&lt;ip-de-town-os&gt;:8500/api/ca -o rolodex-root-ca.pem</code><
         ordenador que hayas autorizado acceso completo al móvil por el puente de depuración, así
         que dejarla activada para el uso diario es un riesgo innecesario.
       </p>
+
+      <h4>Instalar con adb, sin el repositorio</h4>
+      <p class="doc-text">
+        No necesitas el código fuente del cliente para instalar por USB — <code>make install</code>
+        solo es un atajo. La vía de <code>adb</code> únicamente requiere el APK publicado y el
+        binario <code>adb</code>, que viene en las <strong>Android SDK Platform Tools</strong> de
+        Google.
+      </p>
+      <ul class="doc-list">
+        <li><strong>Ubuntu / Debian</strong> — <code>sudo apt install adb android-sdk-platform-tools-common</code>. El segundo paquete trae las reglas de udev que permiten a tu cuenta de usuario llegar al móvil sin ser root; desconecta y vuelve a conectar el móvil después.</li>
+        <li><strong>Arch / Manjaro</strong> — <code>sudo pacman -S android-tools android-udev</code>, y luego añádete al grupo <code>adbusers</code> con <code>sudo usermod -aG adbusers $USER</code> y cierra y vuelve a iniciar sesión.</li>
+        <li><strong>macOS</strong> — <code>brew install --cask android-platform-tools</code>. No hay nada más que configurar; macOS se comunica con el móvil sin controladores.</li>
+        <li><strong>Windows</strong> — <code>winget install Google.PlatformTools</code> en PowerShell, o descarga el ZIP de abajo. La mayoría de los móviles funcionan con el controlador que Windows instala por su cuenta; unos pocos fabricantes (Samsung, Xiaomi) exigen su propio controlador USB para que <code>adb</code> siquiera vea el dispositivo.</li>
+        <li><strong>Cualquier otro sistema</strong> — descarga el
+          <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">ZIP de platform-tools</a>
+          de Google y descomprímelo donde quieras. No hay nada que instalar — ejecuta
+          <code>adb</code> desde esa carpeta (<code>.\adb.exe</code> en Windows).</li>
+      </ul>
+      <p class="doc-text">
+        Comprueba que ha quedado con <code>adb version</code>. Después descarga el APK de depuración desde la
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">página de versiones</a>,
+        activa la depuración por USB como se explicó arriba, conecta el móvil y:
+      </p>
+      <pre><code># Confirma que el móvil está conectado y autorizado
+adb devices
+
+# Instala el APK
+adb install town-os-client-&lt;versión&gt;-debug.apk</code></pre>
+      <p class="doc-text">
+        Un par de cosas que suelen atascar a la gente:
+      </p>
+      <ul class="doc-list">
+        <li><strong><code>no devices/emulators found</code></strong> — el cable es solo de carga, o no le has dicho al móvil que autorice este ordenador. Vuelve a conectar el cable y busca el aviso <em>¿Permitir la depuración por USB?</em> en la pantalla del móvil.</li>
+        <li><strong><code>no permissions</code> en Linux</strong> — falta el paquete de reglas de udev de arriba, o el móvil ya estaba conectado antes de instalarlo. Instálalo, vuelve a conectar el móvil y ejecuta <code>adb kill-server &amp;&amp; adb devices</code>.</li>
+        <li><strong><code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code></strong> — ya hay instalada una copia firmada con otra clave, algo que pasa si antes compilaste una tú. Quita la app antigua (mantén pulsado su icono en el cajón de aplicaciones, o usa <code>adb uninstall</code> con el nombre de paquete que salga de <code>adb shell pm list packages town</code>) e instálala de nuevo.</li>
+        <li><strong>Actualizar sin perder datos</strong> — <code>adb install -r town-os-client-&lt;versión&gt;-debug.apk</code> sustituye una instalación existente y conserva sus datos, siempre que ambas vengan de la página de versiones.</li>
+        <li>Nada de esto toca el almacenamiento del móvil — <code>adb install</code> transfiere e instala en un solo paso, así que nunca tienes que buscar luego el fichero en un gestor de ficheros.</li>
+      </ul>
 
       <h3>Antes de conectarte</h3>
       <ul class="doc-list">
