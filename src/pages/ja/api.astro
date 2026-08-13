@@ -1,0 +1,1949 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="API ドキュメント — Town OS" lang="ja">
+  <section class="section">
+    <div class="container">
+      <h1>API ドキュメント</h1>
+      <p class="page-lead">
+        Town OS の systemcontroller API の完全なリファレンスです。アカウント、ストレージ、
+        リポジトリ、パッケージ、systemd、設定、監査、ページ、DNS、モニタリング、
+        システムサービス、ロケール、VM イメージ、ステータスにまたがる 77 個のエンドポイントを収録しています。
+      </p>
+      <div class="client-libs-cards">
+        <a href="#go-client" class="card client-lib-card">
+          <h3>Go クライアント</h3>
+          <p><code>src/svc/systemcontroller/client.go</code></p>
+          <p>Unix ソケットと HTTP に対応した完全な <code>Client</code> インターフェース。</p>
+          <p class="forthcoming">パッケージ配布は準備中</p>
+        </a>
+        <a href="#js-client" class="card client-lib-card">
+          <h3>JavaScript クライアント</h3>
+          <p><code>ui/src/api/</code></p>
+          <p>Town OS のダッシュボード UI が使う、ミックスイン方式のモジュラークライアント。</p>
+          <p class="forthcoming">パッケージ配布は準備中</p>
+        </a>
+      </div>
+
+      <nav class="toc">
+        <ul>
+          <li><a href="#overview">概要</a></li>
+          <li><a href="#authentication">認証</a></li>
+          <li><a href="#pagination">ページ送り</a></li>
+          <li><a href="#status">ステータス</a></li>
+          <li><a href="#accounts">アカウント</a></li>
+          <li><a href="#storage">ストレージ</a></li>
+          <li><a href="#repositories">リポジトリ</a></li>
+          <li><a href="#packages">パッケージ</a></li>
+          <li><a href="#systemd">systemd</a></li>
+          <li><a href="#settings">設定</a></li>
+          <li><a href="#audit">監査ログ</a></li>
+          <li><a href="#pages">ページ</a></li>
+          <li><a href="#dns">DNS</a></li>
+          <li><a href="#monitoring">モニタリング</a></li>
+          <li><a href="#system-services">システムサービス</a></li>
+          <li><a href="#locales">ロケール</a></li>
+          <li><a href="#vm-images">VM イメージ</a></li>
+          <li><a href="#client-libraries">クライアントライブラリ</a></li>
+          <li><a href="#development">開発リファレンス</a></li>
+          <li><a href="#prerequisites">事前に必要なもの</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Overview -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="overview">概要</h2>
+      <p class="doc-text">
+        systemcontroller は Town OS の中核となるバックエンドサービスです。
+        <strong>Echo v5</strong> を基盤とし、本番環境ではポート <strong>5309</strong>（TCP）または
+        Unix ドメインソケットで待ち受けます。リクエストとレスポンスのボディはすべて JSON です。
+        エラーは
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        （<code>application/problem+json</code>）に従います。
+      </p>
+      <p class="doc-text">
+        CORS は開発用に有効になっています。本番環境では、API は UI と同じオリジンで提供されます。
+      </p>
+    </div>
+  </section>
+
+  <!-- Authentication -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="authentication">認証</h2>
+      <p class="doc-text">
+        ユーザー名とパスワードを添えて <code>POST /account/authenticate</code> を呼び出して
+        認証します。レスポンスには Bearer トークンが含まれるので、以降のリクエストに含めてください。
+      </p>
+      <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
+      <p class="doc-text">
+        セッションは 7 日間操作がないと期限切れになります。認証レベルは 3 種類あります。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>レベル</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="auth-badge auth-public">公開</span></td><td>トークンは不要です。</td></tr>
+            <tr><td><span class="auth-badge auth-authenticated">認証済み</span></td><td>有効なセッショントークンであれば何でも構いません。</td></tr>
+            <tr><td><span class="auth-badge auth-admin">管理者</span></td><td>管理者アカウントに属するセッショントークン。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pagination -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pagination">ページ送り</h2>
+      <p class="doc-text">
+        一覧を返すエンドポイントはすべて、次のクエリパラメーターを受け付け、共通の
+        エンベロープを返します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>パラメーター</th><th>型</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sort_by</code></td><td>string</td><td>並べ替えに使うフィールド名。</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> または <code>desc</code>。</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>1 ページあたりの件数（既定は 20）。</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>ページ送りのオフセット。</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>すべての文字列フィールドに対する、大文字小文字を区別しない部分一致。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>レスポンスのエンベロープ</h3>
+      <pre><code set:html={'{\n  "entries":     [...],\n  "has_more":    true,\n  "total_pages": 5,\n  "total_count": 97\n}'} /></pre>
+    </div>
+  </section>
+
+  <!-- Status -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="status">ステータス</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/status/ping</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ヘルスチェックとシステムの概要です。未認証の呼び出し元には <code>status</code> と
+        <code>needs_setup</code> だけの最小限のレスポンスが返ります。認証済みの呼び出し元には、
+        ファイルシステム数、パッケージ数、ユニットの状態のまとめ、ディスク使用量、
+        外部・内部 IP、アップグレードの有無を含む、ダッシュボード用の完全なペイロードが返ります。
+      </p>
+    </div>
+  </section>
+
+  <!-- Accounts -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="accounts">アカウント</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/authenticate</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ユーザー名とパスワードで認証します。セッショントークンとアカウントのオブジェクトを返します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>必須。</strong> アカウントのユーザー名。</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>必須。</strong> アカウントのパスワード。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/create</code>
+          <span class="auth-badge auth-public">公開</span>
+          /
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新しいアカウントを作成します。ブートストラップモード（有効な管理者アカウントが
+        1 つも存在しない状態）では、このエンドポイントは公開です。それ以外では管理者としての
+        認証が必要です。最初に作成されたアカウントが管理者になります。パスワードは 8 文字以上に
+        してください。メールアドレス、電話番号、氏名は必須です。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td><strong>必須。</strong></td></tr>
+            <tr><td><code>password</code></td><td>string</td><td><strong>必須。</strong> 8 文字以上。</td></tr>
+            <tr><td><code>email</code></td><td>string</td><td><strong>必須。</strong></td></tr>
+            <tr><td><code>phone</code></td><td>string</td><td><strong>必須。</strong></td></tr>
+            <tr><td><code>real_name</code></td><td>string</td><td><strong>必須。</strong></td></tr>
+            <tr><td><code>admin</code></td><td>boolean</td><td>そのアカウントに管理者権限を与えるかどうか。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ユーザー名でアカウントを 1 件取得します。リクエストボディ: <code>&lbrace;"username": "alice"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべてのアカウントを一覧します。ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/update</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        アカウントのフィールドを更新します。対象を特定するために <code>username</code> を送り、
+        <code>password</code>、<code>email</code>、<code>phone</code>、<code>real_name</code>、
+        <code>admin</code> を任意に組み合わせた <code>fields</code> オブジェクトを渡します。
+        指定したフィールドだけが変更されます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/me</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Authorization ヘッダーのトークンに紐づくユーザー名を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/account/sessions</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        認証済みユーザーの有効なセッションをすべて一覧します。各セッションには ID、
+        ユーザー名、作成時刻、最終利用時刻が含まれます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/session/revoke</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ID を指定してセッションを失効させます。リクエストボディ: <code>&lbrace;"session_id": "..."&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        アカウントを無効にします。リクエストボディ: <code>&lbrace;"username": "bob"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/account/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        無効にしたアカウントを再び有効にします。リクエストボディ: <code>&lbrace;"username": "bob"&rbrace;</code>。
+      </p>
+    </div>
+  </section>
+
+  <!-- Storage -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="storage">ストレージ</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ファイルシステムを一覧します。ページ送りのパラメーターに加えて、リクエストボディで
+        任意の <code>name</code>（前方一致のフィルター）と <code>state</code>
+        （<code>user</code>、<code>installed</code>、<code>uninstalled</code>）を受け付けます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/create</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新しい btrfs のサブボリュームを作成します。<code>name</code> と、任意で
+        <code>quota</code>（バイト）を送ります。クォータが 0 または未指定の場合は、
+        システムの既定値（50 GB）が使われます。予約された名前
+        （<code>installed</code>、<code>uninstalled</code>、<code>archives</code>）は拒否されます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/modify</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        既存のファイルシステムを変更します。対象を特定するために <code>name</code> を送り、
+        更新後の <code>name</code> や <code>quota</code> を含む <code>filesystem</code>
+        オブジェクトを渡します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ファイルシステムを削除します。リクエストボディ: <code>&lbrace;"name": "mydata"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/upload-archive</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        アーカイブをアップロードし、対象のサブボリュームへ展開します。<code>subvolume</code> の
+        フィールドと <code>archive</code> のファイルを含む <code>multipart/form-data</code> を
+        受け付けます。対応形式は <code>.tar.gz</code>、<code>.tgz</code>、<code>.tar.bz2</code>、
+        <code>.tbz2</code>、<code>.tar.xz</code>、<code>.txz</code>、<code>.tar</code>、
+        <code>.zip</code>、<code>.7z</code> です。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>必須。</strong> 展開先のサブボリュームのパス。</td></tr>
+            <tr><td><code>archive</code></td><td>file</td><td><strong>必須。</strong> アップロードするアーカイブファイル。</td></tr>
+            <tr><td><code>subpath</code></td><td>string</td><td>任意。ボリューム内の展開先の相対パス。必要に応じて作成されます。</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>任意。展開前に停止し、完了後に再起動する systemd ユニット名。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>設定</th><th>既定値</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>max_archive_size</code></td><td>1 GB</td><td>アップロードの最大サイズ。</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600 秒</td><td>展開にかけられる最大時間。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/download-archive</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        サブボリュームの内容をアーカイブとしてダウンロードします。指定された形式で
+        ストリーミングされたアーカイブを返します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>subvolume</code></td><td>string</td><td><strong>必須。</strong> 取得元のサブボリュームのパス。</td></tr>
+            <tr><td><code>paths</code></td><td>string[]</td><td>任意。サブボリューム内で含めたい特定のパスの配列。</td></tr>
+            <tr><td><code>stop_service</code></td><td>string</td><td>任意。アーカイブ作成中に停止し、完了後に再起動する systemd ユニット名。</td></tr>
+            <tr><td><code>format</code></td><td>string</td><td>任意。圧縮形式: <code>tar.gz</code>（既定）、<code>tar.bz2</code>、<code>tar.xz</code>。</td></tr>
+            <tr><td><code>filename</code></td><td>string</td><td>任意。ダウンロードするファイルのベース名。サーバーが適切な拡張子を付けます。既定は <code>download</code> です。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/package-volumes</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージのボリュームをパッケージごとにまとめて一覧します。アンインストール済みの
+        ボリュームを含めることもできます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        内部名を指定して、特定のパッケージのボリュームを削除します。
+      </p>
+    </div>
+  </section>
+
+  <!-- Repositories -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="repositories">リポジトリ</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/repository</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        設定済みのパッケージリポジトリを、名前、URL、エラーの状態とともにすべて一覧します。
+        ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/add</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新しいパッケージリポジトリを追加します。すぐに更新が実行されます。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>name</code></td><td>string</td><td><strong>必須。</strong> リポジトリの表示名。</td></tr>
+            <tr><td><code>url</code></td><td>string</td><td><strong>必須。</strong> リポジトリの git URL。</td></tr>
+            <tr><td><code>username</code></td><td>string</td><td>任意。プライベートリポジトリ用の認証ユーザー名。</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td>任意。プライベートリポジトリ用の認証パスワード。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/remove</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        名前を指定してリポジトリを削除します。すぐに更新が実行されます。
+        リクエストボディ: <code>&lbrace;"name": "my-repo"&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/move</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        リポジトリを 0 始まりの新しい位置へ並べ替えます。パッケージ名が衝突した場合、
+        後のリポジトリが先のものを上書きします。
+        リクエストボディ: <code>&lbrace;"name": "my-repo", "position": 0&rbrace;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/repository/refresh</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべてのリポジトリのメタデータを直ちに更新します。成功時は空のボディを返し、
+        失敗したものがあれば、リポジトリ名とエラー文字列を対応づけた JSON オブジェクトを返します。
+      </p>
+    </div>
+  </section>
+
+  <!-- Packages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="packages">パッケージ</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべてのリポジトリにまたがって、利用できるパッケージを一覧します。各エントリーには
+        リポジトリ、名前、バージョン、説明、supplies のタグ、インストール状況、
+        アップグレードの有無が含まれます。ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/by-repo</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        リポジトリごとにまとめてパッケージを一覧します。任意の <code>search</code> クエリ
+        パラメーターを受け付けます。<code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code>
+        のグループの配列を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/timezones</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージの設定で使える IANA のタイムゾーン名をすべて一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/installed</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージの識別子を一覧します。ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/installed/info</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージの詳細情報を取得します。<code>repo</code>、<code>name</code>、
+        <code>version</code> を送ります。質問、利用者の回答、ノート、ノートの型を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/responses</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージについて保存された質問の回答を取得します。<code>repo</code>、
+        <code>name</code>、<code>version</code> を送ります。回答のキーと値のマップを返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/versions</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージの利用できるバージョンを一覧します。リクエストボディ: <code>&lbrace;"name": "nginx"&rbrace;</code>。
+        バージョン識別子の文字列配列を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/children</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        子パッケージを一覧します。<code>repo</code> と <code>name</code> を送ります。文字列の配列を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージのインストール時の質問を取得します。リクエストボディ: <code>&lbrace;"name": "nginx"&rbrace;</code>。
+        質問のキーと <code>&lbrace;"query": "...", "type": "..."&rbrace;</code> の対応を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/questions/identity</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        特定のバージョンのパッケージの質問を取得します。<code>repo</code>、<code>name</code>、
+        <code>version</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/start</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        <code>oauth</code> の質問について OAuth のデバイスフローを開始します。<code>repo</code>、
+        <code>name</code>、<code>version</code>、<code>question</code> を送ります。システム
+        コントローラーがフローの開始ステップを提供元に対して実行し、<code>flow_id</code>、
+        <code>approve_url</code>（利用者のブラウザーで開きます）、任意の <code>user_code</code>、
+        そしてポーリングの間隔である <code>interval_ms</code> を返します。
+      </p>
+      <p class="doc-text">
+        提供元の URL は Town OS ではなくパッケージ側から来るものなので、呼び出す前に
+        検証されます。<code>https</code> のみで、ホスト自身のネットワーク上のアドレスは
+        決して許されません。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/oauth/poll</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        上で開始したフローをポーリングします。<code>flow_id</code> を送ります。
+        <code>status</code> を返し、利用者がまだ承認していなければ <code>pending</code>、
+        承認済みなら <code>token</code> とともに <code>approved</code>、フローがタイムアウトしたか
+        トークンをすでに取得済みなら <code>expired</code> になります。フローは 1 回限りです。
+        取得したトークンは、入力された回答とまったく同じように、その質問の回答として
+        <code>/packages/install</code> に送信します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install-preview</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        確定する前に、インストールで何が行われるかをプレビューします。<code>repo</code>、
+        <code>name</code>、<code>version</code> を送ります。ボリュームの詳細、ポートマッピング、
+        ディスク使用量、クォータの情報、アップグレード元のバージョン、そして人が読める
+        要約を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/install</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージをインストールします。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>repo</code></td><td>string</td><td><strong>必須。</strong> リポジトリ名。</td></tr>
+            <tr><td><code>name</code></td><td>string</td><td><strong>必須。</strong> パッケージ名。</td></tr>
+            <tr><td><code>version</code></td><td>string</td><td><strong>必須。</strong> インストールするバージョン。</td></tr>
+            <tr><td><code>responses</code></td><td>object</td><td><strong>必須。</strong> インストール時の質問へのキーと値の回答。</td></tr>
+            <tr><td><code>reuse_volumes</code></td><td>boolean</td><td>以前のインストールの既存データボリュームを再利用します。</td></tr>
+            <tr><td><code>import_from_version</code></td><td>string</td><td>アップグレード時にボリュームを取り込む元のバージョン。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstall</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージをアンインストールします。<code>repo</code>、<code>name</code>、
+        <code>version</code> と、関連データを削除する場合は任意の
+        <code>purge_volumes</code>（boolean）を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージを無効にします（サービスを停止します）。<code>repo</code> と
+        <code>name</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        無効にしたパッケージを再び有効にします（サービスを開始します）。<code>repo</code> と
+        <code>name</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージのデータボリュームをすべて削除します。<code>repo</code> と
+        <code>name</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以前のインストールから残ったボリュームがあるかを確認します。<code>repo</code> と
+        <code>name</code> を送ります。<code>has_uninstalled_volumes</code>、
+        <code>uninstalled_versions</code>、<code>installed_versions</code> を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/purge-uninstalled-volumes</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以前アンインストールしたバージョンから残っているボリュームを削除します。
+        <code>repo</code> と <code>name</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/upgrades</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージで利用できるアップグレードを一覧します。各エントリーには
+        <code>installed_version</code>、<code>latest_version</code>、そしてパッケージ定義が
+        <code>changed</code> かどうかが含まれます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/upgrades/dismiss</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        現在のアップグレード通知を見送ります。空の JSON オブジェクトを送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/manifest</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージ定義の生の YAML を返します。<code>repo</code>、<code>name</code>、
+        <code>version</code> を送ります。ファイルの内容を
+        <code>Content-Type: text/x-yaml</code> で返します。パッケージファイルが存在しない場合は
+        404 を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/packages/featured</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべてのリポジトリにまたがって、注目パッケージを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/last-responses</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージについてキャッシュされた last の回答を取得します。<code>repo</code> と
+        <code>name</code> を送ります。再インストール時に再利用するために、以前の
+        アンインストール時に保存された回答を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/clear-last-responses</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パッケージについてキャッシュされた last の回答のファイルを削除します。<code>repo</code> と
+        <code>name</code> を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/packages/rebuild-git</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みパッケージの、git を元にしたボリュームの最新の変更を取得し、
+        依存するサービスを再起動します。<code>repo</code>、<code>name</code>、
+        <code>version</code> を送ります。再ビルドの前に、保存された回答に対して
+        テンプレート変数が再評価されます。
+      </p>
+    </div>
+  </section>
+
+  <!-- Systemd -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="systemd">systemd</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Town OS が管理する systemd のユニットを一覧します。各エントリーには、ユニット名、説明、
+        load/active/sub の状態、関連するパッケージの識別子と説明、失敗フラグが含まれます。
+        ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        systemd のユニットを操作します。<code>name</code>（ユニット名）と <code>action</code>
+        （<code>start</code>、<code>stop</code>、<code>restart</code>、<code>enable</code>、
+        <code>disable</code>）を送ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Server-Sent Events を使って、ユニットのジャーナルエントリーをリアルタイムに配信します。
+        <code>unit</code> のクエリパラメーターを渡します。空または <code>__system__</code> の場合は
+        システム全体のログを返します。各 SSE イベントには、<code>Message</code>、
+        <code>Priority</code>、<code>RealtimeTimestamp</code>、<code>SystemdUnit</code> などの
+        フィールドを持つ JSON 形式のジャーナルエントリーが含まれます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tail</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        カーソル方式のページ送りと絞り込みで、ジャーナルエントリーを 1 ページ分取得します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>パラメーター</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>unit</code></td><td>string</td><td>systemd のユニット名。空または <code>__system__</code> でシステム全体のログ。</td></tr>
+            <tr><td><code>lines</code></td><td>int</td><td>返すエントリー数（既定は 100）。</td></tr>
+            <tr><td><code>before</code></td><td>string</td><td>カーソル。この位置より前のエントリーを返します。</td></tr>
+            <tr><td><code>after</code></td><td>string</td><td>カーソル。この位置より後のエントリーを返します。</td></tr>
+            <tr><td><code>grep</code></td><td>string</td><td>メッセージ本文に対する、大文字小文字を区別しない部分一致の絞り込み。</td></tr>
+            <tr><td><code>since</code></td><td>int</td><td>Unix タイムスタンプ。この時刻以降のエントリーを返します。</td></tr>
+            <tr><td><code>until</code></td><td>int</td><td>Unix タイムスタンプ。この時刻で収集を打ち切ります。</td></tr>
+            <tr><td><code>priority</code></td><td>int</td><td>syslog の重大度による絞り込み（0 は絞り込みなし）。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        以降のページ送りのために、<code>entries</code>、<code>cursor</code>（最初のエントリー）、
+        <code>end_cursor</code>（最後のエントリー）を返します。
+      </p>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="settings">設定</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/settings</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべての設定をキーと値のオブジェクトとして取得します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/get</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        設定を 1 件取得します。リクエストボディ: <code>&lbrace;"key": "default_quota"&rbrace;</code>。
+        <code>key</code> と <code>value</code> を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/settings/set</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        設定の値を変更します。リクエストボディ: <code>&lbrace;"key": "default_quota", "value": "107374182400"&rbrace;</code>。
+      </p>
+
+      <h3>既定の設定</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>キー</th><th>既定値</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>default_quota</code></td><td>53687091200（50 GB）</td><td>新しいファイルシステムの既定のクォータ。</td></tr>
+            <tr><td><code>max_archive_size</code></td><td>1073741824（1 GB）</td><td>アーカイブのアップロードの最大サイズ。</td></tr>
+            <tr><td><code>archive_unpack_timeout</code></td><td>600（秒）</td><td>アーカイブの展開にかけられる最大時間。</td></tr>
+            <tr><td><code>locale</code></td><td>en-US</td><td>国際化のためのシステム全体のロケール。</td></tr>
+            <tr><td><code>proton_image</code></td><td>quay.io/town/proton:latest</td><td>Proton/Wine のランナーのコンテナーイメージ。</td></tr>
+            <tr><td><code>dns_tld</code></td><td>home</td><td>ローカルの DNS 解決に使うトップレベルドメイン。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audit -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="audit">監査ログ</h2>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/audit/log</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        監査ログのエントリーを一覧します。リクエストボディのフィールドはすべて任意です。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>フィールド</th><th>型</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>before_id</code></td><td>int</td><td>キーセット方式のページ送り。この ID より小さいエントリーを返します。</td></tr>
+            <tr><td><code>account</code></td><td>string</td><td>アカウントのユーザー名で絞り込みます。</td></tr>
+            <tr><td><code>sort_by</code></td><td>string</td><td>並べ替えに使うフィールド。</td></tr>
+            <tr><td><code>sort_order</code></td><td>string</td><td><code>asc</code> または <code>desc</code>。</td></tr>
+            <tr><td><code>limit</code></td><td>int</td><td>1 ページあたりの件数。</td></tr>
+            <tr><td><code>offset</code></td><td>int</td><td>ページ送りのオフセット。</td></tr>
+            <tr><td><code>search</code></td><td>string</td><td>検索による絞り込み。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        各監査エントリーには <code>id</code>、<code>account</code>、<code>action</code>、
+        <code>path</code>、<code>detail</code>、<code>success</code>、<code>error</code>、
+        <code>created_at</code> が含まれます。監査対象の操作には、認証、アカウントの
+        作成・更新・無効化、セッションの失効、パッケージのインストール・アンインストール・
+        無効化・有効化、ファイルシステムの作成・変更・削除、リポジトリの追加・削除・移動・更新、
+        アーカイブのアップロード・ダウンロード、設定の更新、アップグレードの見送り、
+        ボリュームの削除があります。
+      </p>
+    </div>
+  </section>
+
+  <!-- Pages -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="pages">ページ</h2>
+      <p class="doc-text">
+        3 種類のコンテンツソース（アーカイブのアップロード、コンテナーイメージ、git リポジトリ）に
+        対応した静的サイトのホスティングです。利用者がドメインを割り当てると、システムが
+        Caddy のコンテナーを通じてコンテンツを配信します。変更を伴うエンドポイントはすべて
+        管理者としての認証が必要で、一覧のエンドポイントは通常の認証で利用できます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/pages</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべてのページを、並べ替え、検索、ページ送りとともに一覧します。名前、リポジトリの URL、
+        ブランチ、ドメイン、ソースの種類、状態、タイムスタンプで並べ替えられます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/create</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        新しいページを作成します。名前、ソースの種類（<code>archive</code>、
+        <code>container_image</code>、<code>git</code>）、リポジトリの URL、ブランチ、ドメイン、
+        コンテナーイメージ、イメージ内のディレクトリを受け付けます。ソースの種類の既定値は
+        <code>archive</code> です。git とコンテナーイメージのページは非同期に
+        プロビジョニングされます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/upload</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        アーカイブ形式のページ向けに、コンテンツの tar アーカイブをアップロードします。
+        <code>name</code> と <code>archive</code> のファイルを含むマルチパートフォームを
+        受け付けます。ソースの種類が <code>archive</code> のページでのみ有効で、それ以外の
+        種類では 400 を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/update</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ページのリポジトリ URL、ブランチ、ドメイン、ソースの種類、コンテナーイメージ、
+        イメージ内のディレクトリを部分的に更新します。指定したフィールドだけが変更されます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        データベースからページを削除し、webroot のシンボリックリンクを外して、btrfs の
+        サブボリュームを削除します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/pages/rebuild</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ページのコンテンツをソースから再ビルドします。git のページは最新の変更を取得し、
+        コンテナーイメージのページはイメージから取り出し直します。アーカイブのページは
+        400 を返します（代わりに <code>/pages/upload</code> で再アップロードしてください）。
+      </p>
+    </div>
+  </section>
+
+  <!-- DNS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns">DNS</h2>
+      <p class="doc-text">
+        <code>rolodex-dns</code> コンテナーを基盤とする、統合されたローカル DNS リゾルバーです。
+        インストール済みパッケージのゾーンファイルとレコードを管理し、gRPC の Unix ソケット
+        インターフェースを通じてローカルの名前解決を提供します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/status</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        有効フラグ、稼働状態、TLD、レコード数を含む DNS の状態を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/records</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        すべての DNS レコードを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        DNS レコードを追加します。名前、レコードの種類、値、TTL を受け付けます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/records/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        名前と種類を指定して DNS レコードを削除します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        現在のトップレベルドメインの設定を取得します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/tld</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        TLD を設定します。既存の TLD を変更し、インストール済みのパッケージをすべて登録し直します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/setup</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        DNS サーバーを初期化または再起動し、インストール済みのパッケージをすべて登録します。
+      </p>
+    </div>
+  </section>
+
+  <!-- Monitoring -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="monitoring">モニタリング</h2>
+      <p class="doc-text">
+        システム監視のために統合された Prometheus、Node Exporter、Grafana のスタックです。
+        スタックは <code>Restart=always</code> を設定した、systemd 管理下の podman
+        コンテナーとして動作します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/status</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        監視サービスごとにコンテナーの状態（名前、イメージ、稼働状態、ポート）を返します。
+        監視が構成されていない場合は <code>&lbrace;"status": "disabled"&rbrace;</code> を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/monitoring/grafana/*</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ローカルの Grafana インスタンスへのリバースプロキシで、URL のパスから
+        <code>/monitoring/grafana</code> のプレフィックスを取り除きます。監視が構成されていない
+        場合は 503 を返します。このエンドポイントは認証を経由しません。
+      </p>
+    </div>
+  </section>
+
+  <!-- System Services -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="system-services">システムサービス</h2>
+      <p class="doc-text">
+        システムサービスは、systemd が管理する基盤コンテナーです（利用者がインストールした
+        パッケージのサービスとは区別されます）。ユニット名には <code>town-os-system--</code> の
+        プレフィックスが付きます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/system-services</code>
+          <span class="auth-badge auth-public">公開</span>
+          /
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        システムサービスを、ユニットの現在の状態とともに一覧します。localhost からは認証なしで
+        アクセスできます。各エントリーには、キー、表示名、イメージ、ポート、systemd の
+        ユニットの状態のフィールドが含まれます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/status</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        システムサービスを操作します。<code>key</code> と <code>action</code>
+        （<code>start</code>、<code>stop</code>、<code>restart</code>）を受け付けます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/system-services/refresh</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        システムサービスのユニットファイルと状態を再読み込みします。
+      </p>
+    </div>
+  </section>
+
+  <!-- Locales -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="locales">ロケール</h2>
+      <p class="doc-text">
+        システムの国際化に関するロケールの情報です。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/locales</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        現在のロケール、翻訳が用意されているロケールの一覧、主要な言語（それぞれの文字での
+        名称つき）、拡張ロケールを返します。BCP 47 のロケールコードを使います。
+      </p>
+    </div>
+  </section>
+
+  <!-- VM Images -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-images">VM イメージ</h2>
+      <p class="doc-text">
+        VM パッケージが使う、キャッシュされた VM のディスクイメージの管理です。リモートの
+        イメージはダウンロードされ、<code>qemu-img convert</code> で raw 形式に変換されます。
+        変換後のイメージは <code>vm-images</code> のサブボリュームにキャッシュされます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/vm-images</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        キャッシュされた VM のディスクイメージを一覧します。各イメージの名前とファイルサイズを返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/upload</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        URL から VM のイメージをダウンロードし、raw 形式に変換します。URL と任意の名前を
+        受け付けます。名前の既定値は、URL のファイル名に <code>.raw</code> の拡張子を
+        付けたものです。ダウンロードのタイムアウトは 30 分です。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/vm-images/delete</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        名前を指定して、キャッシュされた VM のイメージを削除します。
+      </p>
+    </div>
+  </section>
+
+  <!-- Client Libraries -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="client-libraries">クライアントライブラリ</h2>
+      <p class="doc-text">
+        Town OS には、API を完全に網羅した Go と JavaScript のクライアントライブラリが
+        同梱されています。どちらのクライアントも、200 以外のレスポンスに対して
+        <a href="https://www.rfc-editor.org/rfc/rfc9457" target="_blank" rel="noopener">RFC 9457</a>
+        の problem detail を使った型付きのエラーを送出します。
+      </p>
+
+      <h3 id="go-client">Go クライアント</h3>
+      <p class="doc-text">
+        Go クライアントは <code>src/svc/systemcontroller/client.go</code> にあり、
+        <code>Client</code> インターフェースを実装しています。Unix ソケットと HTTP の
+        どちらの接続にも対応します。
+      </p>
+      <pre><code>// Connect via Unix domain socket (production)
+client := systemcontroller.InitClient("/run/town-os/systemcontroller.sock")
+
+// Connect via HTTP (development / testing)
+client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309")</code></pre>
+      <p class="doc-text">
+        認証後は <code>client.Token</code> を設定してください。すべてのメソッドは、
+        第 1 引数に <code>context.Context</code> を取ります。
+      </p>
+
+      <h4>ストレージ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateFilesystem(ctx, fs)</code></td><td>新しい btrfs のサブボリュームを作成します。</td></tr>
+            <tr><td><code>ModifyFilesystem(ctx, name, fs)</code></td><td>ファイルシステムの名前変更やサイズ変更を行います。</td></tr>
+            <tr><td><code>RemoveFilesystem(ctx, name)</code></td><td>名前を指定してファイルシステムを削除します。</td></tr>
+            <tr><td><code>ListFilesystems(ctx, prefix, state, params)</code></td><td>名前の前方一致と状態（<code>"user"</code>、<code>"installed"</code>、<code>"uninstalled"</code>）で絞り込んだページ送り可能な一覧。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>リポジトリ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRepository(ctx, name, rawURL, username, password)</code></td><td>任意の認証情報とともにパッケージリポジトリを登録します。</td></tr>
+            <tr><td><code>RemoveRepository(ctx, name)</code></td><td>名前を指定してリポジトリを削除します。</td></tr>
+            <tr><td><code>MoveRepository(ctx, name, position)</code></td><td>優先度を変更します（0 が最上位）。</td></tr>
+            <tr><td><code>RefreshRepositories(ctx)</code></td><td>すべてのメタデータを更新します。エラーのマップを返します。</td></tr>
+            <tr><td><code>ListRepositories(ctx, params)</code></td><td>リポジトリのページ送り可能な一覧。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>パッケージ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListPackages(ctx, params)</code></td><td>利用できるパッケージのページ送り可能な一覧。</td></tr>
+            <tr><td><code>ListPackagesByRepo(ctx, params)</code></td><td>リポジトリごとにまとめたパッケージ。</td></tr>
+            <tr><td><code>ListPackageVersions(ctx, name)</code></td><td>パッケージの利用できるバージョン。</td></tr>
+            <tr><td><code>GetPackageQuestions(ctx, name)</code></td><td>名前を指定して設定用の質問を取得します。</td></tr>
+            <tr><td><code>GetPackageQuestionsByIdentity(ctx, repo, name, version)</code></td><td>特定のバージョンの質問。</td></tr>
+            <tr><td><code>ListChildren(ctx, repo, name)</code></td><td>子パッケージの名前。</td></tr>
+            <tr><td><code>InstallPreview(ctx, repo, name, version)</code></td><td>インストールせずにボリュームとポートをプレビューします。</td></tr>
+            <tr><td><code>InstallPackage(ctx, name, version, responses, reuseVolumes, importFromVersion, skipResponseReuse)</code></td><td>パッケージをインストールします。name は <code>"repo/package"</code> の形式です。</td></tr>
+            <tr><td><code>UninstallPackage(ctx, repo, name, version, purgeVolumes)</code></td><td>インストール済みのパッケージを削除します。</td></tr>
+            <tr><td><code>DisablePackage(ctx, repo, name)</code></td><td>アンインストールせずにサービスを停止します。</td></tr>
+            <tr><td><code>EnablePackage(ctx, repo, name)</code></td><td>無効にしたパッケージを再び有効にします。</td></tr>
+            <tr><td><code>PurgeVolumes(ctx, repo, name)</code></td><td>パッケージのデータボリュームをすべて削除します。</td></tr>
+            <tr><td><code>ListUninstalledVolumes(ctx, repo, name)</code></td><td>残っているボリュームがあるか確認します。</td></tr>
+            <tr><td><code>PurgeUninstalledVolumes(ctx, repo, name)</code></td><td>残っているボリュームを削除します。</td></tr>
+            <tr><td><code>ListInstalled(ctx, params)</code></td><td>インストール済みパッケージを <code>"repo/name@version"</code> として返します。</td></tr>
+            <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>保存された設定の回答。</td></tr>
+            <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>質問、回答、ノートを含む詳細情報。</td></tr>
+            <tr><td><code>ListTimezones(ctx)</code></td><td>利用できる IANA のタイムゾーン名。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListUnits(ctx, params)</code></td><td>systemd のユニットのページ送り可能な一覧。</td></tr>
+            <tr><td><code>SetUnitStatus(ctx, name, action)</code></td><td><code>"start"</code>、<code>"stop"</code>、<code>"restart"</code> を適用します。</td></tr>
+            <tr><td><code>LogReplay(ctx, name)</code></td><td>SSE でジャーナルエントリーを配信します。チャネルを返します。</td></tr>
+            <tr><td><code>LogTail(ctx, params)</code></td><td>カーソル方式のページ送り、grep、期間、優先度で絞り込んだジャーナルエントリー 1 ページ分。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>アカウント</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>Authenticate(ctx, username, password)</code></td><td>セッショントークンとアカウントを返します。</td></tr>
+            <tr><td><code>CreateAccount(ctx, username, password, email, phone, realName, admin)</code></td><td>ユーザーを作成します。パスワードは 8 文字以上。</td></tr>
+            <tr><td><code>GetAccount(ctx, username)</code></td><td>ユーザー名でアカウントを取得します。</td></tr>
+            <tr><td><code>UpdateAccount(ctx, username, fields)</code></td><td>アカウントのフィールド（password、email、phone、real_name、admin）を変更します。</td></tr>
+            <tr><td><code>ListAccounts(ctx, params)</code></td><td>アカウントのページ送り可能な一覧。</td></tr>
+            <tr><td><code>DisableAccount(ctx, username)</code></td><td>認証を拒否するようにします。</td></tr>
+            <tr><td><code>EnableAccount(ctx, username)</code></td><td>無効にしたアカウントを再び有効にします。</td></tr>
+            <tr><td><code>ListSessions(ctx, token)</code></td><td>そのトークンのユーザーの有効なセッション。</td></tr>
+            <tr><td><code>SessionUsername(ctx, token)</code></td><td>セッショントークンに対応するユーザー名。</td></tr>
+            <tr><td><code>RevokeSession(ctx, sessionID)</code></td><td>セッションを無効にします。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>監査・設定・アップグレード</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ListAuditLog(ctx, opts, token)</code></td><td>絞り込みつきのページ送り可能な監査ログ。</td></tr>
+            <tr><td><code>GetSettings(ctx)</code></td><td>すべての設定をキーと値のマップとして返します。</td></tr>
+            <tr><td><code>GetSetting(ctx, key)</code></td><td>キーを指定して設定を 1 件取得します。</td></tr>
+            <tr><td><code>SetSetting(ctx, key, value)</code></td><td>設定を更新します。</td></tr>
+            <tr><td><code>ListUpgrades(ctx)</code></td><td>新しいバージョンが利用できるパッケージ。</td></tr>
+            <tr><td><code>DismissUpgrades(ctx)</code></td><td>保留中のアップグレードを見送り済みにします。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>アーカイブ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>UploadArchive(ctx, subvolume, archiveReader, filename, subpath, stopService)</code></td><td>アーカイブをアップロードしてサブボリュームへ展開します。形式は tar.gz、tar.bz2、tar.xz。</td></tr>
+            <tr><td><code>DownloadArchive(ctx, subvolume, paths, stopService, format)</code></td><td>サブボリュームの内容のアーカイブを作成します。<code>io.ReadCloser</code> を返します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>ヘルス</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>Ping(ctx)</code></td><td>サービスの状態と各種の件数のまとめ。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- JavaScript Client -->
+  <section class="section alt-section">
+    <div class="container">
+      <h3 id="js-client">JavaScript クライアント</h3>
+      <p class="doc-text">
+        JavaScript クライアントは <code>ui/src/api/</code> にあり、Town OS のダッシュボード UI が
+        使っています。<code>SystemControllerClient</code> クラスにミックスインを重ねる
+        モジュラーな構成です。200 以外のレスポンスでは、解析済みの RFC 9457 の problem detail を
+        持つ <code>ApiError</code> が送出されます。
+      </p>
+      <pre><code>import SystemControllerClient from './api/client.js';
+
+const client = new SystemControllerClient('http://localhost:5309');
+
+// After authentication
+const result = await client.authenticate('admin', 'password');
+client.setToken(result.token);</code></pre>
+
+      <h4>ストレージ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>createFilesystem(fs)</code></td><td>新しい btrfs のサブボリュームを作成します。</td></tr>
+            <tr><td><code>modifyFilesystem(name, fs)</code></td><td>ファイルシステムの名前変更やサイズ変更を行います。</td></tr>
+            <tr><td><code>removeFilesystem(name)</code></td><td>名前を指定してファイルシステムを削除します。</td></tr>
+            <tr><td><code>listFilesystems(prefix, sortBy, sortOrder, state, limit, offset, search)</code></td><td>絞り込みつきのページ送り可能な一覧。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>リポジトリ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>addRepository(name, url, username?, password?)</code></td><td>任意の認証情報とともにリポジトリを登録します。</td></tr>
+            <tr><td><code>removeRepository(name)</code></td><td>名前を指定してリポジトリを削除します。</td></tr>
+            <tr><td><code>moveRepository(name, position)</code></td><td>優先度を変更します（0 が最上位）。</td></tr>
+            <tr><td><code>refreshRepositories()</code></td><td>すべてのメタデータを更新します。エラーのマップか null を返します。</td></tr>
+            <tr><td><code>listRepositories(sortBy, sortOrder, limit, offset, search)</code></td><td>ページ送り可能な一覧。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>パッケージ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listPackages(sortBy, sortOrder, limit, offset, search)</code></td><td>利用できるパッケージのページ送り可能な一覧。</td></tr>
+            <tr><td><code>listPackagesByRepo(search)</code></td><td>リポジトリごとにまとめたパッケージ。</td></tr>
+            <tr><td><code>listPackageVersions(name)</code></td><td>パッケージの利用できるバージョン。</td></tr>
+            <tr><td><code>getPackageQuestions(name)</code></td><td>名前を指定して設定用の質問を取得します。</td></tr>
+            <tr><td><code>getPackageQuestionsByIdentity(repo, name, version)</code></td><td>特定のバージョンの質問。</td></tr>
+            <tr><td><code>installPreview(repo, name, version)</code></td><td>インストールせずにボリュームとポートをプレビューします。</td></tr>
+            <tr><td><code>installPackage(repo, name, version, responses, reuseVolumes?, importFromVersion?)</code></td><td>設定の回答とともにパッケージをインストールします。</td></tr>
+            <tr><td><code>uninstallPackage(repo, name, version, purgeVolumes?)</code></td><td>インストール済みのパッケージを削除します。</td></tr>
+            <tr><td><code>disablePackage(repo, name)</code></td><td>アンインストールせずにサービスを停止します。</td></tr>
+            <tr><td><code>enablePackage(repo, name)</code></td><td>無効にしたパッケージを再び有効にします。</td></tr>
+            <tr><td><code>purgeVolumes(repo, name)</code></td><td>パッケージのデータボリュームをすべて削除します。</td></tr>
+            <tr><td><code>listUninstalledVolumes(repo, name)</code></td><td>残っているボリュームがあるか確認します。</td></tr>
+            <tr><td><code>purgeUninstalledVolumes(repo, name)</code></td><td>残っているボリュームを削除します。</td></tr>
+            <tr><td><code>listInstalled(sortBy, sortOrder, limit, offset, search)</code></td><td>インストール済みパッケージを <code>"repo/name@version"</code> として返します。</td></tr>
+            <tr><td><code>getResponses(repo, name, version)</code></td><td>保存された設定の回答。</td></tr>
+            <tr><td><code>getInstalledInfo(repo, name, version)</code></td><td>質問、回答、ノートを含む詳細情報。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>systemd</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listUnits(sortBy, sortOrder, limit, offset, search)</code></td><td>systemd のユニットのページ送り可能な一覧。</td></tr>
+            <tr><td><code>setUnitStatus(name, action)</code></td><td><code>"start"</code>、<code>"stop"</code>、<code>"restart"</code> を適用します。</td></tr>
+            <tr><td><code>logReplay(unit)</code></td><td>SSE でジャーナルエントリーを配信します。<code>AsyncGenerator</code> を返します。</td></tr>
+            <tr><td><code>logTail(unit, lines?, before?, after?, grep?, since?, until?, priority?)</code></td><td>カーソル方式のページ送り、grep、期間、優先度で絞り込んだジャーナルエントリー 1 ページ分。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>アカウント</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>authenticate(username, password)</code></td><td>セッショントークンとアカウントを返します。</td></tr>
+            <tr><td><code>createAccount(username, password, email, phone, realName, admin)</code></td><td>ユーザーを作成します。パスワードは 8 文字以上。</td></tr>
+            <tr><td><code>getAccount(username)</code></td><td>ユーザー名でアカウントを取得します。</td></tr>
+            <tr><td><code>updateAccount(username, fields)</code></td><td>アカウントのフィールドを変更します。</td></tr>
+            <tr><td><code>listAccounts(sortBy, sortOrder, limit, offset, search)</code></td><td>アカウントのページ送り可能な一覧。</td></tr>
+            <tr><td><code>disableAccount(username)</code></td><td>認証を拒否するようにします。</td></tr>
+            <tr><td><code>enableAccount(username)</code></td><td>無効にしたアカウントを再び有効にします。</td></tr>
+            <tr><td><code>listSessions(token)</code></td><td>そのトークンのユーザーの有効なセッション。</td></tr>
+            <tr><td><code>sessionUsername(token)</code></td><td>セッショントークンに対応するユーザー名。</td></tr>
+            <tr><td><code>revokeSession(sessionID)</code></td><td>セッションを無効にします。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>監査・設定・アップグレード</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>listAuditLog(opts)</code></td><td>絞り込みつきのページ送り可能な監査ログ。</td></tr>
+            <tr><td><code>getSettings()</code></td><td>すべての設定をキーと値のオブジェクトとして返します。</td></tr>
+            <tr><td><code>getSetting(key)</code></td><td>キーを指定して設定を 1 件取得します。</td></tr>
+            <tr><td><code>setSetting(key, value)</code></td><td>設定を更新します。</td></tr>
+            <tr><td><code>listUpgrades()</code></td><td>新しいバージョンが利用できるパッケージ。</td></tr>
+            <tr><td><code>dismissUpgrades()</code></td><td>保留中のアップグレードを見送り済みにします。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>アーカイブ</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>uploadArchive(subvolume, file, subpath?, stopService?)</code></td><td><code>FormData</code> でアーカイブをアップロードして展開します。<code>&lbrace;needs_restart, message&rbrace;</code> を返します。</td></tr>
+            <tr><td><code>downloadArchive(subvolume, paths?, stopService?, format?)</code></td><td>サブボリュームのアーカイブをダウンロードします。ストリーミングのために生の <code>Response</code> を返します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>ヘルス</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>説明</th></tr></thead>
+          <tbody>
+            <tr><td><code>ping()</code></td><td>サービスの状態と各種の件数のまとめ。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Dev Targets -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="development">開発リファレンス</h2>
+      <p class="doc-text">
+        Town OS のバックエンドはポート 5309 で動作し、Vite の開発サーバーはポート 5173 で動きます。
+        開発環境一式を起動するには <code>make dev</code> を使ってください。
+      </p>
+
+      <h3>主要なターゲット</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ターゲット</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>開発環境一式を起動します（バックエンド + Vite の開発サーバー）。</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>開発用バックエンドのコンテナーを停止して削除します。</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>稼働中の開発用コンテナー内で journalctl を追います。</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>コンテナーを停止し、開発用の btrfs ボリュームを片付けます。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>テスト用のターゲット</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ターゲット</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>lint、Go のユニットテスト、JS のユニットテストを実行します。</td></tr>
+            <tr><td><code>make test-integration</code></td><td>特権付きの Podman コンテナー内で Go の統合テストを実行します。</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>バックエンドのコンテナーに対して Bun の UI 統合テストを実行します。</td></tr>
+            <tr><td><code>make test-full</code></td><td>すべてのテストスイートを順に実行します。</td></tr>
+            <tr><td><code>make auto-test</code></td><td>ファイルの変更を監視してテストを自動的に再実行します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ビルド用のターゲット</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ターゲット</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make production-image</code></td><td>本番用のコンテナーイメージをビルドします。</td></tr>
+            <tr><td><code>make test-image</code></td><td>テスト用のコンテナーイメージをビルドします。</td></tr>
+            <tr><td><code>make pull-images</code></td><td>ベースとなるコンテナーイメージを Docker Hub から取得します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Prerequisites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="prerequisites">事前に必要なもの</h2>
+      <ul class="prereq-list">
+        <li><strong>Go 1.25 以降</strong></li>
+        <li><strong>Bun</strong> — JavaScript ランタイム</li>
+        <li><strong>Podman</strong> — <code>sudo</code> を使う rootful モード</li>
+        <li><strong>btrfs-progs</strong> — <code>mkfs.btrfs</code></li>
+        <li><strong>golangci-lint</strong></li>
+      </ul>
+      <p class="doc-text">
+        リポジトリの認証情報を記した <code>.env</code> ファイルを作成します。
+      </p>
+      <pre><code>TOWN_OS_REPO_USERNAME=&lt;username&gt;
+TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
+      <p class="doc-text">
+        必要なものを導入したら、ほかのターゲットを実行する前に <code>make pull-images</code> を
+        実行してください。
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .endpoint {
+    margin-bottom: 1rem;
+    margin-top: 2rem;
+  }
+
+  .endpoint:first-child {
+    margin-top: 0;
+  }
+
+  .endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .method {
+    display: inline-block;
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .method.post {
+    background: #2d6a4f;
+    color: #95d5b2;
+  }
+
+  .method.get {
+    background: #1b4965;
+    color: #a8dadc;
+  }
+
+  .endpoint-path {
+    font-size: 1.1rem;
+    background: var(--color-code-bg);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+  }
+
+  .auth-badge {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.7rem;
+    border-radius: 20px;
+    font-weight: 500;
+  }
+
+  .auth-public {
+    background: #264653;
+    color: #a8dadc;
+  }
+
+  .auth-authenticated {
+    background: var(--color-primary-dim);
+    color: var(--color-text-muted);
+  }
+
+  .auth-admin {
+    background: #6b2737;
+    color: #f4a5b8;
+  }
+
+  .format-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.75rem 0 1.5rem;
+  }
+
+  .format-tags code {
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+
+  .client-libs-cards {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .client-lib-card {
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid var(--color-primary-dim);
+  }
+
+  .client-lib-card:hover {
+    border-color: var(--color-accent);
+  }
+
+  .client-lib-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.4rem;
+  }
+
+  .client-lib-card p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .client-lib-card .forthcoming {
+    font-size: 0.8rem;
+    font-style: italic;
+    color: var(--color-primary-light);
+    margin-top: 0.4rem;
+  }
+
+  @media (max-width: 768px) {
+    .client-libs-cards {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .prereq-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+</style>

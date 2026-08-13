@@ -9,8 +9,9 @@ export const languages = {
   en: { label: 'English', short: 'EN' },
   'es-MX': { label: 'Español (México)', short: 'MX' },
   'es-ES': { label: 'Español (España)', short: 'ES' },
-  'zh-Hans': { label: '简体中文', short: '简' },
-  'zh-Hant': { label: '繁體中文', short: '繁' },
+  'zh-CN': { label: '简体中文', short: '简' },
+  'zh-TW': { label: '繁體中文', short: '繁' },
+  ja: { label: '日本語', short: 'JA' },
 } as const;
 
 export type Lang = keyof typeof languages;
@@ -81,7 +82,7 @@ export const ui = {
     'footer.github': 'GitHub',
     'footer.license': 'Bajo licencia GNU Affero GPL 3.0',
   },
-  'zh-Hans': {
+  'zh-CN': {
     'site.description':
       'Town OS——把云装进你家的储物间。完全从 U 盘运行的自托管平台。',
     'nav.try': '立即试用',
@@ -101,7 +102,7 @@ export const ui = {
     'footer.github': 'GitHub',
     'footer.license': '采用 GNU Affero GPL 3.0 许可证',
   },
-  'zh-Hant': {
+  'zh-TW': {
     'site.description':
       'Town OS——把雲端搬進你家的儲藏室。完全從 USB 隨身碟執行的自架平台。',
     'nav.try': '立即試用',
@@ -120,6 +121,26 @@ export const ui = {
     'footer.packages': '套件',
     'footer.github': 'GitHub',
     'footer.license': '依 GNU Affero GPL 3.0 授權',
+  },
+  ja: {
+    'site.description':
+      'Town OS — あなたのクラウドを、あなたの物置に。USB メモリだけで動作するセルフホスト型プラットフォーム。',
+    'nav.try': '試してみる',
+    'nav.toggle': 'ナビゲーションを開閉',
+    'nav.home': 'ホーム',
+    'nav.guide': 'ガイド',
+    'nav.concepts': '基本概念',
+    'nav.packaging': 'パッケージング',
+    'nav.api': 'API',
+    'nav.screenshots': 'スクリーンショット',
+    'nav.community': 'コミュニティ',
+    'nav.source': 'ソースコード',
+    'lang.label': '言語',
+    'footer.tagline': 'あなたのクラウドを、あなたの物置に',
+    'footer.gitea': 'Gitea',
+    'footer.packages': 'パッケージ',
+    'footer.github': 'GitHub',
+    'footer.license': 'GNU Affero GPL 3.0 ライセンスの下で提供',
   },
 } as const;
 

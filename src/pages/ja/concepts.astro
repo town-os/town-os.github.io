@@ -1,0 +1,242 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="基本概念 — Town OS" lang="ja">
+  <section class="section">
+    <div class="container concepts-container">
+      <h1>基本概念</h1>
+      <p class="page-lead">
+        Town OS はいくつかの中核となる考え方の上に成り立っています。これらの概念を理解すれば、
+        パッケージの定義から稼働中サービスの管理まで、全体がどのようにかみ合っているのかが
+        つかめるようになります。
+      </p>
+
+      <div class="concepts-grid">
+        <div class="card concept-card">
+          <h3>パッケージ</h3>
+          <p>
+            パッケージとは、git リポジトリから取得される、サービスを自己完結的に記述した YAML 定義です。
+            各パッケージには、ネットワークのポートマッピング、ストレージのボリューム、環境変数、
+            対話形式の質問など、そのサービスを動かすために必要な情報がすべて含まれます。パッケージは
+            コンテナー（既定）、QEMU ベースの仮想マシン、あるいは Valve の Proton 互換レイヤーを介した
+            Windows アプリケーションとして実行できます。ファイルテンプレート（Go の
+            <code>text/template</code> ファイル）はインストール時にボリュームへ展開でき、
+            動的な設定が可能です。パッケージは自らの機能を表すために <code>supplies</code> タグ
+            （<code>http</code>、<code>database</code>、<code>cache</code> など）を宣言します。
+            既定のリポジトリには、git ホスティング、ビデオ会議、メディア配信、チームチャット、
+            データベースなどを網羅した厳選パッケージが同梱されており、随時追加されています。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>質問</h3>
+          <p>
+            パッケージをインストールすると、Town OS は「質問」と呼ばれる対話形式のプロンプトを表示することがあります。
+            入力した回答は、パッケージ定義全体にある <code>@variable@</code> というテンプレートの
+            プレースホルダーに埋め込まれ、ホスト名、ポート、認証情報などの項目を設定します。各質問には
+            型付きのバリデーター（<code>hostname</code>、<code>port</code>、<code>bytes</code>、
+            <code>volume</code>、<code>archive</code>、<code>duration</code>、<code>secret</code>、
+            <code>boolean</code>、<code>oauth</code>、または自由入力のテキスト）と任意の既定値があるため、
+            設定の誤りはサービスが起動する前に検出されます。型は表示される入力欄も決めます。
+            <code>boolean</code> はチェックボックス、<code>secret</code> は伏せ字の入力欄、
+            <code>oauth</code> の質問は接続ボタンになり、提供元にサインインして返されたトークンを保持します。
+            いくつかの型は、空のままにすると値を自動生成します。ポートは 10000〜60000 の範囲から
+            ランダムに割り当てられ、ホスト名は <code>package-name-4hex</code> の形式で生成され、
+            シークレットは 64 文字の 16 進文字列になります。<code>optional</code> と指定された質問は
+            空欄のままでもかまいません。使っていない SMTP リレーは、当て推量で埋められるのではなく
+            未設定のままになります。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>サービス</h3>
+          <p>
+            パッケージをインストールすると、それはサービス、つまり systemd ユニットが管理する
+            稼働中のコンテナーになります。Town OS では、開始・停止・再起動の操作、
+            Server-Sent Events によるログのリアルタイム配信、カーソル方式のジャーナルのページ送り、
+            サービスの有効化・無効化が行えます。サービスは互いに、そしてホストシステムからも隔離されています。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>ネットワーク</h3>
+          <p>
+            Town OS には
+            <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+            が含まれます。パッケージ用の権威ゾーンを管理し、上位への問い合わせを転送する DNS サーバーです。
+            各パッケージは自分のポートマッピングを宣言します。<code>external</code> ポートはホストに公開され、
+            <code>internal</code> ポートはコンテナー間でのみ利用できます。ポートの値は
+            <code>@variable@</code> テンプレートに対応しているので、インストール時に利用者が選べます。
+            依存関係を宣言したパッケージはネットワークを共有するため、同じ依存ツリーにあるコンテナー同士は
+            直接通信できます。親パッケージは環境変数の中で
+            <code>@dep_KEY_host@</code> や <code>@dep_KEY_port_N@</code> といったテンプレート変数を使うか、
+            実行時の環境変数（<code>{"TOWNOS_DEP_{KEY}_HOST"}</code> と
+            <code>{"TOWNOS_DEP_{KEY}_PORT_{port}"}</code>）を使って依存先を参照できます。UPnP による
+            ポート転送は自動的に処理されます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>ストレージ</h3>
+          <p>
+            データはすべて btrfs のサブボリューム上に保存され、パッケージごとに分離されます。各ボリュームには
+            コンテナー内のマウントポイント、設定可能なクォータ（<code>512mb</code>、<code>2gb</code> など）、
+            任意の <code>uid</code>/<code>gid</code> 所有者があります。ボリュームは <code>archives</code> 機能を
+            使ってコンテナーイメージからあらかじめ内容を展開したり、インストール時に空のボリュームへ
+            git リポジトリをクローンして初期データを用意したりできます。利用者が独立したボリュームを
+            自分で作ることも可能です。VM のディスクイメージは専用のサブボリュームにキャッシュされ、
+            以降のインストールで再利用されます。ある時点のバックアップとして btrfs のスナップショットも
+            利用できます。データはパッケージの再インストールやアップグレードをまたいで保持されるため、
+            サービスを更新してもファイルが失われることはありません。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>リポジトリ</h3>
+          <p>
+            パッケージはリポジトリ単位で整理されます。リポジトリとは、バージョン管理された YAML 定義を収めた
+            <code>packages/</code> ディレクトリを含む git リポジトリのことです。すべての Town OS 環境には
+            既定のリポジトリが含まれますが、誰でも独自のリポジトリを作成して共有できます。リポジトリには
+            順序があり、パッケージ名が衝突した場合は後のエントリーが先のものを上書きします。
+            <code>featured.json</code> ファイルを置くと、選んだパッケージを UI 上で目立たせられます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>テンプレートとノート</h3>
+          <p>
+            <code>@variable@</code> テンプレートの仕組みが、質問への回答を環境変数、ポートマッピング、
+            ボリュームのクォータなどに結びつけます。<code>@LOCAL_EXTERNAL_HOST@</code> や
+            <code>@LOCAL_INTERNAL_HOST@</code> といった組み込み変数は常に利用できます。インストール後は
+            <code>notes</code> が接続 URL、認証情報、連絡先といった重要な情報を表示します。
+            <code>url</code>、<code>phone</code>、<code>email</code> については型の検証も行えます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>ページ</h3>
+          <p>
+            Town OS は静的ウェブサイトをホストできます。各ページのソースには 3 種類の方式があります。
+            tar アーカイブのアップロード、コンテナーイメージからのファイル抽出、git リポジトリのクローンです。
+            すべてのページは専用のドメインを持ち、Caddy 経由で配信されます。アーカイブ方式のページは
+            再アップロードで更新でき、git とコンテナーイメージ方式のページは必要に応じて再ビルドできます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>モニタリング</h3>
+          <p>
+            組み込みの可観測性スタックが、設定なしでそのまま動作します。Prometheus が指標を収集し、
+            Node Exporter がホストの統計情報（CPU、メモリ、ディスク、ネットワーク）を報告します。
+            モニタリングのバックエンドは 2 種類から選べます。軽量な組み込み UI（既定）か、
+            ダッシュボードが自動構成される Grafana です。スタック全体はシステムサービスとして動作し、
+            障害時には自動的に再起動します。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>国際化</h3>
+          <p>
+            利用者に表示される文字列はすべて、BCP 47 のロケールコードをキーとするメッセージカタログを経由します。
+            主要な 21 言語がそれぞれの文字で表示され、国・地域別のコードは 87 種類以上が利用できます。
+            現時点で完全に翻訳されているのは英語（<code>en-US</code>）のみですが、
+            コミュニティによる翻訳を受け入れる基盤は整っています。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>アカウントとセッション</h3>
+          <p>
+            Town OS は管理者アカウントと一般ユーザーアカウントに対応しています。パスワードは 8 文字以上が必要です。
+            認証には JWT トークンを使い、7 日間操作がなければ期限切れになります。セッションは一時的なもので、
+            署名鍵は再起動のたびに生成し直されるため、有効なセッションはすべて自動的に消去されます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>監査ログ</h3>
+          <p>
+            管理操作はすべて、アカウント名、操作内容、リクエストパス、詳細、成否フラグ、タイムスタンプとともに
+            記録されます。読み取り専用のエンドポイントは対象外です。監査ログはページ送り、
+            アカウントによる絞り込み、全文検索に対応しています。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>設定</h3>
+          <p>
+            システム全体の構成は、UI 上のキーと値による設定で管理します。設定できる項目には、
+            既定のボリュームクォータ（50 GB）、アーカイブの最大アップロードサイズ（1 GB）、
+            アーカイブ展開のタイムアウト（600 秒）、ロケール、Proton ランナーのイメージ、
+            DNS のトップレベルドメインなどがあります。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>パッケージのアップグレード</h3>
+          <p>
+            Town OS は、設定済みのリポジトリに新しいバージョンのパッケージが登場したことを自動的に検出します。
+            ダッシュボードのバッジには、保留中のアップグレード数が表示されます。適用したくないバージョンは
+            見送ることができます。見送りの記録は SHA256 ハッシュで管理されるため、
+            アップグレードの組み合わせが変わったときにだけ再び表示されます。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>システムサービス</h3>
+          <p>
+            モニタリング、DNS、ウェブ UI といった基盤コンテナーは、利用者がインストールしたパッケージとは
+            別に管理されます。これらは専用の systemd プレフィックス（<code>town-os-system--</code>）を使い、
+            障害時には必ず再起動し、利用者が無効化することはできません。
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .concepts-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .concepts-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 2.5rem;
+    max-width: 720px;
+    width: 100%;
+  }
+
+  .concept-card {
+    text-align: left;
+  }
+
+  .concept-card h3 {
+    color: var(--color-accent);
+    margin-bottom: 0.6rem;
+  }
+
+  .concept-card p {
+    color: var(--color-text-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .concepts-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

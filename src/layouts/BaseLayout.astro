@@ -32,8 +32,9 @@ const ogLocales: Record<Lang, string> = {
   en: 'en_US',
   'es-MX': 'es_MX',
   'es-ES': 'es_ES',
-  'zh-Hans': 'zh_CN',
-  'zh-Hant': 'zh_TW',
+  'zh-CN': 'zh_CN',
+  'zh-TW': 'zh_TW',
+  ja: 'ja_JP',
 };
 ---
 <!DOCTYPE html>
@@ -97,7 +98,7 @@ const ogLocales: Record<Lang, string> = {
           var pref = (prefs[i] || '').toLowerCase();
           if (pref.indexOf('zh') === 0) {
             // zh-TW / zh-HK / zh-MO / any -Hant tag means Traditional.
-            target = /hant|tw|hk|mo/.test(pref) ? 'zh-Hant' : 'zh-Hans';
+            target = /hant|tw|hk|mo/.test(pref) ? 'zh-TW' : 'zh-CN';
             break;
           }
           if (pref.indexOf('es') === 0) {
@@ -107,6 +108,10 @@ const ogLocales: Record<Lang, string> = {
               .test(pref)
               ? 'es-MX'
               : 'es-ES';
+            break;
+          }
+          if (pref.indexOf('ja') === 0) {
+            target = 'ja';
             break;
           }
           if (pref.indexOf('en') === 0) {

@@ -1,0 +1,126 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+const base = import.meta.env.BASE_URL;
+
+const screenshots = [
+  { file: 'create-account.webp', w: 2400, h: 1183, title: 'アカウント作成', desc: 'Town OS に初めてアクセスしたときに、最初の管理者アカウントを設定します。' },
+  { file: 'dashboard.webp', w: 2400, h: 1187, title: 'ダッシュボード', desc: 'ファイルシステム、アカウント、サービス、パッケージ、リポジトリ、監査状況をひと目で把握できるカード形式のシステム概要。' },
+  { file: 'packages.webp', w: 2400, h: 1191, title: 'パッケージ', desc: '設定済みのリポジトリから利用できるパッケージを閲覧・検索・管理します。' },
+  { file: 'installation.webp', w: 2400, h: 1189, title: 'インストール', desc: '対話形式のプロンプトが、インストール前の各パッケージの設定を案内します。' },
+  { file: 'install-details.webp', w: 2400, h: 1184, title: 'インストール詳細', desc: 'インストール済みパッケージの構成、セットアップ時の回答、接続情報を確認できます。' },
+  { file: 'services.webp', w: 2400, h: 1186, title: 'サービス', desc: '稼働中のサービスを状態インジケーターとクイック操作つきで表示・管理します。' },
+  { file: 'logs.webp', w: 2400, h: 1188, title: 'ログ', desc: '稼働中サービスのジャーナル出力をリアルタイムに表示。フィルタリング、追従表示、エントリの折りたたみに対応します。' },
+  { file: 'storage.webp', w: 2400, h: 1190, title: 'ストレージ', desc: 'btrfs のサブボリューム、クォータ、インストール済みパッケージのボリュームを管理します。' },
+  { file: 'monitoring.webp', w: 2400, h: 1188, title: 'モニタリング', desc: 'Grafana と Prometheus を利用し、ダッシュボードが自動的に構築されます。カスタマイズも自由自在です。' },
+  { file: 'settings.webp', w: 2400, h: 1186, title: '設定', desc: 'Town OS 環境全体に関わる設定と各種の初期値を構成します。' },
+  { file: 'auditlog.webp', w: 2400, h: 1188, title: '監査ログ', desc: 'インストール、ログイン、アカウント変更など、すべての API 操作をタイムスタンプ、実行ユーザー、リクエスト内容、発生したエラーとともに記録します。' },
+  { file: 'dns-dashboard.webp', w: 2400, h: 1244, title: 'DNS — サービス URL', desc: 'rolodex をネットワークの DNS にすると、インストール済みの各パッケージに <package>.<repo>.home という覚えやすい URL が割り当てられ、ダッシュボードにそのまま一覧表示されます。' },
+  { file: 'dns-gitea.webp', w: 2400, h: 1234, title: 'DNS — Gitea', desc: 'rolodex が名前解決を行い、ネットワーク上のどの端末からでも gitea.default.home で Gitea にアクセスできます。' },
+  { file: 'dns-immich.webp', w: 2400, h: 1234, title: 'DNS — Immich', desc: '写真管理の Immich は immich.default.home でアクセス可能。IP アドレスも hosts ファイルの編集も不要です。' },
+  { file: 'dns-jitsi.webp', w: 2400, h: 1234, title: 'DNS — Jitsi Meet', desc: 'セルフホストのビデオ会議を jitsi.default.home で提供。LAN 上のスマートフォン、ノート PC、タブレットから利用できます。' },
+  { file: 'dns-matrix.webp', w: 2400, h: 1239, title: 'DNS — Matrix / Synapse', desc: 'matrix.default.home で稼働するフェデレーション対応の Matrix ホームサーバー。クライアントからすぐに接続できます。' },
+  { file: 'dns-mattermost.webp', w: 2400, h: 1238, title: 'DNS — Mattermost', desc: 'チームチャットは mattermost.default.home。ブラウザーでホスト名を開けばそれだけで使えます。' },
+];
+---
+
+<BaseLayout title="スクリーンショット — Town OS" lang="ja">
+  <section class="section">
+    <div class="container">
+      <h1>スクリーンショット</h1>
+      <p class="page-lead">
+        Town OS の実際の画面をご覧ください。ここに掲載しているのは現在の開発ビルドで、
+        パッケージ、サービス、ストレージ、ユーザーを管理できる完全に動作するダッシュボードです。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="gallery">
+        {screenshots.map((shot) => (
+          <div class="gallery-item">
+            <a href={`${base}images/screenshots/${shot.file}`} target="_blank" rel="noopener" class="gallery-link">
+              <img
+                src={`${base}images/screenshots/${shot.file}`}
+                alt={shot.title}
+                width={shot.w}
+                height={shot.h}
+                loading="lazy"
+                decoding="async"
+              />
+            </a>
+            <div class="gallery-caption">
+              <h3>{shot.title}</h3>
+              <p>{shot.desc}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+  }
+
+  .gallery-item {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .gallery-item:hover {
+    border-color: var(--color-primary-dim);
+    transform: translateY(-2px);
+  }
+
+  .gallery-link {
+    display: block;
+    overflow: hidden;
+    background: #111;
+  }
+
+  .gallery-link img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s;
+  }
+
+  .gallery-item:hover .gallery-link img {
+    transform: scale(1.02);
+  }
+
+  .gallery-caption {
+    padding: 1rem 1.25rem;
+  }
+
+  .gallery-caption h3 {
+    font-size: 1.05rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .gallery-caption p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+  }
+
+  @media (max-width: 768px) {
+    .gallery {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

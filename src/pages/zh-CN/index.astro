@@ -2,7 +2,7 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import { localizePath } from '../../i18n/ui';
 const base = import.meta.env.BASE_URL;
-const L = (path: string) => localizePath(path, 'zh-Hans');
+const L = (path: string) => localizePath(path, 'zh-CN');
 
 const previewScreenshots = [
   { file: 'dashboard.webp', w: 2400, h: 1187, title: '仪表盘' },
@@ -12,7 +12,7 @@ const previewScreenshots = [
 ];
 ---
 
-<BaseLayout title="Town OS——把云装进你家的储物间" lang="zh-Hans">
+<BaseLayout title="Town OS——把云装进你家的储物间" lang="zh-CN">
   <!-- First Release Banner -->
   <section class="release-banner">
     <div class="container">

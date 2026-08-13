@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-LOCALES=(es-MX es-ES zh-Hans zh-Hant)
+LOCALES=(es-MX es-ES zh-CN zh-TW ja)
 status=0
 
 style_block() {

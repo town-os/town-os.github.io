@@ -1,0 +1,1986 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import DiagramFlow from '../../components/diagrams/DiagramFlow.astro';
+import DiagramBox from '../../components/diagrams/DiagramBox.astro';
+import DiagramArrow from '../../components/diagrams/DiagramArrow.astro';
+import DiagramStack from '../../components/diagrams/DiagramStack.astro';
+import DiagramLayer from '../../components/diagrams/DiagramLayer.astro';
+import DiagramTag from '../../components/diagrams/DiagramTag.astro';
+import { localizePath } from '../../i18n/ui';
+const base = import.meta.env.BASE_URL;
+const L = (path: string) => localizePath(path, 'ja');
+---
+
+<BaseLayout title="ユーザーガイド — Town OS" lang="ja">
+  <section class="section">
+    <div class="container">
+      <h1>ユーザーガイド</h1>
+      <p class="page-lead">
+        USB メモリの書き込みからバグ報告まで、Town OS を実践的に一通り解説します。
+        初めて使う方にも、パッケージを作る開発者にも、始めるために必要なことが
+        すべてまとまっています。
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#quick-start">クイックスタート</a></li>
+          <li><a href="#building-the-usb-image">ソースから USB イメージをビルドする</a></li>
+          <li><a href="#sledgehammer">sledgehammer 起動オプション</a></li>
+          <li><a href="#dns-setup">ルーターで DNS を設定する</a></li>
+          <li><a href="#trusting-the-ca">認証局を信頼する</a></li>
+          <li><a href="#networks">ネットワークとリモートアクセス</a></li>
+          <li><a href="#android-app">Android 版 Town OS</a></li>
+          <li><a href="#building-vms">USB イメージから VM を作る</a></li>
+          <li><a href="#raid-installation">RAID のインストール</a></li>
+          <li><a href="#using-the-ui">ユーザーインターフェースの使い方</a></li>
+          <li><a href="#pages">静的サイトのホスティング</a></li>
+          <li><a href="#updating">Town OS の更新</a></li>
+          <li><a href="#building-a-package">パッケージを作る</a></li>
+          <li><a href="#self-hosting-ideas">セルフホストできるもの</a></li>
+          <li><a href="#dev-environment">開発環境とテストスイート</a></li>
+          <li><a href="#reporting-bugs">バグを報告する</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <!-- Quick Start -->
+  <section class="section quickstart-section">
+    <div class="container">
+      <h2 class="section-title" id="quick-start">クイックスタート</h2>
+      <p class="doc-text" style="font-weight: 700; color: #e0e0e0; font-size: 1.1rem;">
+        余っているコンピューターで、数分のうちに Town OS を動かせます。必要なのは
+        USB-C メモリ（4 GB 以上）と、それを書き込むための Linux マシンだけです。
+      </p>
+
+      <h3>1. USB メモリに書き込む</h3>
+      <p class="doc-text">
+        <code>podman</code>、<code>curl</code>、<code>bzip2</code>、<code>dd</code>、
+        <code>lsblk</code>、<code>tar</code> がインストールされた Linux マシンで、
+        インストーラースクリプトを実行します。スクリプトはインストーラーイメージを
+        取得するために Podman を使うので、<strong>Podman は必須</strong>です
+        （入っているだけでなく、動作している必要があります）。スクリプトは最新の
+        Town OS イメージをダウンロードし、USB メモリへ直接書き込みます。
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && bash install.sh</code></pre>
+      <p class="doc-text">
+        スクリプトは接続された USB デバイスを検出し、デバイス名とサイズの一覧を表示して、
+        どれを使うか尋ねます。確認すると、圧縮イメージをストリーミングしながら
+        一度の処理でドライブへ書き込みます。全体の所要時間は、インターネット接続の
+        速度にもよりますが数分程度です。
+      </p>
+
+      <p class="doc-text">
+        <strong>Raspberry Pi（4 / 400 / CM4、5 / CM5）:</strong> <code>RPI=1</code> を渡すと、
+        通常の PC 用イメージではなく、ネイティブ起動する Raspberry Pi 用イメージを
+        SD カード、USB メモリ、NVMe に書き込みます。
+      </p>
+      <pre><code>curl -sSLO https://town-os.github.io/install.sh && RPI=1 bash install.sh</code></pre>
+      <p class="doc-text">
+        Pi 用イメージは常に 64 ビット Arm で、UEFI なしで起動するため、x86_64 のマシンから
+        インストーラーを実行しても問題ありません。Raspberry Pi は挿したカードやドライブから
+        ブートメニューなしで直接起動します。Pi 5 の NVMe 起動では、ブートローダーの EEPROM の
+        起動順に NVMe が含まれていることを確認してください（<code>rpi-eeprom-config</code> で設定します）。
+      </p>
+
+      <div class="data-warning">
+        <div class="data-warning-badge">データ消去に関する警告</div>
+        <p class="data-warning-text">
+          Town OS は<strong>検出したローカルストレージデバイスをすべてフォーマットして使用します</strong>
+          （NVMe、SATA、SAS、SD カード）。マシンで Town OS を起動すると、すべての内蔵ドライブ上の
+          <strong>既存データは完全に失われます</strong>。
+        </p>
+        <p class="data-warning-text">
+          残しておきたいデータがない専用マシンでのみ起動するか、まずは
+          <a href="#building-vms">VM の手順</a>で安全に試してください。
+          <a href="#qemu-usb"><code>make qemu-usb</code></a> を使えば、書き込んだばかりの
+          USB メモリを実際のディスクに一切触れずに QEMU 内で（読み取り専用で）起動できます。
+        </p>
+      </div>
+
+      <h3>2. USB から起動する</h3>
+      <p class="doc-text">
+        USB メモリを対象のコンピューターに挿し、そこから起動します。ブートメニューを
+        出すために、起動中にキーを押す必要がある場合があります。よく使われるのは
+        <strong>F12</strong>、<strong>F2</strong>、<strong>Esc</strong>、
+        <strong>Del</strong> などで、ハードウェアによって異なります。
+      </p>
+
+      <h3>3. 初回起動: sledgehammer を使う</h3>
+      <p class="doc-text">
+        対象のマシンを以前ほかの用途で使っていた場合は、初回起動時にブートメニューから
+        <strong>sledgehammer の起動オプションを選んでください</strong>。sledgehammer は
+        検出したすべてのストレージデバイスを消去し、Town OS を完全にまっさらな状態から
+        始められるようにします。これにより、以前の OS が残したパーティションテーブル、
+        ファイルシステム、RAID のメタデータが原因となる問題を避けられます。
+      </p>
+      <p class="doc-text">
+        sledgehammer が終わると、マシンは自動的に再起動し、Town OS がストレージを新規に
+        構成します。詳細は
+        <a href="#sledgehammer">sledgehammer 起動オプション</a>を参照してください。
+      </p>
+
+      <h3>4. 起動時に何が起こるか</h3>
+      <p class="doc-text">
+        Town OS は USB メモリから RAM 上へすべて読み込まれ、その後
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
+        を起動します。これは対話形式の TUI インストーラーで、マシンのコンソール上で
+        直接セットアップを案内してくれます。
+      </p>
+      <ul class="doc-list">
+        <li><strong>ネットワークの設定</strong> — ttyforce が利用できるインターフェースを検出します。リンクのある有線接続があれば自動的に次へ進みます。ない場合は、電波強度、セキュリティ情報、WPA2/WPA3 のパスワード入力を伴う WiFi ネットワークの選択画面が表示されます。</li>
+        <li><strong>ディスクのプロビジョニング</strong> — ttyforce は検出したディスクを種類とサイズでグループ化し、適切な <a href="#raid-installation">RAID レベル</a>を自動的に選びます。1 台なら単体、2 台なら RAID1（ミラー）、3 台以上なら RAID5（パリティ付きストライプ）です。ストレージはすべて btrfs を使います。</li>
+        <li><strong>SSH 鍵の取り込み</strong> — GitHub のユーザー名を入力すると、安全なリモートアクセスのために公開 SSH 鍵を取り込めます。</li>
+      </ul>
+      <p class="doc-text">
+        プロビジョニングが終わるとシステムは再起動し、ttyforce は getty モードに切り替わります。
+        これはコンソール上でサービスの稼働状況、システムのメトリクス、ジャーナル出力を
+        リアルタイムに表示する画面です。ここからログインしたり、ネットワークを再設定したり、
+        sledgehammer による消去を実行したりできます。
+      </p>
+
+      <h3>5. アカウントを作って使い始める</h3>
+      <p class="doc-text">
+        同じネットワーク上の任意の端末でブラウザーを開き、
+        <code>http://town-os.local</code> にアクセスします。うまくいかない場合は、
+        ルーターの DHCP クライアント一覧から "town-os" という名前の端末を探し、
+        その IP アドレスを直接使ってください。管理者アカウントの作成を求められます。
+        ログインすると、ダッシュボードからパッケージのインストール、ストレージの管理、
+        サービスの設定ができます。
+      </p>
+
+      <h3>6. ルーターの DNS を Town OS に向ける</h3>
+      <p class="doc-text">
+        Town OS には <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+        が同梱されています。パッケージのホスト名を解決し、それ以外は上位へ転送する DNS サーバーです。
+        ネットワーク上のすべての端末に自動的に使わせるには、Town OS のマシンに静的 IP
+        （または DHCP の予約）を割り当て、ルーターの<strong>プライマリ DNS サーバー</strong>を
+        そのアドレスに設定します。メーカーごとの手順と確認方法は
+        <a href="#dns-setup">ルーターで DNS を設定する</a>を参照してください。
+      </p>
+    </div>
+  </section>
+
+  <!-- Creating the USB Drive -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-the-usb-image">ソースから USB イメージをビルドする</h2>
+      <p class="doc-text">
+        Town OS の USB イメージは
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        リポジトリからビルドされます。ビルドの過程で、squashfs のルートファイルシステムと
+        GPT のパーティション構成を持つ起動可能イメージが生成されます。
+      </p>
+
+      <h3>事前に必要なもの</h3>
+      <p class="doc-text">
+        Linux ホストと USB メモリ（4 GB 以上）が必要です。ビルドには Arch Linux のツール
+        （<code>pacstrap</code>、<code>mkinitcpio</code>、<code>arch-chroot</code>）を使いますが、
+        Arch を動かしている<strong>必要はありません</strong>。ほかのディストリビューションでは、
+        <code>make image</code> が同じアーキテクチャの Arch コンテナー内で自動的にビルドを実行します。
+        ホスト側の依存関係は、お使いのディストリビューション向けの同梱ターゲットで
+        インストールしてください。
+      </p>
+      <ul class="doc-list">
+        <li><code>make deps</code> — Arch（および派生）または Fedora/RHEL</li>
+        <li><code>make deps-debian</code> — Debian または Ubuntu</li>
+      </ul>
+      <p class="doc-text">
+        これらは、ビルドと VM ツールに必要なものをすべて導入します。<code>make</code>、
+        <code>podman</code>、<code>arch-install-scripts</code>、<code>squashfs-tools</code>、
+        <code>parted</code>、<code>e2fsprogs</code>、<code>dosfstools</code>、
+        <code>qemu</code>、<code>libvirt</code> です。
+      </p>
+
+      <h3>クローンとビルド</h3>
+      <pre><code>git clone https://gitea.com/town-os/install.git
+cd install
+make image</code></pre>
+      <p class="doc-text">
+        <code>make</code> または <code>make image</code> を実行すると、完全な USB イメージが
+        ビルドされます。この処理では、ベースシステムをダウンロードし、Town OS の
+        コンポーネントをインストールし、すべてを squashfs ファイルシステムへ圧縮して、
+        GPT のパーティションテーブルを持つ最終的なディスクイメージを組み立てます。
+      </p>
+
+      <h3>パーティションと squashfs</h3>
+      <p class="doc-text">
+        できあがるイメージは、次の構成の GPT レイアウトになります。
+      </p>
+      <ul class="doc-list">
+        <li>レガシー BIOS 起動用の BIOS ブートパーティション（1 MiB）</li>
+        <li>UEFI 起動用の EFI システムパーティション（64 MiB、FAT32）</li>
+        <li>squashfs のルートファイルシステムと GRUB を含むデータパーティション（ext4）</li>
+      </ul>
+      <p class="doc-text">
+        起動時、Town OS は squashfs を読み取り専用の下位レイヤーとしてマウントし、その上に
+        tmpfs のオーバーレイを重ねます。つまり OS はすべて RAM 上で動作し、USB メモリ自体は
+        起動時に読み込まれるだけです。実行中の変更はすべてメモリ上で行われ、再起動時に
+        破棄されるため、毎回まっさらな状態から始まります。
+      </p>
+
+      <h3>イメージの書き込み</h3>
+      <p class="doc-text">
+        いちばん簡単なのは <code>make flash</code> です。イメージが古ければビルドし直し、
+        USB デバイスへ書き込みます。手作業で行う場合、ビルドは日付とアーキテクチャが
+        付いたファイル名（例:
+        <code>town-os-2026-07-25-x86_64.img</code>）を生成するので、<code>dd</code> で書き込みます。
+      </p>
+      <pre><code># USB デバイスを探す（例: /dev/sdb）
+lsblk
+
+# イメージを書き込む（ファイル名と /dev/sdX は自分のデバイスに置き換える）
+sudo dd if=town-os-YYYY-MM-DD-x86_64.img of=/dev/sdX bs=4M status=progress conv=fsync</code></pre>
+      <p class="doc-text callout">
+        対象のデバイスは必ず確認してください。<code>dd</code> は指定された先を、確認なしに
+        上書きします。
+      </p>
+
+      <DiagramFlow title="起動の流れ">
+        <DiagramBox label="USB メモリ" sub="GPT パーティションテーブル" variant="purple">
+          <DiagramTag variant="purple">EFI システム</DiagramTag>
+          <DiagramTag variant="purple">squashfs ルート</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="起動" />
+        <DiagramStack>
+          <DiagramLayer variant="top">稼働中のシステム</DiagramLayer>
+          <DiagramLayer variant="teal" badge="読み書き">tmpfs オーバーレイ</DiagramLayer>
+          <DiagramLayer variant="purple" badge="読み取り専用">squashfs</DiagramLayer>
+        </DiagramStack>
+        <DiagramArrow />
+        <DiagramBox label="RAM" sub="OS はすべてメモリ上で動作" variant="teal" />
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Sledgehammer Boot Option -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="sledgehammer">sledgehammer 起動オプション</h2>
+      <p class="doc-text">
+        Town OS の USB メモリには <strong>sledgehammer</strong> という起動オプションがあり、
+        検出したすべてのストレージデバイスを消去してシステムをまっさらな状態に戻します。
+        テストのあと、新しいハードウェアへ展開する前、ストレージが壊れてしまったときなど、
+        一から始めたい場合に便利です。
+      </p>
+
+      <h3>何をするのか</h3>
+      <p class="doc-text">
+        起動時に sledgehammer を選ぶと、Town OS は次の処理を行います。
+      </p>
+      <ul class="doc-list">
+        <li>ローカルストレージデバイス（NVMe、SATA/SAS、SD カード）をすべて検出します。通常起動時と同じ検出処理です</li>
+        <li>検出したすべてのデバイスのパーティションテーブルとファイルシステムを消去します</li>
+        <li>システムを再起動し、初回起動と同じようにストレージを新規に構成します</li>
+      </ul>
+      <p class="doc-text callout">
+        sledgehammer は、検出されたすべてのストレージデバイス上のデータをすべて破棄します。
+        USB メモリ自体は影響を受けず、内蔵ディスクだけが対象です。このオプションを使う前に、
+        必要なもののバックアップを取っておいてください。
+      </p>
+
+      <h3>使い方</h3>
+      <ol class="doc-list">
+        <li>Town OS の USB メモリを対象マシンに挿し、そこから起動します</li>
+        <li>ブートメニューで、既定の起動オプションではなく <strong>sledgehammer</strong> の項目を選びます</li>
+        <li>システムが検出したストレージをすべて消去し、自動的に再起動します</li>
+        <li>次の起動で、Town OS が <code>town-os.yaml</code> の設定を使ってストレージを一から構成します</li>
+      </ol>
+
+      <h3>どんなときに使うか</h3>
+      <ul class="doc-list">
+        <li><strong>初期化</strong> — 新規に展開したときと同じ、まっさらな状態にシステムを戻す</li>
+        <li><strong>ストレージバックエンドの変更</strong> — btrfs から ZFS へ（またはその逆へ）切り替えるには、まず既存のストレージを消去する必要があります</li>
+        <li><strong>ストレージの破損</strong> — ファイルシステムが修復不能なほど壊れている場合、sledgehammer がきれいな出発点を用意してくれます</li>
+        <li><strong>再展開</strong> — 別の Town OS 構成のためにハードウェアを転用する</li>
+      </ul>
+
+      <DiagramFlow title="sledgehammer によるリセットの流れ">
+        <DiagramBox label="ブートメニュー" sub="sledgehammer を選択" variant="neutral">
+          <DiagramTag>sledgehammer</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="消去" />
+        <DiagramBox label="ストレージの消去" sub="検出したディスクをすべて消去" variant="purple">
+          <DiagramTag variant="purple">NVMe</DiagramTag>
+          <DiagramTag variant="purple">SATA</DiagramTag>
+          <DiagramTag variant="purple">SD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="再起動" />
+        <DiagramBox label="新規セットアップ" sub="ストレージを一から構成" variant="teal">
+          <DiagramTag variant="teal">town-os.yaml</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- DNS Setup -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dns-setup">ルーターで DNS を設定する</h2>
+      <p class="doc-text">
+        Town OS には <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+        が含まれています。パッケージ用の権威ゾーンを管理し、上位への問い合わせを転送する
+        DNS サーバーです。これをネットワークの DNS サーバーとして使うには、Town OS マシンの
+        IP アドレスをネットワークの DNS サーバーとして配るよう、ルーターに指示する必要があります。
+        こうすれば、ネットワーク上のすべての端末が自動的に rolodex を使うようになり、
+        端末ごとの設定は不要です。
+      </p>
+
+      <h3>Town OS の IP アドレスを調べる</h3>
+      <p class="doc-text">
+        Town OS マシンのローカル IP アドレスが必要です。次の方法で調べられます。
+      </p>
+      <ul class="doc-list">
+        <li>初回起動のセットアップ後に <code>http://town-os.local</code> でダッシュボードにログインし、表示されている<strong>内部 IP</strong> を確認する。これが DNS サーバーとして使うアドレスです</li>
+        <li>VM を使っている場合は <code>make vm-ip</code> を実行する</li>
+        <li>ルーターの DHCP クライアント一覧から "town-os" という名前の端末を探す</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard-internal-ip.webp`} alt="コピーボタン付きで外部 IP と内部 IP を表示する Town OS のダッシュボード" width="2296" height="866" loading="lazy" />
+      </div>
+      <p class="doc-text">
+        DNS を安定して動かすには、Town OS マシンに静的 IP アドレスか、ルーター上の
+        DHCP 予約を割り当てておく必要があります。IP が変わると、ネットワーク全体の
+        DNS が使えなくなります。
+      </p>
+
+      <h3>静的 IP または DHCP 予約を割り当てる</h3>
+      <p class="doc-text">
+        たいていのルーターでは、MAC アドレスをもとに特定の端末へ IP アドレスを予約できます。
+        通常は <strong>LAN 設定</strong>、<strong>DHCP</strong>、
+        <strong>アドレス予約</strong>といった項目にあります。クライアント一覧から Town OS の
+        マシンを見つけ、現在の IP を予約してください。
+      </p>
+      <p class="doc-text">
+        ルーターが DHCP 予約に対応していない場合は、<code>town-os.yaml</code> に追記することで
+        Town OS マシン側に静的 IP を設定できます。
+      </p>
+
+      <h3>ルーターの DNS サーバーを変更する</h3>
+      <p class="doc-text">
+        正確な手順はルーターのメーカーによって異なりますが、大まかな流れは同じです。
+      </p>
+      <ol class="doc-list">
+        <li>ルーターの管理画面にログインします（通常は <code>192.168.1.1</code> か <code>192.168.0.1</code>）</li>
+        <li><strong>DHCP 設定</strong>、<strong>LAN 設定</strong>、<strong>DNS 設定</strong>のいずれかの項目を探します</li>
+        <li><strong>プライマリ DNS サーバー</strong>を Town OS マシンの IP アドレスに変更します</li>
+        <li>必要なら予備として<strong>セカンダリ DNS サーバー</strong>を設定します（例: <code>1.1.1.1</code> や <code>8.8.8.8</code>）。Town OS に到達できないときに使われます</li>
+        <li>設定を保存して適用します</li>
+      </ol>
+      <p class="doc-text">
+        保存後、ネットワーク上の端末は次に DHCP のリース更新を行ったときに新しい DNS サーバーを
+        受け取ります。ネットワークに接続し直すか、端末を再起動すれば、すぐに反映できます。
+      </p>
+
+      <h3>よくあるルーターの管理画面</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ルーターのメーカー</th><th>DNS 設定の場所</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ASUS</td><td>LAN → DHCP Server → DNS Server</td></tr>
+            <tr><td>TP-Link</td><td>DHCP → DHCP Settings → Primary DNS</td></tr>
+            <tr><td>Netgear</td><td>Internet → Domain Name Server (DNS) Address</td></tr>
+            <tr><td>Linksys</td><td>Connectivity → Local Network → DHCP Server → Static DNS</td></tr>
+            <tr><td>UniFi</td><td>Settings → Networks → (対象のネットワーク) → DHCP Name Server</td></tr>
+            <tr><td>pfSense / OPNsense</td><td>Services → DHCP Server → DNS Servers</td></tr>
+            <tr><td>OpenWrt</td><td>Network → Interfaces → LAN → DHCP Server → Advanced → DHCP-Options: <code>6,&lt;town-os-ip&gt;</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ブラウザー内蔵の DNS を無効にする</h3>
+      <p class="doc-text">
+        <strong>ほとんどのブラウザーは独自の DNS リゾルバーを持っており、ルーターを完全に迂回します。</strong>
+        Firefox の DNS over HTTPS（DoH）や、Chrome・Edge の同等の「セキュア DNS」機能は、
+        問い合わせを Cloudflare や NextDNS といった公開プロバイダーへ直接送ります。その結果、
+        Town OS には問い合わせが届かず、ネットワークのほかの部分では問題なく解決できるのに、
+        パッケージ名だけ「サーバーが見つかりません」となります。サービスに名前でアクセスしたい
+        端末では、次の設定をすべてオフにしてください。
+      </p>
+      <ul class="doc-list">
+        <li><strong>Firefox</strong> — <strong>設定 &rarr; プライバシーとセキュリティ &rarr; DNS over HTTPS</strong> で <strong>オフ</strong>を選びます。（<strong>既定の保護</strong>でも DoH が黙って有効になることがあるため、既定のままにせずオフを選んでください。）</li>
+        <li><strong>Chrome</strong> — <strong>設定 &rarr; プライバシーとセキュリティ &rarr; セキュリティ</strong>で<strong>セキュア DNS を使用する</strong>をオフにします。</li>
+        <li><strong>Edge</strong> — <strong>設定 &rarr; プライバシー、検索、サービス &rarr; セキュリティ</strong>で<strong>セキュア DNS を使用してネットワーク アドレスの参照方法を指定する</strong>をオフにします。</li>
+        <li><strong>Brave、Vivaldi、Opera</strong> — Chrome と同じ設定で、<strong>プライバシーとセキュリティ &rarr; セキュリティ</strong>にあります。</li>
+        <li><strong>Safari</strong> — 内蔵の DoH はなく、システムのリゾルバーを使います。<strong>システム設定 &rarr; 一般 &rarr; VPN とデバイス管理</strong>に DNS プロファイルが入っていないか確認してください。</li>
+      </ul>
+      <p class="doc-text">
+        システム全体で暗号化 DNS を設定している場合も同様です。Android の
+        <strong>プライベート DNS</strong>、iOS/macOS の DNS プロファイル、ローカルの
+        <code>systemd-resolved</code>/<code>dnscrypt</code> の設定などは、いずれもルーターが
+        配る DNS サーバーを上書きします。上位への問い合わせを暗号化したい場合は、Town OS に
+        任せてください。rolodex はローカルの名前に答えつつ、上位に対して DoH/DoT を使えます
+        （下記の<a href="#resolution-mode">解決モードを選ぶ</a>を参照）。
+      </p>
+
+      <h3>動作を確認する</h3>
+      <p class="doc-text">
+        端末が新しい DNS 設定を受け取ったら、rolodex が DNS の問い合わせを処理していることを
+        確認します。
+      </p>
+      <pre><code># どの DNS サーバーを使っているか確認する
+nslookup example.com
+
+# または Town OS に直接問い合わせる
+dig @&lt;town-os-ip&gt; example.com
+
+# パッケージのドメインを問い合わせる（パッケージをインストール済みの場合）。
+# 名前は &lt;name&gt;.&lt;repo&gt;.&lt;tld&gt; の形式で、.home が既定のネットワークの TLD
+dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
+      <p class="doc-text">
+        <code>example.com</code> が正しく解決されれば、rolodex は動作しており、
+        ネットワークの DNS を処理できています。
+      </p>
+
+      <h3 id="resolution-mode">解決モードを選ぶ</h3>
+      <p class="doc-text">
+        自分のネットワークに属さない名前は<strong>解決モード</strong>に従って解決されます。
+        モードはダッシュボードの <strong>設定 &rarr; DNS 解決</strong>で指定します。
+        3 つのモードがあります。
+      </p>
+      <ul class="doc-list">
+        <li><strong>自動（推奨）</strong> — 既定のモードです。まずルートサーバーから反復的に解決しようとし、うまくいかない場合は DoH/DoT、ローカルのフォワーダー、最後に公開リゾルバーへと順に切り替え、最後に成功した段階を維持します。ネットワークが許す限り再帰解決のプライバシーを保ちつつ、外向きの DNS がフィルタリングされる環境でも無理なく機能を落として動きます。</li>
+        <li><strong>再帰のみ</strong> — すべてをルートサーバーから反復的に解決し、代替手段は使いません。第三者のリゾルバーに問い合わせが渡らないことを保証できますが、外向きのポート 53 を遮断・乗っ取るネットワーク（ホテル、キャプティブポータル、一部の ISP）では外部の名前がすべて解決できなくなります。</li>
+        <li><strong>転送</strong> — 一致しない問い合わせを常に上位のリゾルバー（既定では Google Public DNS）へ送ります。従来からある転送の動作です。</li>
+      </ul>
+
+      <h3 id="blocklists">悪意あるドメインをブロックする</h3>
+      <p class="doc-text">
+        <strong>rolodex はすべての問い合わせを公開ブロックリストと照合できるので、
+        別途 Pi-hole を用意しなくてもネットワーク全体で脅威をブロックできます。</strong>
+        設定は <strong>DNS &rarr; ブロックリスト</strong>で管理します。プロバイダーには
+        2 種類あり、それぞれ対象が異なります。
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNSBL</strong>（ドメインのブロックリスト） — 問い合わせられた<em>名前</em>と照合します。普段のウェブ閲覧に効いてくるのはこちらです。</li>
+        <li><strong>RBL</strong>（Realtime Blackhole List） — <em>IP アドレス</em>と照合し、逆引き DNS の問い合わせにのみ適用されます。</li>
+      </ul>
+      <p class="doc-text">
+        どちらも<strong>既定では無効で、プロバイダーの一覧も空</strong>です。また、どちらも
+        必要になったときにだけ問い合わせます。Town OS がブロックリストのフィードを
+        ダウンロードしたり、解析したり、あらかじめキャッシュしたりすることはありません。
+        カテゴリーを有効にしてゾーンを 1 つ以上追加するまで、何も照合されません。
+      </p>
+
+      <h4>DNSBL の照合の仕組み</h4>
+      <p class="doc-text">
+        <strong>解決しようとしている名前がプロバイダーのゾーンの前に付けられ、通常の DNS
+        問い合わせとして照会されます。</strong><code>dbl.spamhaus.org</code> を有効にした状態で
+        <code>badsite.example</code> を解決すると、
+        <code>badsite.example.dbl.spamhaus.org</code> への問い合わせが発行されます。
+      </p>
+      <ul class="doc-list">
+        <li><strong>応答があれば掲載されている</strong> — プロバイダーは掲載されている名前に対してアドレスレコード（通常は <code>127.0.0.x</code>）を返します。rolodex はそのとき、問い合わせた端末へ <code>NXDOMAIN</code> を返します。</li>
+        <li><strong>NXDOMAIN なら問題なし</strong> — 解決は通常どおり続きます。エラーやタイムアウトを起こしたプロバイダーは、掲載<em>されていない</em>ものとして扱われるため、到達できないブロックリストがネットワークを止めることはありません。</li>
+        <li><strong>ブロックリストは外の世界には勝つが、自分のレコードには勝たない</strong> — 照合はローカルとパッケージのレコードのあと（したがって <code>gitea.default.home</code> は常に解決されます）、上位のキャッシュとフォワーダーの前に行われます。そのため、転送された応答がすでにキャッシュされていても、掲載されている名前は拒否されます。</li>
+        <li><strong>照合は名前単位で、サフィックス単位ではない</strong> — <code>doubleclick.net</code> が掲載されていても、プロバイダーがその名前も掲載していない限り <code>stats.g.doubleclick.net</code> はブロックされません。1 つのホストが掲載されたことでドメイン全体を落とすかどうかは、フィードではなくあなたが決めることです。</li>
+        <li><strong>結果は短時間キャッシュされます</strong> — 掲載はプロバイダーの TTL の間、問題なしの結果は 5 分間です。</li>
+      </ul>
+
+      <h4>DNSBL のプロバイダー</h4>
+      <p class="doc-text">
+        以下はダッシュボードでワンクリックで追加できるものです。いずれも現在も稼働中で、
+        無料であり、登録の手続きなしに自前で再帰解決するリゾルバーへ応答します。Town OS の
+        マシンはまさにそれに当たります。ほかのゾーンを手で入力することもできます。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>プロバイダー</th><th>ゾーン</th><th>対象</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus DBL</strong></td><td><code>dbl.spamhaus.org</code></td><td>最も広く使われているドメインリスト。スパムで観測されたドメインに加え、フィッシング、マルウェア配布、ボットネットの指令 (C&amp;C) ドメインを収録。5 つの中で最も網羅性が高い。</td></tr>
+            <tr><td><strong>SURBL</strong></td><td><code>multi.surbl.org</code></td><td>迷惑メールの本文に現れるドメインをまとめたリスト。フィッシングサイト、マルウェア、乗っ取られたサイト、悪用されたリダイレクターや URL 短縮サービスを含む。</td></tr>
+            <tr><td><strong>URIBL</strong></td><td><code>black.uribl.com</code></td><td>スパムメールの本文で見つかった URI。<code>black</code> ゾーンは保守的なもので、実際にスパムに現れているドメインを、誤検知を強く避ける方針で収録している。</td></tr>
+            <tr><td><strong>NordSpam DBL</strong></td><td><code>dbl.nordspam.com</code></td><td>スパムで見られたドメインを、上記のリストとは独立した情報源から収集。主軸ではなく、セカンドオピニオンとして使うのが向いている。</td></tr>
+            <tr><td><strong>Spam Eating Monkey</strong></td><td><code>uribl.spameatingmonkey.net</code></td><td>スパムの URI から抽出したドメイン。登録されたばかりのものや、短期間で捨てられるドメインも含む。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>RBL の照合の仕組み</h4>
+      <p class="doc-text">
+        <strong>IP アドレスを逆順にして、プロバイダーのゾーンの前に付けます。</strong>
+        <code>192.168.1.100</code> を <code>zen.spamhaus.org</code> で確認すると、
+        <code>100.1.168.192.zen.spamhaus.org</code> への問い合わせが発行されます。IPv6 アドレスは
+        ニブル単位に展開してから同じように逆順にします。応答があれば掲載、<code>NXDOMAIN</code>
+        なら問題なしで、結果は DNSBL とまったく同じようにキャッシュされます。
+      </p>
+      <p class="doc-text">
+        <strong>注意点として、RBL のゾーンは逆引き DNS の問い合わせ</strong>
+        （<code>in-addr.arpa</code> と <code>ip6.arpa</code>）<strong>に現れた IP に対してしか
+        参照されません</strong>。そして普通のウェブ閲覧では、そうした問い合わせはほとんど
+        発生しません。これらのリストは、メールサーバーが接続してきた送信者を拒否するために
+        存在し、そこでこそ役に立ちます。家庭用ルーターではほぼ何もしないに等しく、実際に閲覧に
+        効いてくるのは上記の DNSBL のほうです。Town OS の背後でメールサービスを運用している
+        なら有効にしてください。そうでなければ、注目すべきはドメインのリストです。
+      </p>
+
+      <h4>RBL のプロバイダー</h4>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>プロバイダー</th><th>ゾーン</th><th>対象</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Spamhaus ZEN</strong></td><td><code>zen.spamhaus.org</code></td><td>Spamhaus の 4 つのリストを 1 回の問い合わせで参照: <strong>SBL</strong>（確認済みのスパム送信元）、<strong>CSS</strong>（スノーシュースパムの活動）、<strong>XBL</strong>（乗っ取られた・感染したマシン、オープンプロキシ）、<strong>PBL</strong>（直接メールを送るべきでない動的・エンドユーザー向けの範囲）。</td></tr>
+            <tr><td><strong>SpamCop</strong></td><td><code>bl.spamcop.net</code></td><td>SpamCop の利用者による報告ネットワークから寄せられた IP。報告が止まると掲載は自動的に失効するため、反応が速く、忘れるのも速い。</td></tr>
+            <tr><td><strong>PSBL</strong></td><td><code>psbl.surriel.com</code></td><td>Passive Spam Block List。スパムトラップのアドレスに接触した IP を、自動失効付きで収録。意図的に保守的で件数も少なめ。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>あえて用意していないリスト</h4>
+      <p class="doc-text">
+        <strong>よく知られた 3 つのゾーンは、意図的にワンクリック追加の一覧から外しています。</strong>
+        いずれも<em>静かに</em>失敗するためです。プロバイダーが設定されているのを見て、
+        守られていると思い込んでしまいます。仕組みを理解しているなら、手で追加することは
+        できます。
+      </p>
+      <ul class="doc-list">
+        <li><strong>SORBS</strong>（<code>dnsbl.sorbs.net</code>） — 2024 年 6 月 5 日に運用を終了し、ゾーンは空になりました。応答はしますが、何も掲載されません。保護されているように見えて、実際には永久に何もしない状態です。</li>
+        <li><strong>Barracuda</strong>（<code>b.barracudacentral.org</code>） — 無料ですが、問い合わせ元の IP をあらかじめ登録する必要があります。未登録のマシンはしばらく使えたあと、予告なく遮断されることがあります。</li>
+        <li><strong>UCEPROTECT のレベル 2 と 3</strong> — ネットブロックや AS 単位で掲載するため、同じ ISP に迷惑な利用者が 1 人いるだけで ISP 全体がブロックされます。</li>
+      </ul>
+
+      <h4>ローカルの登録と許可リスト</h4>
+      <ul class="doc-list">
+        <li><strong>ローカルの登録</strong>（<strong>DNS &rarr; ブロックリスト</strong>） — 特定のドメインや IP を、理由を添えて手動でブロックします。ドメインの登録は正引きに対して <code>NXDOMAIN</code> を返し、即座に反映されます。これは外部のどのプロバイダーよりも先に照合されるので、フィード全体を導入せずに特定のホストだけをブロックしたいときに使います。</li>
+        <li><strong>許可リスト</strong>（<strong>DNS &rarr; 許可リスト</strong>） — 誤検知からの逃げ道です。許可された名前は、名前ベースの照合を丸ごと飛ばします。DNSBL のプロバイダーにもローカルの登録にも照合されず、プロバイダーへの問い合わせも一切発行されません。ブロックとは違い、許可は<em>サフィックス単位で</em>照合されます。<code>vendor.example</code> を許可すると <code>cdn.vendor.example</code> も許可されます。登録できるのは名前だけで IP は登録できないため、逆引き IP の RBL の経路には影響しません。</li>
+      </ul>
+
+      <h4>期待できること</h4>
+      <p class="doc-text">
+        <strong>これらのフィードはメール向けに作られており、広告向けではありません。</strong>
+        フィッシング、マルウェア、スパムのペイロードとなるドメインには非常に有効ですが、
+        広告やトラッカーに対しては平凡です。そちらはダウンロード型の hosts 形式のフィードの
+        仕事であり、Town OS はそれを意図的に取り込みません。定期的な取得も、解析も、
+        知らないうちに行われるキャッシュもありません。特定の広告やトラッカーのドメインを
+        消したい場合は、ローカルの登録として追加してください。
+      </p>
+
+      <h3>DNS でサービスを公開する</h3>
+      <p class="doc-text">
+        既定では、インストール済みのすべてのパッケージのサービスが、その
+        <a href="#networks">ネットワーク</a>の TLD の下に DNS で公開されるため、
+        名前でアクセスできます。<strong>DNS &rarr; サービス</strong>では、サービスごとに公開を
+        切り替えられます。非公開にしたサービスは動き続けますが、名前では解決できなくなります。
+        各サービスの完全修飾名は
+        <code>&lt;name&gt;.&lt;repo&gt;.&lt;tld&gt;</code> の形式です（既定のネットワークでは TLD は
+        <code>.home</code> です）。
+      </p>
+
+      <DiagramFlow title="DNS の流れ">
+        <DiagramBox label="端末" sub="スマートフォン、ノート PC など" variant="neutral">
+          <DiagramTag>DNS 問い合わせ</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="DHCP" />
+        <DiagramBox label="ルーター" sub="Town OS を DNS として配布" variant="neutral">
+          <DiagramTag>DNS = Town OS の IP</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="転送" />
+        <DiagramBox label="Town OS" sub="rolodex DNS サーバー" variant="purple">
+          <DiagramTag variant="teal">権威ゾーン</DiagramTag>
+          <DiagramTag variant="teal">上位への転送</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+
+  <!-- Trusting the CA -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="trusting-the-ca">認証局を信頼する</h2>
+      <p class="doc-text">
+        Town OS は、内部サービス向けの TLS 証明書を
+        <a href="https://gitea.com/town-os/rolodex" target="_blank" rel="noopener">rolodex</a>
+        の内蔵認証局を通じて発行します。ブラウザーが警告ではなく鍵マークを表示するには、
+        端末ごとに <strong>Rolodex のルート CA</strong> を一度だけ信頼させる必要があります。
+        取得方法は 3 通りあります&mdash;端末に合ったものを選んでください。
+      </p>
+
+      <h3>方法 1: DNS から取得する（DNS が使える場所ならどこでも）</h3>
+      <p class="doc-text">
+        rolodex は CA のチェーンを <em>DNS そのもの</em>で公開しているため、ゾーンを解決できる
+        端末であれば CA を取得できます&mdash;登録ポータルへのアクセスは不要です。
+        ルートとゾーンごとの中間証明書は <code>_ca.&lt;zone&gt;</code> の
+        <code>CERT</code> レコード（RFC&nbsp;4398）として提供され、
+        <code>_rolodex-ca.&lt;zone&gt;</code> には分割された <code>TXT</code> の代替もあります。
+      </p>
+      <pre><code># 公開されている CA レコードを見る
+dig @&lt;town-os-ip&gt; CERT _ca.example.home
+
+# ルート CA を PEM ファイルへ取り出す（ルート = 自己署名のもの）
+dig @&lt;town-os-ip&gt; +short CERT _ca.example.home</code></pre>
+      <p class="doc-text">
+        これらのレコードをブラウザーで扱うには、<strong>Rolodex のブラウザー拡張機能</strong>が
+        いちばん簡単です（rolodex リポジトリの <code>extension/</code> にあり、
+        <code>chrome://extensions</code> や Firefox の <code>about:debugging</code> から
+        展開して読み込みます）。ポップアップの <strong>CA via DNS</strong> の欄で DoH の URL
+        （<code>https://&lt;town-os-ip&gt;/dns-query</code>）とゾーンを入力すると、
+        DNS over HTTPS でチェーンを取得します。CERT レコードを優先し、必要に応じて TXT に
+        自動でフォールバックし、ホスト名を指定すれば公開されている DANE の TLSA レコードで
+        検証したうえで、ルート、中間、完全なチェーンを PEM としてダウンロードできます。
+      </p>
+
+      <h3>方法 2: 登録ポータルから取得する</h3>
+      <p class="doc-text">
+        信頼されたネットワーク上で登録ポータル（既定では
+        <code>https://&lt;town-os-ip&gt;:8500</code>）を開き、
+        <strong>Download root CA (PEM)</strong> をクリックします。同じ拡張機能や
+        <code>rolodex-ca-ui</code> のローカルコンソールからも取得できます。
+      </p>
+
+      <h3>方法 3: コマンドラインから取得する</h3>
+      <pre><code># 管理 CLI 経由（ルートと中間の PEM を出力）
+rolodex-dns-cli ensure-zone-ca --zone example.home
+
+# あるいはポータルのダウンロードを直接取得
+curl -k https://&lt;town-os-ip&gt;:8500/api/ca -o rolodex-root-ca.pem</code></pre>
+
+      <h3>端末にルート CA をインストールする</h3>
+      <p class="doc-text">
+        <code>rolodex-root-ca.pem</code> を入手したら、信頼ストアへ追加します。
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>プラットフォーム</th><th>手順</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Firefox</td><td>設定 &rarr; プライバシーとセキュリティ &rarr; 証明書 &rarr; 証明書を表示 &rarr; 認証局 &rarr; インポート（&ldquo;この認証局によるウェブサイトの識別を信頼する&rdquo; にチェック）</td></tr>
+            <tr><td>Chrome / Edge（デスクトップ）</td><td>OS の信頼ストアを使います&mdash;下の OS の行に従ってインストールし、ブラウザーを再起動してください</td></tr>
+            <tr><td>macOS</td><td>PEM をダブルクリックしてキーチェーンアクセスに追加し、SSL の項目を &ldquo;常に信頼&rdquo; に設定します</td></tr>
+            <tr><td>Linux（Fedora/RHEL）</td><td><code>sudo cp rolodex-root-ca.pem /etc/pki/ca-trust/source/anchors/ &amp;&amp; sudo update-ca-trust</code></td></tr>
+            <tr><td>Linux（Debian/Ubuntu）</td><td><code>sudo cp rolodex-root-ca.pem /usr/local/share/ca-certificates/rolodex.crt &amp;&amp; sudo update-ca-certificates</code></td></tr>
+            <tr><td>Windows</td><td>ダブルクリック &rarr; 証明書のインストール &rarr; ローカル コンピューター &rarr; &ldquo;信頼されたルート証明機関&rdquo;</td></tr>
+            <tr><td>Android</td><td>設定 &rarr; セキュリティ &rarr; 暗号化と認証情報 &rarr; 証明書をインストール &rarr; CA 証明書</td></tr>
+            <tr><td>iOS</td><td>PEM を開き（AirDrop やメール）、プロファイルをインストールしてから、設定 &rarr; 一般 &rarr; 情報 &rarr; 証明書信頼設定で有効にします</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Rolodex の ACME エンドポイントを通じて発行されたサーバーは、このルートで検証できる
+        <code>リーフ + 中間</code>のチェーンを提示します。DANE に対応したクライアントは、
+        発行時に rolodex が自動的に公開する <code>TLSA</code> レコードで中間証明書を
+        追加で検証できます。
+      </p>
+    </div>
+  </section>
+
+  <!-- Networks and Remote Access -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="networks">ネットワークとリモートアクセス</h2>
+      <p class="doc-text">
+        Town OS はサービスを<strong>ネットワーク</strong>単位でまとめます。どのマシンにも
+        <code>home</code> という組み込みのネットワークが最初からあります。これは LAN 専用で、
+        <code>.home</code> の下の名前を解決し、トンネルは持ちません。自宅の外から安全に
+        サービスへアクセスするには、ネットワークを追加してください。追加したネットワークは
+        それぞれ、独自の DNS の TLD と対になった <strong>WireGuard のオーバーレイ</strong>で、
+        <strong>ダッシュボード &rarr; ネットワーク</strong>から管理します（管理者のみ）。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-panel.webp`} alt="組み込みの home ネットワークを TLD、サブネット、ピア数、リモートアクセスの切り替えとともに一覧表示し、ネットワークを作成ボタンも備えたネットワークのページ" width="1920" height="891" loading="lazy" decoding="async" />
+      </div>
+
+      <h3>既定のネットワーク</h3>
+      <ul class="doc-list">
+        <li><strong>常に存在し、削除できません。</strong> <code>home</code> ネットワークは自動的に作成され、ほかを選ばない限りパッケージはここに配置されます。</li>
+        <li><strong>ローカル専用です。</strong> WireGuard の経路を持たないため、<code>.home</code> の名前は LAN 上でのみ解決され、リモートのピアには意図的に一切公開されません。</li>
+        <li><strong><code>.home</code> の TLD を使います。</strong>これは <code>dns_tld</code> 設定から来ています。</li>
+      </ul>
+
+      <h3 id="creating-a-network">リモートアクセス用のネットワークを作る</h3>
+      <p class="doc-text">
+        <strong>ネットワークを作成</strong>をクリックし、名前（例: <code>office</code>）と、
+        任意で TLD（既定はネットワーク名）を指定します。すると Town OS は次を行います。
+      </p>
+      <ul class="doc-list">
+        <li><code>10.64.0.0/10</code> の範囲から決定的に導いたオーバーレイのサブネットで WireGuard インターフェースを生成し、マシン自身を <code>.1</code> のアドレスにします。</li>
+        <li>そのネットワークの TLD を確保します（TLD はマシン内で一意です。ほかのネットワークがすでに持つ TLD でネットワークを作ろうとすると拒否されます）。</li>
+        <li>オーバーレイ上でネットワークごとの DNS リゾルバーを動かし、参加した端末がそのネットワークの名前を解決できるようにします。</li>
+      </ul>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-create.webp`} alt="名前と TLD の入力欄を持ち、TLD の既定値がネットワーク名であることを示すネットワーク作成ダイアログ" width="798" height="540" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        各行の<strong>リモートアクセス</strong>のスイッチで、WireGuard インターフェースを
+        起動・停止できます。オフにすると、コンテナーは動いたままローカルからは到達できる状態で、
+        リモートアクセスだけが遮断されます。
+      </p>
+
+      <h3>端末を登録する</h3>
+      <p class="doc-text">
+        ネットワークの<strong>ピア</strong>ダイアログを開き、端末名を入力して
+        <strong>ピアを追加</strong>をクリックします。Town OS はそのまま取り込める WireGuard の
+        設定を返すので、スマートフォンやノート PC の WireGuard アプリに貼り付けてください。
+      </p>
+      <p class="doc-text callout">
+        <strong>設定はその場でコピーしてください。</strong>そこには生成されたばかりの秘密鍵が
+        含まれており、保存されることはありません。あとから取得することはできず、
+        失った場合は端末を登録し直す必要があります。
+      </p>
+      <p class="doc-text">
+        生成された設定は端末の DNS をマシンのオーバーレイアドレスに向けるので、トンネルが
+        つながればネットワークの名前が自動的に解決されます。通常の端末では
+        <strong>rolodex DNS を実行する</strong>のスイッチはオフのままにしてください。
+        オンにするのは、転送先にしたい rolodex DNS サーバーをそのピア自身が動かしている
+        場合だけです。
+      </p>
+
+      <h3>WireGuard 専用アカウント</h3>
+      <p class="doc-text">
+        ダッシュボード全体を触らせずに、自分の端末だけを登録してもらいたい場合は、
+        <strong>WireGuard 専用アカウント</strong>を作成します（ユーザー作成画面の
+        チェックボックスです）。このアカウントは、
+      </p>
+      <ul class="doc-list">
+        <li><strong>特定のネットワークに限定されます</strong> — そのネットワークでのみピアを登録でき、<code>home</code> ネットワークには決して登録できません。</li>
+        <li><strong>フェイルクローズです</strong>。認証、自分のピアの登録と更新、CA の取得はできますが、コントロールプレーンのそれ以外の操作は一切できません。</li>
+        <li><strong>期限付きのピア</strong>を登録します。登録ごとに TTL（既定は 2 時間、<strong>設定 &rarr; WireGuard ピアの TTL</strong> で変更）があり、接続を保つには更新が必要です。放置された端末は自動的に期限切れになります。管理者が追加したピアは恒久的です。</li>
+      </ul>
+
+      <h3>ピアの監視と切断</h3>
+      <p class="doc-text">
+        ネットワークのページにある<strong>接続中のピア</strong>のパネルには、すべての
+        ネットワークにまたがる登録済みのピアが、ハンドシェイクの状態、オーバーレイの IP、
+        転送量、期限とともに一覧表示されます。端末を強制的に切り離すには
+        <strong>切断</strong>を使います。ピアが削除され、トンネルは直ちに落とされ、鍵は
+        失効するため、その端末は再び登録されるまで接続できません。
+      </p>
+
+      <h3 id="installing-packages-on-a-network">ネットワークを指定してパッケージをインストールする</h3>
+      <p class="doc-text">
+        インストールのダイアログ（および <a href="#pages">ページ</a>のダイアログ）には
+        <strong>ネットワーク</strong>の選択欄があります。
+        どのネットワークを選ぶかによって、そのサービスの DNS 名と
+        <a href="#trusting-the-ca">TLS 証明書</a>が決まります。<code>office</code> に
+        インストールしたパッケージは <code>.office</code> の下で解決され、証明書もその名前で
+        発行されます。既定以外のネットワーク上のサービスはデュアルホームになり、トンネル越しの
+        ピアにはオーバーレイのアドレス、ローカルのクライアントには LAN のアドレスとして
+        解決されます。別のネットワークでパッケージを入れ直すと、DNS と証明書もその
+        ネットワークの TLD へ移ります。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-install.webp`} alt="パッケージの設定項目の上に「このパッケージを提供するネットワーク」と書かれたネットワーク選択欄がある jitsi のインストールダイアログ" width="768" height="625" loading="lazy" decoding="async" />
+      </div>
+      <p class="doc-text">
+        たとえば <code>fart</code> という TLD のネットワークに Jitsi をインストールすると、
+        <code>jitsi.default.fart</code> で公開されます。起動すると、そのサービスは
+        <strong>ダッシュボード</strong>にそのアドレスへのリンクとして表示され、ネットワーク上の
+        どの端末からでも開けます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/networks-dashboard.webp`} alt="https://jitsi.default.fart/ へのリンク付きで jitsi を表示するダッシュボードのインストール済みサービス一覧" width="1546" height="414" loading="lazy" decoding="async" />
+      </div>
+
+      <DiagramFlow title="ネットワーク越しのリモートアクセス">
+        <DiagramBox label="あなたの端末" sub="スマートフォンやノート PC" variant="neutral">
+          <DiagramTag>WireGuard</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="トンネル" />
+        <DiagramBox label="Town OS" sub="ネットワークのオーバーレイと DNS" variant="purple">
+          <DiagramTag variant="purple">office のサブネット</DiagramTag>
+          <DiagramTag variant="teal">.office の TLD</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="名前解決" />
+        <DiagramBox label="あなたのサービス" sub="名前でアクセスできる" variant="teal">
+          <DiagramTag variant="teal">gitea.default.office</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Town OS on Android -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="android-app">Android 版 Town OS</h2>
+      <p class="doc-text">
+        <a href="https://github.com/town-os/android-client" target="_blank" rel="noopener">Town OS の
+        Android クライアント</a>は、スマートフォンを WireGuard 経由であなたの
+        <a href="#networks">ネットワーク</a>のひとつに接続し、DNS を設定してサービスを名前で
+        解決できるようにします&mdash;どこからでも。端末をピアとして自動的に登録してくれる
+        本格的な WireGuard クライアントなので、設定ファイルを手でコピーする必要はありません。
+      </p>
+
+      <div class="phone-shots">
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-login.webp`} alt="Town OS Android クライアントのログイン画面 — マシンのアドレス、管理者のユーザー名、パスワードの入力欄を持つ接続カード" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>マシンにログインする</figcaption>
+        </figure>
+        <figure class="phone-shot">
+          <img src={`${base}images/screenshots/android-connection.webp`} alt="Town OS Android クライアントの接続画面 — DNS リゾルバー設定カードの上に、接続と このネットワークを削除 のボタンを備えた未接続の状態表示" width="1080" height="2424" loading="lazy" decoding="async" />
+          <figcaption>接続と DNS を管理する</figcaption>
+        </figure>
+      </div>
+
+      <h3>アプリのインストール</h3>
+      <p class="doc-text">
+        アプリはプロジェクトの
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">リリースページ</a>
+        から APK として配布されています。Play ストアや F-Droid にはありません。
+      </p>
+      <ul class="doc-list">
+        <li><strong>デバッグ版の APK</strong>（<code>town-os-client-&lt;version&gt;-debug.apk</code>）をダウンロードしてください。同じリリースにある <code>-unsigned.apk</code> はそのままではインストールできません。プロジェクトは署名鍵を配布していないため、入手すべきはデバッグ版です。</li>
+        <li><strong>Android 8.0（Oreo）以降</strong>が必要です。</li>
+        <li>自分でビルドしたい場合は、リポジトリをクローンし、USB で端末を接続して USB デバッグを有効にしたうえで <code>make deps &amp;&amp; make debug &amp;&amp; make install</code> を実行します。<code>make help</code> にすべてのターゲットが載っています。</li>
+      </ul>
+      <p class="doc-text">
+        インストールの方法は 2 通りあります。スマートフォンだけで行う方法と、コンピューターから
+        USB 経由で行う方法です。前者に必要なのはスマートフォンだけです。
+      </p>
+
+      <h4>スマートフォンだけでインストールする</h4>
+      <p class="doc-text">
+        コンピューターもケーブルも、<strong>開発者モードも不要</strong>です。開発者向けオプションと
+        USB デバッグが関係するのは、後述の <code>adb</code> を使う方法だけです。Android が求めるのは、
+        ストア以外から来たアプリをインストールする許可だけです。
+      </p>
+      <ol class="doc-list">
+        <li><strong>スマートフォンのブラウザーで APK をダウンロードします。</strong><a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">リリースページ</a>を開き、<code>town-os-client-&lt;version&gt;-debug.apk</code> のアセットをタップします。ブラウザーは「この種類のファイルは端末に有害な可能性があります」と警告しますが、これはどの APK でも表示されるものです。<strong>ダウンロードを続行</strong>を選んでください。</li>
+        <li>ダウンロードの通知、ブラウザーの<strong>ダウンロード</strong>一覧、またはファイルアプリから<strong>開きます</strong>。</li>
+        <li><strong>提供元を許可します。</strong>初回は、開こうとしたアプリに不明なアプリをインストールする権限がないと表示され、<strong>設定</strong>ボタンが示されます。それをタップして、そのアプリ（ブラウザーやファイルマネージャー）に対して<strong>この提供元を許可</strong>をオンにし、戻ります。同じ設定は<strong>設定 &rarr; アプリ &rarr; 特別なアプリアクセス &rarr; 不明なアプリのインストール</strong>にもあります。</li>
+        <li><strong>インストールをタップします。</strong>Play プロテクトがスキャンを提案したり、提供元が不明な開発者であると警告したりすることがありますが、サイドロードしたビルドでは想定どおりです。<strong>インストール</strong>を選んでください。</li>
+        <li>インストールが終わったら、アプリ一覧から <strong>Town OS</strong> を開きます。</li>
+      </ol>
+      <p class="doc-text">
+        先にコンピューターから APK をコピーしておき（USB のファイル転送、<code>adb push</code>、
+        各種の同期アプリなど）、ファイルマネージャーで開く方法でもまったく同じように動作します。
+      </p>
+
+      <h4>開発者モードを有効にする</h4>
+      <p class="doc-text">
+        これが必要なのは <code>adb</code> を使う方法だけで、スマートフォン自身のダウンロードから
+        APK をインストールするなら不要です。<code>adb install</code> と <code>make install</code> は
+        どちらも USB デバッグ経由で端末とやり取りしますが、これは Android の隠された
+        <strong>開発者向けオプション</strong>のメニューの中にあります。
+      </p>
+      <ol class="doc-list">
+        <li><strong>設定 &rarr; デバイス情報</strong>を開きます。Samsung の端末では<strong>設定 &rarr; デバイス情報 &rarr; ソフトウェア情報</strong>です。</li>
+        <li><strong>ビルド番号</strong>を 7 回タップします。Android は「開発者になるまであと 3 ステップです」のようにカウントダウンし、完了前に PIN、パターン、パスワードの入力を求めます。</li>
+        <li><strong>これでデベロッパーになりました</strong>というメッセージが表示されます。その後<strong>開発者向けオプション</strong>が<strong>設定 &rarr; システム</strong>に現れます。端末によっては設定の最上位に置かれることもあるので、見当たらない場合は設定内を検索してください。</li>
+        <li><strong>開発者向けオプション</strong>を開き、<strong>USB デバッグ</strong>をオンにします。</li>
+        <li>スマートフォンをコンピューターに接続します。Android がコンピューターの鍵のフィンガープリントとともに<em>USB デバッグを許可しますか？</em>というダイアログを表示するので、<strong>このパソコンからのアクセスを常に許可する</strong>にチェックを入れて許可します。<code>adb devices</code> を実行し、端末が <code>unauthorized</code> ではなく <code>device</code> として表示されることを確認してください。</li>
+      </ol>
+      <p class="doc-text">
+        作業が終わったら <strong>USB デバッグ</strong>はオフに戻してください。許可したすべての
+        コンピューターに、デバッグブリッジ経由でスマートフォンへの完全なアクセスを与えるため、
+        日常的にオンのままにしておくのは不要なリスクです。
+      </p>
+
+      <h4>リポジトリなしで adb からインストールする</h4>
+      <p class="doc-text">
+        USB 経由でインストールするのに、クライアントのソースツリーは必要ありません。
+        <code>make install</code> は単なる便利なラッパーです。<code>adb</code> を使う方法に必要なのは、
+        公開された APK と <code>adb</code> のバイナリだけで、後者は Google の
+        <strong>Android SDK Platform Tools</strong> に含まれています。
+      </p>
+      <ul class="doc-list">
+        <li><strong>Ubuntu / Debian</strong> — <code>sudo apt install adb android-sdk-platform-tools-common</code>。2 つ目のパッケージには、root なしで自分のユーザーアカウントから端末へアクセスするための udev ルールが入っています。インストール後はスマートフォンを挿し直してください。</li>
+        <li><strong>Arch / Manjaro</strong> — <code>sudo pacman -S android-tools android-udev</code> を実行し、<code>sudo usermod -aG adbusers $USER</code> で自分を <code>adbusers</code> グループに入れて、ログインし直します。</li>
+        <li><strong>macOS</strong> — <code>brew install --cask android-platform-tools</code>。ほかに設定は不要で、macOS はドライバーなしで端末とやり取りできます。</li>
+        <li><strong>Windows</strong> — PowerShell で <code>winget install Google.PlatformTools</code> を実行するか、下記の ZIP を入手します。ほとんどの端末は Windows が自動で入れるドライバーで動作しますが、一部のメーカー（Samsung、Xiaomi）は独自の USB ドライバーを入れないと <code>adb</code> が端末を認識しません。</li>
+        <li><strong>その他のシステム</strong> — Google の
+          <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" rel="noopener">platform-tools の ZIP</a>
+          をダウンロードして、好きな場所に展開します。インストール作業はありません。そのフォルダーから
+          <code>adb</code> を実行してください（Windows では <code>.\adb.exe</code>）。</li>
+      </ul>
+      <p class="doc-text">
+        <code>adb version</code> で導入できたことを確認します。続いて
+        <a href="https://github.com/town-os/android-client/releases" target="_blank" rel="noopener">リリースページ</a>
+        からデバッグ版の APK をダウンロードし、上記のとおり USB デバッグを有効にして、
+        スマートフォンを接続してから次を実行します。
+      </p>
+      <pre><code># 端末が接続され、許可されていることを確認する
+adb devices
+
+# APK をインストールする
+adb install town-os-client-&lt;version&gt;-debug.apk</code></pre>
+      <p class="doc-text">
+        つまずきやすい点をいくつか挙げます。
+      </p>
+      <ul class="doc-list">
+        <li><strong><code>no devices/emulators found</code></strong> — ケーブルが充電専用であるか、端末側でこのコンピューターを許可していません。ケーブルを挿し直し、端末の画面に出る<em>USB デバッグを許可しますか？</em>の確認を探してください。</li>
+        <li><strong>Linux での <code>no permissions</code></strong> — 上記の udev ルールのパッケージが入っていないか、それを入れる前に端末を接続していました。パッケージを入れ、端末を挿し直して、<code>adb kill-server &amp;&amp; adb devices</code> を実行してください。</li>
+        <li><strong><code>INSTALL_FAILED_UPDATE_INCOMPATIBLE</code></strong> — 別の鍵で署名されたものがすでにインストールされています。以前に自分でビルドした場合に起こります。古いアプリを削除して（アプリ一覧で長押しするか、<code>adb shell pm list packages town</code> で調べたパッケージ名を <code>adb uninstall</code> に渡します）、もう一度インストールしてください。</li>
+        <li><strong>上書き更新</strong> — <code>adb install -r town-os-client-&lt;version&gt;-debug.apk</code> は、既存のインストールをデータを保ったまま置き換えます。どちらもリリースページから入手したものである必要があります。</li>
+        <li>ここでの操作は端末のストレージに何も残しません。<code>adb install</code> は転送とインストールを 1 度に行うため、あとからファイルマネージャーでファイルを探す必要はありません。</li>
+      </ul>
+
+      <h3>接続する前に</h3>
+      <ul class="doc-list">
+        <li><strong>先にネットワークを作成してください。</strong>アプリが参加できるのは WireGuard のオーバーレイを持つネットワークだけです。組み込みの <code>home</code> ネットワークは LAN 専用なので表示されません。<a href="#creating-a-network">リモートアクセス用のネットワークを作る</a>を参照してください。</li>
+        <li><strong>管理者アカウントを用意しておいてください。</strong>端末の登録は管理者の操作なので、アプリは管理者の資格情報でサインインします。</li>
+      </ul>
+
+      <h3>ネットワークに接続する</h3>
+      <ol class="doc-list">
+        <li><strong>マシンにログインします。</strong>アドレス（IP だけ、<code>IP:port</code>、完全な URL のいずれか。ポートは <code>5309</code> が既定です）と、管理者のユーザー名・パスワードを入力します。</li>
+        <li><strong>ネットワークに参加します。</strong>アプリは参加できるネットワークを、TLD、サブネット、ピア数とともに一覧表示します。端末に名前を付けて（既定はスマートフォンの機種名）、<strong>参加</strong>をタップします。WireGuard の鍵ペアは端末上で生成され、送られるのは公開鍵だけなので、秘密鍵が端末から出ることはありません。</li>
+        <li><strong>接続します。</strong><strong>接続</strong>をタップし、Android の<em>接続リクエスト</em>（VPN）の確認を許可します。アプリがトンネルを張り、ネットワークの TLD を検索ドメインとして設定するので、<code>gitea</code> でも <code>gitea.default.&lt;tld&gt;</code> でも解決できます。</li>
+        <li>これでどこからでも名前でネットワークにアクセスできます。トンネルを切るには<strong>切断</strong>を、保存された登録を消すには<strong>このネットワークを削除</strong>を使います。</li>
+      </ol>
+
+      <h3>トラブルシューティング</h3>
+      <ul class="doc-list">
+        <li><strong>トンネルはつながっているのに名前が解決されない。</strong>たいていの原因は Android の厳格な<strong>プライベート DNS</strong> です。特定のプロバイダーのホスト名に設定されていると、Android はすべての問い合わせをそこへ送りトンネルを無視するため、Town OS の名前は「見つかりません」となります。<strong>設定 &rarr; ネットワークとインターネット &rarr; プライベート DNS</strong> を<strong>自動</strong>か<strong>オフ</strong>に切り替えてください。アプリはこれを検出し、その設定への近道つきで警告を表示します。（自動モードなら問題なく、警告も出ません。）</li>
+        <li><strong>それでも解決しない場合は？</strong>アプリの DNS のカードで、<strong>リゾルバーの上書き</strong>にマシンの LAN アドレスを設定してください。アプリがトンネル経由で転送するので、スプリットホライズン DNS もそのまま機能します。</li>
+        <li><strong>マシンの再起動後にログアウトされる。</strong>Town OS は再起動時にすべてのセッションを消去します。もう一度ログインしてください。</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Building VMs -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-vms">USB イメージから VM を作る</h2>
+      <p class="doc-text">
+        <a href="https://gitea.com/town-os/install" target="_blank" rel="noopener">install</a>
+        リポジトリには、Town OS を仮想マシンで起動するためのスクリプトが含まれており、
+        テストや開発に便利です。<a href="#building-the-usb-image">ソースからビルドした</a>
+        イメージからでも、<a href="#qemu-usb">すでに書き込んだ物理 USB メモリ</a>から
+        直接でも起動できます。
+        <code>make help</code> にすべてのターゲットと変数が載っています。
+      </p>
+
+      <h3 id="qemu">QEMU</h3>
+      <pre><code>make qemu-fg</code></pre>
+      <p class="doc-text">
+        イメージが古ければビルドし直したうえで、シリアルコンソールを接続し、KVM による
+        アクセラレーションと、ストレージのテスト用の 4 台の仮想データディスクを備えた
+        QEMU の VM を<strong>フォアグラウンド</strong>で起動します。まずはこのターゲットを
+        使ってください。起動とインストーラーの様子を端末上で直接確認でき、Ctrl-C で VM を
+        止められます。バックグラウンドで動かしたい場合は <code>make qemu</code> を使い
+        （あとから <a href="#serial-console"><code>make serial</code></a> で接続します）、
+        停止・クリーン・再ビルド・再起動を一度に行うには <code>make rebuild-qemu</code> を使います。
+      </p>
+      <p class="doc-text">
+        VM は <code>virbr0</code> 上の libvirt の <code>default</code> NAT ネットワークに接続され、
+        <code>VM_IP</code>（既定は <code>192.168.122.50</code>）に固定されるため、同時に動かす
+        VM にはそれぞれ別のアドレスを割り当ててください。
+      </p>
+      <p class="doc-text">
+        ゲストは NAT 配下にあるため、<code>VM_LAN=1</code>（既定）は制御 API
+        （<code>5309</code>）、UI（<code>80</code>/<code>443</code>）、ssh
+        （<code>2222</code>）、WireGuard の UDP ポートを、ホストの LAN アドレスから
+        ゲストへ中継します。これにより、<a href="#android-app">Android クライアント</a>を
+        動かしているスマートフォンから VM へアクセスできます。中継を無効にするには
+        <code>VM_LAN=0</code> を設定します。
+      </p>
+
+      <h3 id="qemu-usb">物理 USB から起動する（qemu-usb）</h3>
+      <pre><code>make qemu-usb USB_DEV=/dev/sdX</code></pre>
+      <p class="doc-text">
+        ビルドしたイメージではなく、書き込み済みの物理 USB メモリから直接 QEMU を
+        フォアグラウンドで起動します。書き込んだばかりのメモリが実際に起動するかを
+        確かめるのに便利です。デバイスは<strong>読み取り専用</strong>（スナップショット）で
+        開かれるため、ゲスト側の書き込みは破棄され、実際の USB は変更されません。
+        ストレージのテスト用に 4 台の仮想データディスクも接続されます。このターゲットは
+        何もビルドしません。install リポジトリをクローンし、<code>install.sh</code> か
+        <code>make flash</code> でメモリに書き込んでから、<code>USB_DEV</code> をそれに
+        向けてください。x86_64 のホストでは、<code>TARGET=aarch64</code>（または
+        <code>rpi</code>）を指定するとシステム全体のエミュレーションでメモリを起動できるので、
+        対応するハードウェアがなくても別アーキテクチャのイメージをテストできます。
+      </p>
+
+      <h3 id="stopping-vms">停止と後片付け</h3>
+      <pre><code># VM を停止する
+make stop
+
+# VM を停止し、イメージと仮想ディスクを削除する
+make clean</code></pre>
+
+      <h3 id="vm-environment-variables">環境変数</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>変数</th><th>既定値</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>IMAGE_SIZE</code></td><td>12G</td><td>USB イメージのビルド時のスパースサイズ（イメージはあとで縮小されます）</td></tr>
+            <tr><td><code>VM_DISK_SIZE</code></td><td>50G</td><td>4 台の仮想データディスクそれぞれのサイズ（<code>town-os.yaml</code> の <code>vm_disk_size</code> から読み取られます）</td></tr>
+            <tr><td><code>VM_MEMORY</code></td><td>4G</td><td>VM のメモリ</td></tr>
+            <tr><td><code>VM_CPUS</code></td><td>4</td><td>VM の vCPU 数。QEMU の既定である 1 では rolodex のワーカープールが枯渇します</td></tr>
+            <tr><td><code>VM_BRIDGE</code></td><td>virbr0</td><td>ネットワーク用のホストブリッジのインターフェース</td></tr>
+            <tr><td><code>VM_NAME</code></td><td>town-os</td><td>VM の名前。停止時の検索にも使われます</td></tr>
+            <tr><td><code>VM_IP</code></td><td>192.168.122.50</td><td>libvirt の DHCP 予約。同時に動かす VM にはそれぞれ別のアドレスを割り当ててください</td></tr>
+            <tr><td><code>VM_LAN</code></td><td>1</td><td>NAT 配下のゲストのポートをホストの LAN アドレスへ中継します。<code>0</code> で無効</td></tr>
+            <tr><td><code>USB_DEV</code></td><td>—</td><td><code>make flash</code>（書き込み）と <code>make qemu-usb</code>（読み取り専用の起動）で使う物理ブロックデバイス</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="serial-console">シリアルコンソール</h3>
+      <pre><code># VM のシリアルコンソールに接続する
+make serial
+
+# または socat で手動で接続する
+socat -,rawer,escape=0x1d unix-connect:/tmp/town-os-serial.sock
+
+# Ctrl-] で切断</code></pre>
+
+      <h3 id="finding-the-vm">VM を見つける</h3>
+      <pre><code># VM の IP アドレスを取得する
+make vm-ip
+
+# またはホストから mDNS で接続する
+ssh root@town-os.local</code></pre>
+
+      <DiagramFlow title="VM のネットワーク">
+        <DiagramBox label="ホストマシン" sub="virbr0 — libvirt の default ネットワーク" variant="neutral">
+          <DiagramTag>QEMU</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="NAT" />
+        <DiagramBox label="Town OS の VM" sub="Town OS のスタック一式" variant="purple">
+          <DiagramTag variant="purple">192.168.122.50</DiagramTag>
+          <DiagramTag variant="teal">eth0</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="VM_LAN の中継" />
+        <DiagramBox label="ローカルネットワーク" sub="スマートフォンや LAN の端末から VM へ" variant="teal">
+          <DiagramTag variant="teal">5309 · 80 · 443 · WireGuard</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- RAID and ZFS -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="raid-installation">RAID のインストール</h2>
+      <p class="doc-text">
+        ディスクのプロビジョニングは、初回起動時に
+        <a href="https://github.com/erikh/ttyforce" target="_blank" rel="noopener">ttyforce</a>
+        が対話形式で行います。ストレージはすべて btrfs を使います。
+      </p>
+
+      <h3>RAID の自動選択</h3>
+      <p class="doc-text">
+        ttyforce は利用できるディスクを検出し、転送方式（NVMe、SATA など）とサイズの近さで
+        グループ化してから、ディスクの台数に応じて RAID レベルを自動的に選びます。
+      </p>
+      <ul class="doc-list">
+        <li><strong>1 台</strong> — single モード（冗長性なし）</li>
+        <li><strong>2 台</strong> — RAID 1（btrfs のミラー）</li>
+        <li><strong>3 台以上</strong> — RAID 5（btrfs のパリティ付きストライプ）</li>
+      </ul>
+      <p class="doc-text">
+        既定のマウントポイントは <code>/town-os</code> です。ttyforce は overlayfs 互換の
+        永続化のために <code>@etc</code> と <code>@var</code> のサブボリュームを作成します。
+      </p>
+
+      <h3>ディスクの検出</h3>
+      <p class="doc-text">
+        ttyforce は利用できるストレージデバイスを自動的に検出します。NVMe ドライブ、
+        SATA/SAS ドライブ、SD カードを識別する一方で、起動元の USB デバイスとリムーバブル
+        メディアは除外します。この検出により、Town OS が起動元のドライブに触れることは
+        決してありません。
+      </p>
+
+      <h3>オーバーレイファイルシステム</h3>
+      <p class="doc-text">
+        ストレージのバックエンドにかかわらず、Town OS は <code>/var</code> と
+        <code>/etc</code> の永続化にオーバーレイマウントを使います。下位のレイヤーは
+        squashfs のルートから来ており、上位のレイヤーは RAID/ZFS のストレージ上にあります。
+        これにより、ベースの OS はイミュータブルなまま、システムの設定とサービスのデータは
+        再起動をまたいで保持されます。
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">ストレージの構成</div>
+        <div class="flex flex-col gap-3">
+          <!-- Disk types -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="NVMe" sub="高速 SSD" variant="neutral" />
+            <DiagramBox label="SATA / SAS" sub="HDD または SSD" variant="neutral" />
+            <DiagramBox label="SD カード" sub="リムーバブル" variant="neutral" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr; <span class="text-town-muted text-xs">検出</span></span></div>
+          <!-- RAID layer -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="btrfs single" sub="1 台" variant="purple" />
+            <DiagramBox label="btrfs RAID 1" sub="2 台（ミラー）" variant="purple" />
+            <DiagramBox label="btrfs RAID 5" sub="3 台以上（パリティ）" variant="purple" />
+          </div>
+          <div class="flex justify-center"><span class="text-town-accent">&darr;</span></div>
+          <!-- Output -->
+          <div class="flex flex-col sm:flex-row gap-2">
+            <DiagramBox label="サブボリューム" sub="パッケージごとのストレージ" variant="teal">
+              <DiagramTag variant="teal">pkg-a</DiagramTag>
+              <DiagramTag variant="teal">pkg-b</DiagramTag>
+            </DiagramBox>
+            <DiagramBox label="オーバーレイマウント" sub="永続化するシステムのディレクトリ" variant="teal">
+              <DiagramTag variant="teal">/var</DiagramTag>
+              <DiagramTag variant="teal">/etc</DiagramTag>
+            </DiagramBox>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Using the UI -->
+  <section class="section ui-section">
+    <div class="container">
+      <h2 class="section-title" id="using-the-ui">ユーザーインターフェースの使い方</h2>
+      <p class="doc-text">
+        Town OS には、サーバーを管理するためのすっきりしたウェブダッシュボードが用意されています。
+        起動後、ブラウザーを開いて Town OS マシンの IP アドレスか
+        <code>http://town-os.local</code> にアクセスしてください。
+      </p>
+
+      <h3>初回起動: アカウントの作成</h3>
+      <p class="doc-text">
+        初回起動時に、管理者アカウントの作成を求められます。ユーザー名とパスワードを
+        決めてください。このアカウントはシステムを完全に制御できます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/create-account.webp`} alt="アカウント作成画面" width="2400" height="1183" loading="lazy" />
+      </div>
+
+      <h3>ダッシュボード</h3>
+      <p class="doc-text">
+        ダッシュボードにはシステムの概要が表示されます。インストール済みのパッケージが
+        状態インジケーターとクイック操作を備えたサービスカードとして並び、システムの状態が
+        ひと目でわかります。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/dashboard.webp`} alt="ダッシュボードの概要" width="2400" height="1187" loading="lazy" />
+      </div>
+
+      <h3>パッケージの閲覧とインストール</h3>
+      <p class="doc-text">
+        パッケージのビューでは、利用できるパッケージを検索し、詳細を確認し、案内に沿って
+        インストールできます。各パッケージの質問はフォームとして表示されるので、ホスト名、
+        ポート、その他の設定を入力してインストールをクリックします。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/packages.webp`} alt="パッケージの一覧" width="2400" height="1191" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/installation.webp`} alt="パッケージのインストール時の入力" width="2400" height="1189" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/install-details.webp`} alt="インストールの詳細" width="2400" height="1184" loading="lazy" />
+      </div>
+
+      <h3>サービスの管理</h3>
+      <p class="doc-text">
+        インストール済みのサービスは、サービスのビューから開始、停止、再起動できます。
+        状態インジケーターは、各サービスが稼働中か、停止中か、エラー状態かを示します。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/services.webp`} alt="サービスの管理" width="2400" height="1186" loading="lazy" />
+      </div>
+
+      <h3>ログの表示</h3>
+      <p class="doc-text">
+        ログのビューでは、ジャーナルの出力をリアルタイムに表示し、フィルタリングや grep が
+        行えます。サービス、優先度で絞り込んだり、特定の文字列を検索したりできます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/logs.webp`} alt="ログビューアー" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>ストレージの管理</h3>
+      <p class="doc-text">
+        btrfs のサブボリュームを確認・管理し、パッケージごとのクォータを設定し、
+        ストレージプール全体のディスク使用量を監視できます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/storage.webp`} alt="ストレージの管理" width="2400" height="1190" loading="lazy" />
+      </div>
+
+      <h3>モニタリング</h3>
+      <p class="doc-text">
+        Town OS には Prometheus と Node Exporter による監視機能が組み込まれており、
+        システムのメトリクス、サービスの状態、リソース使用量の推移を追跡できます。
+        既定では軽量な組み込みダッシュボードが使われ、任意で Grafana に切り替えられます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/monitoring.webp`} alt="モニタリングのダッシュボード" width="2400" height="1188" loading="lazy" />
+      </div>
+
+      <h3>設定と監査ログ</h3>
+      <p class="doc-text">
+        設定のページでは、システム全体のオプションを構成できます。監査ログは、インストール、
+        アンインストール、サービスの状態変更、設定の変更など、すべての管理操作を記録するので、
+        何がいつ変わったのかを常に把握できます。
+      </p>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/settings.webp`} alt="設定" width="2400" height="1186" loading="lazy" />
+      </div>
+      <div class="screenshot-ref">
+        <img src={`${base}images/screenshots/auditlog.webp`} alt="監査ログ" width="2400" height="1188" loading="lazy" />
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Hosting Static Sites -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="pages">静的サイトのホスティング</h2>
+      <p class="doc-text">
+        コンテナー化されたパッケージ以外に、Town OS には<strong>静的サイトのホスティング</strong>が
+        組み込まれています。常時有効で、<strong>ダッシュボード &rarr; ページ</strong>から
+        管理します。各ページはイングレスの背後にある共有のウェブサーバーが配信し、
+        パッケージと同じように<a href="#networks">ネットワーク</a>の TLD の下で DNS 名と
+        TLS 証明書を得ます。
+      </p>
+
+      <h3>コンテンツのソース</h3>
+      <p class="doc-text">
+        ページを作成するときは、<strong>名前</strong>、<strong>ドメイン</strong>
+        （既定は名前と同じ）、<strong>ネットワーク</strong>（既定は <code>home</code>）と、
+        3 種類のコンテンツソースのいずれかを選びます。
+      </p>
+      <ul class="doc-list">
+        <li><strong>アーカイブのアップロード</strong> — サイトの tarball をアップロードします。アーカイブをアップロードするまで、ページは保留状態で待機します。</li>
+        <li><strong>git リポジトリ</strong> — リポジトリの URL からクローンします。ブランチを指定できるので（既定は <code>main</code>）、<code>gh-pages</code> に公開しているサイトにも便利です。</li>
+        <li><strong>コンテナーイメージ</strong> — OCI イメージからディレクトリを取り出します。</li>
+      </ul>
+      <p class="doc-text">
+        git とコンテナーのページは非同期にプロビジョニングされます。一覧には
+        <strong>プロビジョニング中…</strong>のバッジが表示され、有効かエラーに変わります。
+        git とコンテナーのページで最新のコンテンツを取得するには<strong>再ビルド</strong>を
+        使います。アーカイブのページの場合は、新しい tarball をアップロードしてください。
+      </p>
+
+      <h3>ページの配信のしくみ</h3>
+      <p class="doc-text">
+        各ページは専用のストレージのサブボリューム上にあり、ポート 80 の HTTP で直接配信されます。
+        一方、パッケージのサービスはポート 80 を HTTPS へリダイレクトします。ページはネットワークを
+        持つため、その名前はネットワークの TLD の下で解決され、LAN から、そしてネットワークが
+        WireGuard のオーバーレイであれば登録済みのリモート端末からもアクセスできます。
+      </p>
+    </div>
+  </section>
+
+  <!-- Updating Town OS -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="updating">Town OS の更新</h2>
+      <p class="doc-text">
+        Town OS は、ダッシュボードからコアサービスをその場で更新します。
+        <strong>システム管理</strong>にある<strong>コアサービスの更新</strong>ボタンを押すと、
+        最新のコンテナーイメージを取得し、すべてのコアサービスを再起動します。システム
+        コントローラー自身も対象で、これがマシンの自己更新の仕組みです。
+      </p>
+
+      <h3>更新中に何が起こるか</h3>
+      <ul class="doc-list">
+        <li>イメージの取得とサービスの再起動は依存順に行われます。まずシステムコントローラー（自身を再起動する前に新しいイメージを用意するため）、次に DNS、最後にそれ以外です。</li>
+        <li>コントローラーが再起動するとログインセッションは意図的にリセットされます。そのためダッシュボードは、更新中はログイン画面へ飛ばす代わりに、通常のセッション確認を控えます。</li>
+        <li>進捗は 5 段階のステッパーで表示されます: <strong>システムコントローラーの起動</strong> &rarr; <strong>DNS の起動</strong> &rarr; <strong>システムサービスの開始</strong> &rarr; <strong>パッケージの再起動</strong>（インストール済みパッケージごとに 1 行）&rarr; <strong>完了</strong>。</li>
+        <li>更新が終わると、ダッシュボードは勝手に再読み込みするのではなく<strong>再読み込み</strong>ボタンを表示します。</li>
+      </ul>
+      <p class="doc-text">
+        この 5 段階は通常の起動時のプロビジョニング画面にも表示されるので、パッケージごとに
+        起動の進み具合を確認できます。
+      </p>
+    </div>
+  </section>
+
+  <!-- Building a Package -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="building-a-package">パッケージを作る</h2>
+      <p class="doc-text">
+        Town OS のパッケージは、コンテナー化されたサービスの動かし方を記述した YAML ファイルです。
+        完全な仕様は<a href={L('packaging/')}>パッケージング形式</a>のリファレンスを
+        参照してください。この節では実際の作業の流れを説明します。
+      </p>
+
+      <h3>リポジトリの構造</h3>
+      <p class="doc-text">
+        パッケージリポジトリは、<code>packages/</code> ディレクトリを持つ git リポジトリです。
+        各パッケージは、バージョンごとの YAML 定義を収めたサブディレクトリを持ちます。
+      </p>
+      <pre><code>my-packages/
+  packages/
+    my-app/
+      1.0.yaml
+      2.0.yaml</code></pre>
+
+      <h3>パッケージ定義を書く</h3>
+      <p class="doc-text">
+        最小限のパッケージに必要なのは <code>image</code> フィールドだけです。一般的な
+        パッケージには、説明、ネットワーク、ボリューム、利用者向けの質問が含まれます。
+      </p>
+      <pre><code>image: myapp:latest
+description: My custom application
+supplies: ["http"]
+network:
+  external:
+    "@port@": "8080"
+volumes:
+  data:
+    mountpoint: /app/data
+    quota: 5gb
+questions:
+  port:
+    query: "What external port should this app use?"
+    type: port
+    default: "9000"
+notes:
+  URL:
+    value: "http://@LOCAL_EXTERNAL_HOST@:@port@"
+    type: url</code></pre>
+      <p class="doc-text">
+        質問には、自由入力のテキストや <code>port</code> のほかにもいくつかの型があります。
+        <code>secret</code>（空欄なら自動生成）、<code>boolean</code>（チェックボックスとして表示）、
+        <code>oauth</code>（提供元のデバイスフローを実行してトークンを取得する
+        <strong>接続</strong>ボタン）などで、どの質問も <code>optional: true</code> を指定すれば
+        空欄のままにできます。すべての一覧は、パッケージング形式のリファレンスの
+        <a href={`${L('packaging/')}#questions`}>質問</a>を参照してください。インストール時には、
+        そのパッケージを提供する<a href="#installing-packages-on-a-network">ネットワーク</a>も
+        運用者が選びます。
+      </p>
+
+      <h3>テンプレートの仕組み</h3>
+      <p class="doc-text">
+        質問の回答や組み込み変数（<code>@LOCAL_EXTERNAL_HOST@</code>、
+        <code>@LOCAL_INTERNAL_HOST@</code>）を参照するには <code>@variable@</code> 構文を使います。
+        テンプレートは環境変数、ポートマッピング、クォータ、ノートの値で機能します。
+      </p>
+
+      <h3>ローカルでテストする</h3>
+      <p class="doc-text">
+        パッケージのテストには<a href="#dev-environment">開発環境</a>を使ってください。
+        リポジトリをディスク上に置き、UI か <code>repositories.json</code> から追加して、
+        自分のパッケージをインストールします。開発環境は、テスト用に Town OS のスタック一式を
+        提供します。
+      </p>
+
+      <h3>リポジトリを追加する</h3>
+      <p class="doc-text">
+        自分のパッケージリポジトリは、UI から
+        （<strong>パッケージ → リポジトリ → リポジトリを追加</strong>）、または
+        <code>repositories.json</code> を直接編集して Town OS に追加します。
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+
+      <DiagramFlow title="パッケージのライフサイクル">
+        <DiagramBox label="YAML 定義" sub="image、volumes、questions" variant="purple">
+          <DiagramTag variant="purple">1.0.yaml</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="インストール" />
+        <DiagramBox label="設定の入力" sub="利用者が質問に答える" variant="neutral">
+          <DiagramTag>hostname</DiagramTag>
+          <DiagramTag>port</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="デプロイ" />
+        <DiagramBox label="稼働中のコンテナー" sub="ボリュームとともにサービスが動作" variant="teal">
+          <DiagramTag variant="teal">@variable@ &rarr; 値</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <!-- Self-Hosting Ideas -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="self-hosting-ideas">セルフホストできるもの</h2>
+      <p class="doc-text">
+        Town OS は、コンテナーイメージとして配布されているものなら何でも動かせるように
+        作られています。始めるためのアイデアをいくつか挙げます。多くは
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">既定のパッケージリポジトリ</a>
+        で提供されており、どんなコンテナーイメージでも簡単な YAML 定義でパッケージ化できます。
+      </p>
+
+      <div class="idea-grid">
+        <div class="idea-card">
+          <h3>メディアとエンターテインメント</h3>
+          <ul>
+            <li><strong>Plex</strong> / <strong>Jellyfin</strong> — 映画やテレビ番組のライブラリをどの端末にも配信</li>
+            <li><strong>Navidrome</strong> — 個人用の音楽ストリーミングサーバー</li>
+            <li><strong>Calibre-web</strong> — 電子書籍のコレクションを管理して読む</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>コードと共同作業</h3>
+          <ul>
+            <li><strong>Gitea</strong> / <strong>Forgejo</strong> — 軽量なセルフホスト型の Git</li>
+            <li><strong>GitLab</strong> — 本格的な DevOps プラットフォーム</li>
+            <li><strong>Nextcloud</strong> — ファイル、カレンダー、連絡先など</li>
+            <li><strong>Wiki.js</strong> / <strong>BookStack</strong> — ドキュメントとナレッジベース</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>コミュニケーション</h3>
+          <ul>
+            <li><strong>Jitsi Meet</strong> — プライベートなビデオ会議</li>
+            <li><strong>Matrix / Synapse</strong> — フェデレーション対応の暗号化チャット</li>
+            <li><strong>Mattermost</strong> / <strong>Rocket.Chat</strong> — チームのメッセージング</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>ゲームサーバー</h3>
+          <ul>
+            <li><strong>Valheim</strong>、<strong>Minecraft</strong>、<strong>Terraria</strong>、<strong>Satisfactory</strong> の専用サーバー</li>
+            <li>GloriousEggroll のコンテナーによる Proton/Steam のサポート</li>
+            <li>Linux バイナリやコンテナーとして配布されているゲームサーバー全般</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>ホームオートメーション</h3>
+          <ul>
+            <li><strong>Home Assistant</strong> — スマートホームの制御ハブ</li>
+            <li><strong>Node-RED</strong> — 視覚的に組み立てる自動化のワークフロー</li>
+            <li><strong>Mosquitto</strong> — IoT 機器向けの MQTT ブローカー</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>プライバシーとセキュリティ</h3>
+          <ul>
+            <li><strong>Pi-hole</strong> / <strong>AdGuard</strong> — ネットワーク全体の広告ブロック</li>
+            <li><strong>WireGuard</strong> / <strong>OpenVPN</strong> — リモートアクセス用の VPN サーバー</li>
+            <li><strong>Vaultwarden</strong> — セルフホスト型のパスワードマネージャー</li>
+          </ul>
+        </div>
+
+        <div class="idea-card">
+          <h3>生産性</h3>
+          <ul>
+            <li><strong>Paperless-ngx</strong> — 文書管理と OCR</li>
+            <li><strong>Immich</strong> — セルフホスト型の写真・動画管理</li>
+            <li><strong>Planka</strong> / <strong>Wekan</strong> — かんばんボードとプロジェクト管理</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Dev Environment -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dev-environment">開発環境とテストスイート</h2>
+      <p class="doc-text">
+        Town OS の開発環境は、Podman のコンテナーを使ってスタック一式をローカルで動かします。
+        変更の確認、パッケージの開発、テストスイートの実行を行うには、これがいちばん速い方法です。
+      </p>
+
+      <h3>事前に必要なもの</h3>
+      <ul class="doc-list">
+        <li><strong>Linux</strong> — btrfs と Podman の rootful コンテナーに必要です</li>
+        <li><strong>Podman</strong> — コンテナーランタイム（sudo を使う rootful モード）</li>
+        <li><strong>Go 1.25 以降</strong> — バックエンドの API サーバー用</li>
+        <li><strong>Bun</strong> — フロントエンドのビルドと開発サーバー用</li>
+        <li><strong>btrfs-progs</strong> — ストレージ管理用</li>
+        <li><strong>QEMU</strong> — VM パッケージのサポートに必要な qemu-system-x86_64 と qemu-img</li>
+        <li><strong>libsystemd</strong> — systemd 連携のための開発用ヘッダー</li>
+        <li><strong>golangci-lint</strong> — Go の lint 用</li>
+        <li><strong>Python 3</strong> — ビルドとテストのスクリプト用</li>
+      </ul>
+
+      <h3>開発環境を起動する</h3>
+      <pre><code>git clone https://gitea.com/town-os/town-os.git
+cd town-os
+make dev</code></pre>
+      <p class="doc-text">
+        これでホットリロード付きの開発スタック一式が起動します。準備ができたら、端末に
+        表示された URL を開いて Town OS のダッシュボードにアクセスしてください。
+      </p>
+
+      <h3>開発環境のコマンド</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>コマンド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make dev</code></td><td>開発環境一式を起動する</td></tr>
+            <tr><td><code>make dev-stop</code></td><td>開発用コンテナーをすべて停止する</td></tr>
+            <tr><td><code>make dev-logs</code></td><td>開発用コンテナーのログを追う</td></tr>
+            <tr><td><code>make dev-clean</code></td><td>開発用コンテナーとボリュームを削除する</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>テストを実行する</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>コマンド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>make test</code></td><td>ユニットテストを実行する</td></tr>
+            <tr><td><code>make test-integration</code></td><td>統合テストを実行する（特権付きの Podman が必要）</td></tr>
+            <tr><td><code>make test-ui-integration</code></td><td>UI の統合テストを実行する</td></tr>
+            <tr><td><code>make test-full</code></td><td>すべてのテストを実行する（ユニット + 統合 + UI）</td></tr>
+            <tr><td><code>make auto-test</code></td><td>変更を監視してテストを自動的に再実行する</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>統合テスト</h3>
+      <p class="doc-text">
+        統合テストは、実際の btrfs ファイルシステム、systemd、Podman-in-Podman を備えた
+        特権付きの Podman コンテナー内で実行されます。これにより、本番環境のインストールと
+        同じコード経路をテストできます。テスト用コンテナーは使い捨てで、テスト実行ごとに
+        新しく作られ、終了後に片付けられます。
+      </p>
+
+      <div class="my-8">
+        <div class="text-town-muted text-sm font-semibold mb-3 tracking-wide uppercase">開発の流れ</div>
+        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+          <DiagramBox label="エディター" sub="コードを編集" variant="neutral">
+            <DiagramTag>Go + Bun</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="保存" />
+          <DiagramBox label="auto-test" sub="保存時にテストが実行" variant="purple">
+            <DiagramTag variant="purple">make auto-test</DiagramTag>
+          </DiagramBox>
+          <DiagramArrow label="再読み込み" />
+          <DiagramBox label="ブラウザー" sub="リアルタイムのプレビュー" variant="teal">
+            <DiagramTag variant="teal">localhost:5173</DiagramTag>
+          </DiagramBox>
+        </div>
+        <div class="flex justify-center mt-2">
+          <span class="text-town-muted text-xs border border-town-border rounded-full px-3 py-1">&#x21bb; 繰り返す &mdash; バックエンド :5309 &middot; フロントエンド :5173</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Reporting Bugs -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="reporting-bugs">バグを報告する</h2>
+      <p class="doc-text">
+        おかしなところを見つけましたか。良いバグ報告は、問題の修正を早めます。ここでは
+        必要な情報の集め方と、効果的な報告の出し方を説明します。
+      </p>
+
+      <h3>API でログを集める</h3>
+      <p class="doc-text">
+        Town OS は<a href={`${L('api/')}#systemd`}>REST API</a> を通じてジャーナルのログを
+        公開しています。<a href="https://claude.com/claude-code" target="_blank" rel="noopener">Claude Code</a>
+        を使って API に接続し、最近のエラーの要約を作ることもできます。
+      </p>
+      <pre><code># Town OS からエラー優先度のジャーナルエントリーを取得する
+curl -s http://town-os.local:5309/api/systemd/logs/tail?priority=err | jq .</code></pre>
+      <p class="doc-text">
+        または Claude Code で対話的にエラーを要約させます。
+      </p>
+      <pre><code># Claude Code へのプロンプトの例:
+"http://town-os.local:5309 の Town OS API に接続し、
+ /api/systemd/logs/tail からエラー優先度のジャーナルエントリーを
+ 最新 100 件取得してください。エラーを要約し、サービスごとに
+ グループ化して、考えられる原因を挙げてください。"</code></pre>
+
+      <h3>issue を登録する</h3>
+      <p class="doc-text">
+        issue は Town OS の Gitea インスタンス
+        <a href="https://gitea.com/town-os/town-os/issues" target="_blank" rel="noopener">gitea.com/town-os/town-os/issues</a>
+        に登録してください。
+      </p>
+
+      <h3>記載すべき内容</h3>
+      <ul class="doc-list">
+        <li><strong>ジャーナルの要約</strong> — エラーログの出力、または最近のエラーの Claude Code による要約</li>
+        <li><strong>再現手順</strong> — 問題を引き起こすまでに行ったことを、順を追って</li>
+        <li><strong>Town OS のバージョン</strong> — 起動画面に表示されるビルド日付またはコミットハッシュ</li>
+        <li><strong>ストレージのバックエンド</strong> — btrfs、btrfs-mdadm、ZFS のいずれかと、ディスクの台数</li>
+        <li><strong>環境</strong> — 実機か QEMU か。RAM とディスクのサイズ</li>
+      </ul>
+
+      <DiagramFlow title="バグ報告の流れ">
+        <DiagramBox label="問題を検知" sub="何かが壊れた" variant="neutral">
+          <DiagramTag>&#x26a0; エラー</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="API を curl" />
+        <DiagramBox label="ログを集める" sub="ジャーナルのエントリーを取得" variant="purple">
+          <DiagramTag variant="purple">:5309/api/systemd/logs</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="要約" />
+        <DiagramBox label="要約する" sub="サービスごとにまとめる" variant="purple">
+          <DiagramTag variant="teal">Claude Code</DiagramTag>
+        </DiagramBox>
+        <DiagramArrow label="登録" />
+        <DiagramBox label="Gitea に登録" sub="詳細を添えて issue を作成" variant="teal">
+          <DiagramTag variant="teal">&#x2713; 報告済み</DiagramTag>
+        </DiagramBox>
+      </DiagramFlow>
+    </div>
+  </section>
+
+  <script>
+    document.querySelectorAll('pre').forEach((pre) => {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-copy-wrapper';
+      pre.parentNode!.insertBefore(wrapper, pre);
+      wrapper.appendChild(pre);
+
+      const clipboardIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+      const checkIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+      const btn = document.createElement('button');
+      btn.className = 'code-copy-btn';
+      btn.innerHTML = `${clipboardIcon}<span>コピー</span>`;
+      btn.setAttribute('aria-label', 'クリップボードにコピー');
+      wrapper.appendChild(btn);
+
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = (code || pre).textContent || '';
+        navigator.clipboard.writeText(text).then(() => {
+          btn.innerHTML = `${checkIcon}<span>コピーしました</span>`;
+          setTimeout(() => { btn.innerHTML = `${clipboardIcon}<span>コピー</span>`; }, 2000);
+        });
+      });
+    });
+  </script>
+</BaseLayout>
+
+<style>
+  .container {
+    padding: 0 6rem;
+  }
+
+  .section.alt-section,
+  .quickstart-section {
+    background: linear-gradient(
+      to right,
+      var(--color-bg) 0,
+      var(--color-bg) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% - 600px),
+      var(--color-bg-elevated) calc(50% + 600px),
+      var(--color-bg) calc(50% + 600px),
+      var(--color-bg) 100%
+    );
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .quickstart-section {
+    position: relative;
+  }
+
+  .quickstart-section::after {
+    content: '';
+    position: absolute;
+    left: max(0px, calc(50% - 600px));
+    right: max(0px, calc(50% - 600px));
+    bottom: 0;
+    height: 2px;
+    background: var(--color-primary-dim);
+    pointer-events: none;
+  }
+
+  .data-warning {
+    background: #2a0f0f;
+    border: 2px solid #993333;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .data-warning-badge {
+    display: inline-block;
+    background: #993333;
+    color: #d0d0d0;
+    font-weight: 800;
+    font-size: 0.95rem;
+    letter-spacing: 0.15em;
+    padding: 0.35rem 1.25rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+  }
+
+  .data-warning-text {
+    color: #cc5555;
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.7;
+    margin-bottom: 0.75rem;
+    max-width: 800px;
+  }
+
+  .data-warning-text:last-child {
+    margin-bottom: 0;
+  }
+
+  .data-warning-text strong {
+    color: #bb4444;
+  }
+
+  .data-warning-text a {
+    color: var(--color-accent);
+  }
+
+  :global(.code-copy-wrapper) {
+    position: relative;
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  :global(.code-copy-wrapper pre) {
+    margin: 0;
+  }
+
+  pre {
+    margin: 1.75rem 0 1.5rem;
+  }
+
+  h3 + :global(.code-copy-wrapper),
+  h3 + pre {
+    margin-top: 1rem;
+  }
+
+  :global(.code-copy-btn) {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    background: rgba(91, 76, 158, 0.55);
+    color: var(--color-text);
+    border: 1px solid rgba(124, 107, 191, 0.6);
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, opacity 0.2s;
+    opacity: 0.3;
+  }
+
+  :global(.code-copy-btn svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  :global(.code-copy-wrapper:hover .code-copy-btn),
+  :global(.code-copy-btn:focus-visible) {
+    opacity: 1;
+    background: var(--color-primary);
+    border-color: var(--color-primary-light);
+  }
+
+  :global(.code-copy-btn:hover) {
+    background: var(--color-primary-light);
+    border-color: var(--color-primary-light);
+  }
+
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.75rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 2.75rem;
+    margin-bottom: 1rem;
+  }
+
+  h4 {
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
+    color: var(--color-accent);
+  }
+
+  .callout {
+    background: var(--color-bg-card);
+    border-left: 3px solid var(--color-primary);
+    padding: 0.75rem 1rem;
+    border-radius: 0 8px 8px 0;
+  }
+
+  /* UI section — center text and screenshots */
+  .ui-section .doc-text,
+  .ui-section .doc-list {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .ui-section h3 {
+    text-align: center;
+  }
+
+  .ui-section .section-title {
+    text-align: center;
+  }
+
+  /* Screenshots */
+  .screenshot-ref {
+    margin: 1rem auto 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 800px;
+  }
+
+  .screenshot-ref img {
+    display: block;
+    width: 100%;
+  }
+
+  /* Phone screenshots — narrow, side by side */
+  .phone-shots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.5rem;
+    margin: 1.5rem auto 2rem;
+    max-width: 800px;
+  }
+
+  .phone-shot {
+    flex: 0 1 300px;
+    max-width: 300px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--color-bg-card);
+  }
+
+  .phone-shot img {
+    display: block;
+    width: 100%;
+  }
+
+  .phone-shot figcaption {
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    border-top: 1px solid var(--color-border);
+  }
+
+  /* Self-hosting idea grid */
+  .idea-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .idea-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: border-color 0.2s;
+  }
+
+  .idea-card:hover {
+    border-color: var(--color-primary-dim);
+  }
+
+  .idea-card h3 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    color: var(--color-accent);
+    font-size: 1.1rem;
+  }
+
+  .idea-card ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .idea-card li {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+  }
+
+  .idea-card li strong {
+    color: var(--color-text);
+  }
+
+  @media (max-width: 1024px) {
+    .container {
+      padding: 0 2.5rem;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .container {
+      padding: 0 1.5rem;
+    }
+
+    .toc ul {
+      columns: 1;
+    }
+
+    .idea-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

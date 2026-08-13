@@ -1,0 +1,1148 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="パッケージング形式 — Town OS" lang="ja">
+  <section class="section">
+    <div class="container">
+      <h1>パッケージング形式</h1>
+      <p class="page-lead">
+        Town OS のパッケージは、コンテナー化されたサービスの動かし方を記述した YAML 定義です。
+        イメージ、ネットワーク、ストレージ、利用者向けの設定プロンプトなどが含まれます。
+        パッケージは仮想マシンや、Proton 経由の Windows アプリケーションを動かすこともできます。
+      </p>
+      <nav class="toc">
+        <ul>
+          <li><a href="#repository-structure">リポジトリの構造</a></li>
+          <li><a href="#package-definition">パッケージ定義</a></li>
+          <li><a href="#top-level-fields">トップレベルのフィールド</a></li>
+          <li><a href="#image-field">image フィールド</a></li>
+          <li><a href="#supplies-tags">supplies タグ</a></li>
+          <li><a href="#network-configuration">ネットワーク設定</a></li>
+          <li><a href="#volumes">ボリューム</a></li>
+          <li><a href="#archives">アーカイブ</a></li>
+          <li><a href="#git-sources">git ソース</a></li>
+          <li><a href="#questions">質問</a></li>
+          <li><a href="#templates">テンプレート</a></li>
+          <li><a href="#notes">ノート</a></li>
+          <li><a href="#dependencies">依存関係</a></li>
+          <li><a href="#template-system">テンプレートの仕組み</a></li>
+          <li><a href="#vm-runtime">VM ランタイム</a></li>
+          <li><a href="#proton-runtime">Proton ランタイム</a></li>
+          <li><a href="#compilation">コンパイル</a></li>
+          <li><a href="#response-persistence">回答の保存</a></li>
+          <li><a href="#installation-workflow">インストールの流れ</a></li>
+          <li><a href="#uninstallation">アンインストール</a></li>
+          <li><a href="#install-preview">インストールのプレビュー</a></li>
+          <li><a href="#featured-packages">注目パッケージ</a></li>
+          <li><a href="#importing-repositories">リポジトリの取り込み</a></li>
+          <li><a href="#validation-rules">検証ルール</a></li>
+          <li><a href="#style-guidelines">スタイルの指針</a></li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="repository-structure">リポジトリの構造</h2>
+      <p class="doc-text">
+        パッケージリポジトリとは、<code>packages/</code> ディレクトリを含む任意の git リポジトリのことです。
+        誰でも作成でき、家族や友人向け、あるいは独自の用途のパッケージを自分でホストできます。
+        構造はシンプルです。
+      </p>
+      <pre><code>packages/
+  &lt;package-name&gt;/
+    &lt;version&gt;.yaml
+featured.json          # 任意
+
+# 例:
+packages/
+  nginx/
+    1.0.yaml
+    2.0.yaml
+  postgres/
+    1.0.yaml
+featured.json</code></pre>
+      <p class="doc-text">
+        <code>packages/</code> 配下の各パッケージディレクトリには、バージョンごとの YAML ファイルが 1 つ以上入ります。
+        バージョンはドット区切りの各要素で比較され、数値の要素は数値として、それ以外は辞書順で比較されます。
+        ストレージの仕組みは、バージョン間のアップグレードや、一時的にアンインストールして後から復元する運用にも対応しています。
+        Town OS には
+        <a href="https://github.com/town-os/default-packages" target="_blank" rel="noopener">既定のリポジトリ</a>
+        が同梱されていますが、必要なだけリポジトリを追加できます。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="package-definition">パッケージ定義</h2>
+      <p class="doc-text">利用できるフィールドをすべて使った、コンテナーパッケージの完全な定義例です。</p>
+      <pre><code>image:
+  url: nginx:1.26-alpine
+description: Lightweight high-performance web server and reverse proxy
+supplies: ["http"]
+command: ["optional", "command", "override"]
+environment:
+  NGINX_HOST: "@hostname@"
+network:
+  external:
+    "@port@": "80"
+  internal:
+    "5432": "5432"
+  domains:
+    - "@hostname@"
+volumes:
+  html:
+    mountpoint: /usr/share/nginx/html
+    quota: 2gb
+    uid: 1000
+    gid: 1000
+  data:
+    mountpoint: /data
+    archive: seed-data.tar.gz
+questions:
+  hostname:
+    query: "What hostname should nginx serve?"
+    type: hostname
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"
+archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html
+git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: data
+templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      version: &#123;&#123; .Package.Version &#125;&#125;
+notes:
+  URL:
+    value: "http://@hostname@:@port@"
+    type: url
+  Support:
+    value: "+1 (555) 123-4567"
+    type: phone</code></pre>
+      <p class="doc-text">
+        <code>image</code> フィールドは文字列による省略記法も受け付けます: <code>image: nginx:1.26-alpine</code>。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="top-level-fields">トップレベルのフィールド</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必須（コンテナーランタイムの場合）。</strong> コンテナーイメージの参照。文字列、または <code>url</code> と任意の <code>type</code> を持つオブジェクトを指定します。<code>vm</code> とは併用できません。</td></tr>
+            <tr><td><code>description</code></td><td>パッケージの内容を人間向けに短くまとめた説明。</td></tr>
+            <tr><td><code>supplies</code></td><td>このパッケージが提供する機能を表す意味的なタグの一覧（例: <code>["database"]</code>、<code>["http"]</code>）。</td></tr>
+            <tr><td><code>command</code></td><td>コンテナーのコマンドを上書きする任意の指定。<code>proton</code> とは併用できません。</td></tr>
+            <tr><td><code>environment</code></td><td>コンテナーに渡す環境変数。キーは <code>^[a-zA-Z_][a-zA-Z0-9_]*$</code> に一致する必要があります。値には <code>@variable@</code> テンプレートの記号を含められます。</td></tr>
+            <tr><td><code>network</code></td><td>ポートマッピングとドメインの設定。</td></tr>
+            <tr><td><code>volumes</code></td><td>マウント設定を持つ名前付きボリューム。</td></tr>
+            <tr><td><code>questions</code></td><td>インストール中に表示される対話プロンプト。名前は英数字のみ（<code>^[a-zA-Z0-9]+$</code>）である必要があります。</td></tr>
+            <tr><td><code>archives</code></td><td>コンテナーイメージからボリュームへ事前に内容を展開するためのアーカイブ指定。</td></tr>
+            <tr><td><code>git_sources</code></td><td>ボリュームへクローンする git リポジトリ。</td></tr>
+            <tr><td><code>templates</code></td><td>Go の <code>text/template</code> で描画され、インストール時にボリュームへ書き込まれるファイルテンプレート。</td></tr>
+            <tr><td><code>notes</code></td><td>インストール後に表示されるキーと値のメタデータ。テンプレート置換に対応します。</td></tr>
+            <tr><td><code>vm</code></td><td>仮想マシンの設定。<code>image</code> および <code>proton</code> とは併用できません。</td></tr>
+            <tr><td><code>proton</code></td><td>Proton 経由で動かす Windows アプリケーションの設定。<code>vm</code> および <code>command</code> とは併用できません。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        ランタイムには <strong>container</strong>（既定）と <strong>vm</strong> の 2 種類があります。
+        パッケージはコンテナーランタイムなら <code>image</code> か <code>proton</code> を、
+        VM ランタイムなら <code>vm</code> を指定します。Proton はコンテナーランタイムの特殊形で、
+        内部では Podman を使いつつ、コマンドを自動生成し、別のコンテナーイメージから
+        Windows アプリケーションのファイルを取り出します。これらのフィールドは排他的で、
+        パッケージには <code>image</code>/<code>proton</code> か <code>vm</code> のいずれか 1 つだけを
+        含める必要があります。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="image-field">image フィールド</h2>
+      <p class="doc-text">
+        <code>image</code> フィールドは実行するコンテナーイメージを指定します。書き方は 2 通りです。
+      </p>
+      <pre><code># オブジェクト形式
+image:
+  url: nginx:1.26-alpine
+  type: oci                # 任意。既定は "oci"
+
+# 文字列による省略形式
+image: nginx:1.26-alpine</code></pre>
+      <p class="doc-text">
+        短いイメージ名はコンパイル時に自動的に正規化されます。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>入力</th><th>正規化後</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nginx</code></td><td><code>docker.io/library/nginx:latest</code></td></tr>
+            <tr><td><code>myuser/myapp</code></td><td><code>docker.io/myuser/myapp:latest</code></td></tr>
+            <tr><td><code>ghcr.io/org/app</code></td><td><code>ghcr.io/org/app:latest</code></td></tr>
+            <tr><td><code>nginx:1.26-alpine</code></td><td><code>docker.io/library/nginx:1.26-alpine</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>type</code> に指定できる値は <code>oci</code>（既定）だけです。イメージ URL に使えるのは
+        英数字と <code>@</code>、<code>.</code>、<code>_</code>、<code>:</code>、
+        <code>/</code>、<code>-</code> のみで、シェルのメタ文字は拒否されます。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="supplies-tags">supplies タグ</h2>
+      <p class="doc-text">
+        <code>supplies</code> フィールドは、そのパッケージが提供する機能を宣言し、
+        分類や絞り込みを可能にします。タグは自由な文字列ですが、次のものが慣例です。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>タグ</th><th>用途</th><th>例</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>http</code></td><td>ウェブサーバー、CMS、ウェブアプリケーション</td><td>nginx, wordpress, gitea</td></tr>
+            <tr><td><code>database</code></td><td>リレーショナルデータベースと NoSQL データベース</td><td>postgres, mysql, mongo</td></tr>
+            <tr><td><code>cache</code></td><td>キャッシュとキーバリューストア</td><td>redis, memcached, valkey</td></tr>
+            <tr><td><code>search</code></td><td>検索・分析エンジン</td><td>elasticsearch, opensearch, solr</td></tr>
+            <tr><td><code>messaging</code></td><td>メッセージブローカーとキュー</td><td>rabbitmq, nats, kafka</td></tr>
+            <tr><td><code>monitoring</code></td><td>メトリクス、アラート、可視化</td><td>prometheus, grafana, telegraf</td></tr>
+            <tr><td><code>storage</code></td><td>オブジェクトストレージとファイルホスティング</td><td>minio, registry, nextcloud</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="network-configuration">ネットワーク設定</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>network.external</code></td><td>ホスト上に直接公開されるポートマッピング。キーがホスト側のポート、値がコンテナー側のポートです。どちらも <code>"port"</code> の文字列で、<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>network.internal</code></td><td>パッケージ自身のネットワーク内（および共有 HTTP イングレス）からのみ到達できるポートマッピング。キーがホスト側・転送側のポート、値がコンテナー側のポートです。</td></tr>
+            <tr><td><code>network.domains</code></td><td>HTTP イングレスが公的に信頼される（Let&rsquo;s Encrypt / ACME）証明書を取得すべき、インターネット向け FQDN の任意の一覧。<code>@variable@</code> テンプレートを含められます。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        ポートの値は、テンプレート置換後に 1 から 65535 までの整数である必要があります。
+        使わない場合は <code>external</code>、<code>internal</code>、<code>domains</code> ごと省略してください。空のマップやリストは書かないでください。
+      </p>
+      <p class="doc-text">
+        ポートエントリーの<strong>キー</strong>は、数値のポート文字列
+        （<code>"2222": "22"</code>）か、<code>^[a-zA-Z][a-zA-Z0-9_]*$</code> に一致する
+        <strong>意味的な名前</strong>（<code>http: "3000"</code>）のいずれかです。ポートに名前を付けると、
+        親パッケージは番号ではなく役割で参照でき（<code>@dep_KEY_port_http@</code>）、
+        特別な名前 <code>http</code> の場合は、後述する共有 HTTP イングレスの対象になります。
+      </p>
+
+      <h3>HTTP イングレス（<code>http</code> という名前のポート）</h3>
+      <p class="doc-text">
+        Town OS は<strong>ポート <code>:443</code> 上で単一の共有イングレス</strong>を実行し、
+        すべてのパッケージの TLS を終端して、パッケージの平文 HTTP のコンテナーポートへ
+        リバースプロキシします。パッケージは<strong>内部</strong>ポートに <code>http</code> という
+        名前を付けることでイングレスに参加します。
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"      # コンテナーの平文 HTTP ポート</code></pre>
+      <p class="doc-text">こうすると、次のようになります。</p>
+      <ul class="doc-list">
+        <li>
+          サービスには <code>https://&lt;PACKAGE_DNS&gt;/</code> でアクセスできます。
+          <strong>URL にポートは付きません。</strong>選ぶべきホスト側ポートもありません。
+          HTTP ポートを <code>external</code> にも割り当てないでください。
+        </li>
+        <li>
+          イングレスは <code>&lt;PACKAGE_DNS&gt;</code>（例:
+          <code>gitea.default.home</code>）に対して<strong>ローカルで信頼されるリーフ証明書</strong>
+          （内蔵の Rolodex CA が発行）を提供します。さらに Rolodex は
+          <strong><code>_443</code> 上に DANE の <code>TLSA</code> レコードを公開する</strong>ため、
+          DANE に対応したクライアントは証明書をピン留めできます。
+        </li>
+        <li>
+          イングレスが <code>:443</code> を占有するので、アプリが生成する URL は
+          <strong>ポートなしの HTTPS</strong> でなければなりません。アプリの公開 URL を
+          それに合わせて設定し（例: gitea の
+          <code>GITEA__server__ROOT_URL: "https://@PACKAGE_DNS@/"</code>）、
+          アプリ自身はコンテナー内で平文 HTTP を待ち受けたままにしてください。
+        </li>
+      </ul>
+      <p class="doc-text">
+        HTTP 以外のプロトコル（SSH、データベースなど）には <code>http</code> という名前を
+        <strong>使ってはいけません</strong>。HTTP ではないため、イングレスで TLS を終端できません。
+        代わりに数値のマッピングでそのまま転送してください。
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"          # :443 イングレスが前段に立ち、TLS を終端
+    "@sshport@": "22"     # 素の TCP 転送。TLS で包まれることはない</code></pre>
+
+      <h3>インターネット向けの名前（<code>domains</code>）</h3>
+      <p class="doc-text">
+        既定では、イングレスはローカルで信頼される <code>&lt;PACKAGE_DNS&gt;</code> の名前だけを
+        提供します。加えて、<strong>公的に信頼される</strong>証明書でサービスをインターネットに
+        公開したい場合は、実際の FQDN を <code>network.domains</code> に列挙し、その名前の公開 DNS を
+        このホストに向けてください。イングレスは列挙された各ドメインについて
+        ACME（Let&rsquo;s Encrypt）証明書を取得します。
+      </p>
+      <pre><code>network:
+  internal:
+    http: "3000"
+  domains:
+    - git.example.com</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="volumes">ボリューム</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>mountpoint</code></td><td><strong>必須。</strong> ボリュームをマウントするコンテナー内の絶対パス（<code>/</code> で始める必要があります）。</td></tr>
+            <tr><td><code>quota</code></td><td>任意のサイズ上限（例: <code>512mb</code>、<code>2gb</code>、<code>1tb</code>）。<code>mb</code>、<code>gb</code>、<code>tb</code> の接尾辞に対応します。<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>archive</code></td><td>ボリュームに事前展開するアーカイブのファイル名（任意）。</td></tr>
+            <tr><td><code>git</code></td><td>ボリュームへクローンする git リポジトリの URL（任意）。</td></tr>
+            <tr><td><code>uid</code></td><td>ボリュームの所有者となるユーザー ID（任意、数値）。</td></tr>
+            <tr><td><code>gid</code></td><td>ボリュームの所有者となるグループ ID（任意、数値）。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        ボリューム名は英数字で始まり、英数字、ドット、ハイフン、アンダースコアのみを含む必要があります
+        （パターン: <code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code>）。
+        ボリュームがないパッケージでは <code>volumes</code> ごと省略してください。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="archives">アーカイブ</h2>
+      <p class="doc-text">
+        <code>archives</code> フィールドは、インストール時にコンテナーイメージからボリュームへファイルを取り出します。
+      </p>
+      <pre><code>archives:
+  - image: nginx:latest
+    directory: /usr/share/nginx/html
+    volume: html</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必須。</strong> ファイルの取り出し元となるコンテナーイメージ。</td></tr>
+            <tr><td><code>directory</code></td><td><strong>必須。</strong> 取り出すコンテナーイメージ内の絶対パス。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必須。</strong> 取り出し先となる、このパッケージで定義されたボリュームの名前。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        インストール時や再調整時に対象のボリュームが空であれば、Podman がイメージを取得し、
+        一時的なコンテナーを作成して、指定されたディレクトリをボリュームへコピーします。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="git-sources">git ソース</h2>
+      <p class="doc-text">
+        <code>git_sources</code> フィールドは、git リポジトリをボリュームへクローンします。
+      </p>
+      <pre><code>git_sources:
+  - url: "https://github.com/example/config.git"
+    branch: main
+    volume: config</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>url</code></td><td><strong>必須。</strong> git リポジトリの URL（http、https、ssh）。<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>branch</code></td><td>クローンするブランチ。<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必須。</strong> クローン先となる、このパッケージで定義されたボリュームの名前。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="questions">質問</h2>
+      <p class="doc-text">
+        質問は、パッケージのインストール中に表示される対話プロンプトを定義します。利用者の回答は、
+        定義全体にある <code>@name@</code> というテンプレートの記号を置き換えます。
+      </p>
+      <pre><code>questions:
+  port:
+    query: "What external port should nginx listen on?"
+    type: port
+    default: "8080"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>query</code></td><td><strong>必須。</strong> 利用者に表示されるプロンプトの文言。</td></tr>
+            <tr><td><code>type</code></td><td>任意の検証タイプ。自由入力のテキストの場合は省略します。</td></tr>
+            <tr><td><code>default</code></td><td>利用者に提示される任意の既定値。</td></tr>
+            <tr><td><code>optional</code></td><td><code>true</code> にすると、その質問を空欄のままにできます。それ以外の質問はすべて、空でない値で回答する必要があります。</td></tr>
+            <tr><td><code>oauth</code></td><td><strong><code>type: oauth</code> では必須で、そこでのみ有効です。</strong> トークンを取得するためにインストールダイアログが実行するデバイスフロー。</td></tr>
+            <tr><td><code>show_if</code></td><td>同じパッケージ内の <code>boolean</code> 型の質問を指定します。この質問は、そのチェックボックスがオンになるまでインストールダイアログで非表示になり、オフの間は空文字列としてコンパイルされます（必須チェックの対象からも外れます）。これにより、上級者向けの項目をひとつのスイッチの裏にまとめられます。参照先の質問は存在し、boolean であり、それ自身は条件付きでない必要があります。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>質問のタイプ</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>タイプ</th><th>検証内容</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>hostname</code></td><td>小文字で始まり、その後は小文字の英数字とハイフン（パターン: <code>^[a-z][a-z0-9-]*$</code>）。空の場合は <code>&lt;package-name&gt;-&lt;4-char-hex&gt;</code> を自動生成します。</td></tr>
+            <tr><td><code>port</code></td><td>1 から 65535 までの整数。空または <code>"auto"</code> の場合、10000〜60000 の範囲から使用可能なポートをランダムに自動生成します。</td></tr>
+            <tr><td><code>bytes</code></td><td>整数、または <code>tb</code>、<code>gb</code>、<code>mb</code> の接尾辞が付いた数値（大文字小文字は区別しません）</td></tr>
+            <tr><td><code>volume</code></td><td>英数字、ハイフン、アンダースコア（パターン: <code>^[a-zA-Z0-9-_]+$</code>）</td></tr>
+            <tr><td><code>archive</code></td><td>空でない任意の文字列</td></tr>
+            <tr><td><code>secret</code></td><td>空または <code>"auto"</code> の場合、64 文字の 16 進文字列（256 ビット）を自動生成します。明示的な値で上書きすることもできます。</td></tr>
+            <tr><td><code>duration</code></td><td>整数、または <code>d</code>、<code>h</code>、<code>m</code>、<code>s</code> の接尾辞が付いた数値（大文字小文字は区別しません）。秒に変換されます。</td></tr>
+            <tr><td><code>boolean</code></td><td><code>true</code>、<code>false</code>、<code>t</code>、<code>f</code>、<code>1</code>、<code>0</code>（大文字小文字は区別しません）。文字列の <code>true</code> または <code>false</code> に正規化されます。インストールダイアログではチェックボックスとして表示され、未回答の場合は <code>default</code>、それが宣言されていなければ <code>false</code> になります。</td></tr>
+            <tr><td><code>oauth</code></td><td>入力ではなく、インストールダイアログから OAuth のデバイスフローを実行して取得するトークン。<strong>接続</strong>ボタンとして表示され、返ってきたトークンが回答になります。保存と表示は <code>secret</code> と同じ扱いです。</td></tr>
+            <tr><td><em>（省略）</em></td><td>任意の文字列。検証は行いません</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>boolean 型の質問</h3>
+      <p class="doc-text">
+        <code>boolean</code> の質問はテキスト入力欄ではなくチェックボックスとして表示され、
+        回答は文字列そのものの <code>true</code> または <code>false</code> として置き換えられます。
+        チェックを外した状態もれっきとした回答なので、<code>default: "true"</code> の質問を
+        利用者がオフにすることもできます。明示的な <code>false</code> が既定値に優先します。
+      </p>
+      <pre><code>environment:
+  REGISTRATION_OPEN: "@open@"
+  METRICS_ENABLED: "@metrics@"
+questions:
+  open:
+    query: "Allow open registration?"
+    type: boolean          # 未回答 -&gt; "false"
+  metrics:
+    query: "Enable metrics?"
+    type: boolean
+    default: "true"        # 未回答 -&gt; "true"</code></pre>
+      <p class="doc-text">
+        ファイルテンプレートから見えるのも正規化後の値なので、
+        <code>&#123;&#123; .Responses.metrics &#125;&#125;</code> は <code>true</code> または
+        <code>false</code> として描画され、
+        <code>&#123;&#123; if eq .Responses.metrics "true" &#125;&#125;</code> で判定できます。
+      </p>
+
+      <h3>任意回答の質問</h3>
+      <p class="doc-text">
+        <code>optional: true</code> を宣言していない限り、すべての質問は空でない値で回答する必要があります。
+        これがないと、アプリケーションが本当になくても動かせる設定（SMTP リレー、API キーなど）を
+        素直に表現できません。作者は仮の既定値をでっち上げ、運用者が上書きしてくれることを
+        祈るしかなくなります。
+      </p>
+      <pre><code>environment:
+  SMTP_HOST: "@smtp_host@"
+  SMTP_PORT: "@smtp_port@"
+questions:
+  smtp_host:
+    query: "SMTP server hostname"
+    optional: true
+  smtp_port:
+    query: "SMTP server port"
+    type: port
+    optional: true
+    default: "587"</code></pre>
+      <p class="doc-text">
+        空欄のままにすると、任意回答の質問はその <code>@marker@</code> の箇所を
+        <strong>空文字列</strong>に置き換えます。そのためアプリケーションからは、誰も選んでいない値が
+        設定されているのではなく、変数が空であるように見えます。自動生成が行われることもありません。
+        空欄のままの <code>secret</code> は空欄のままで、アプリケーションが律儀に認証を試みるような
+        ランダム文字列にはなりません。
+      </p>
+      <p class="doc-text">
+        <code>optional</code> は <code>type</code> と組み合わせられます。回答された任意のポートは
+        引き続きポートとして検証され、空欄のものはコンパイル時に何も残しません。
+        <code>boolean</code> に指定しても意味はありません。チェックボックスは常に 2 つの値の
+        どちらかに決まるからです。
+      </p>
+
+      <h3>OAuth の質問</h3>
+      <p class="doc-text">
+        アプリケーションによっては、提供元しか発行できない認証情報（Plex のアカウントトークン、
+        GitHub の個人トークンなど）で設定するものがあり、通常はターミナルでスクリプトを実行して
+        出力された値を貼り付けます。<code>oauth</code> の質問は、その手順をインストールダイアログから
+        実行します。運用者が<strong>接続</strong>をクリックし、ブラウザーのタブで承認すると、
+        返ってきたトークンがそのまま回答になります。
+      </p>
+      <p class="doc-text">
+        <strong>プロバイダーの登録簿はありません。</strong>質問には提供元自身の URL を記した
+        <code>oauth</code> ブロックを持たせるので、デバイスフロー方式に対応した提供元であれば
+        Town OS を変更せずに利用できます。
+      </p>
+      <pre><code>environment:
+  PLEX_TOKEN: "@plextoken@"
+questions:
+  plextoken:
+    query: "Plex account"
+    type: oauth
+    oauth:
+      start:
+        method: POST
+        url: "https://plex.tv/api/v2/pins?strong=true"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      extract:
+        id: id
+        code: code
+      approve: "https://app.plex.tv/auth#?clientID=&#123;&#123;client_id&#125;&#125;&amp;code=&#123;&#123;code&#125;&#125;"
+      poll:
+        url: "https://plex.tv/api/v2/pins/&#123;&#123;id&#125;&#125;"
+        headers:
+          X-Plex-Client-Identifier: "&#123;&#123;client_id&#125;&#125;"
+      token: authToken
+      interval: 2s
+      timeout: 10m</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>start</code></td><td><strong>必須。</strong> フローを開始するリクエスト。<code>method</code>（既定は <code>GET</code>）、<code>url</code>、任意の <code>headers</code> と <code>form</code> ボディを指定します。</td></tr>
+            <tr><td><code>extract</code></td><td>開始時のレスポンスから取り出し、以降のテンプレートで使えるようにする JSON のフィールド。<code>name: json_field</code> の形式で書きます。</td></tr>
+            <tr><td><code>approve</code></td><td><strong>必須。</strong> 運用者が承認のために開く URL。新しいタブで開かれ、ポップアップブロッカーに阻まれた場合に備えてリンクとしても表示されます。</td></tr>
+            <tr><td><code>user_code</code></td><td>承認ページで運用者が入力する短いコードのテンプレート（任意）。GitHub は表示しますが、Plex は表示しません。</td></tr>
+            <tr><td><code>poll</code></td><td><strong>必須。</strong> 承認されるまで繰り返すリクエスト。形式は <code>start</code> と同じです。</td></tr>
+            <tr><td><code>token</code></td><td><strong>必須。</strong> ポーリングのレスポンスでトークンが入っている JSON フィールド。値がない、または <code>null</code> であることが、提供元の「まだ承認されていない」という返答です。</td></tr>
+            <tr><td><code>interval</code></td><td>ポーリングの間隔。既定は <code>5s</code> です。提供元が定めるレート制限に従ってください。</td></tr>
+            <tr><td><code>timeout</code></td><td>あきらめるまでポーリングを続ける時間。既定は <code>5m</code> です。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        URL、ヘッダー、フォームの値に含まれる <code>&#123;&#123;...&#125;&#125;</code> のプレースホルダーは、
+        <code>extract</code> で名前を付けたものと、<code>&#123;&#123;client_id&#125;&#125;</code> に解決されます。
+        後者は Town OS がフローごとに生成してすべての手順で送るランダムな識別子で、
+        Plex はこれに pin を紐づけます。
+      </p>
+      <p class="doc-text">
+        トークンは認証情報なので、そのように扱われます。パッケージ情報のパネルでは伏せ字になり、
+        コピーはできても表示されることはありません。他の回答と同様にキャッシュされるため、
+        再インストールやアップグレードの際は運用者を提供元へ送り返さずに再利用されます。
+      </p>
+      <p class="doc-text">
+        これらの URL を呼び出すのはブラウザーではなくシステムコントローラーなので、URL は
+        <code>https</code> でなければならず、ループバック、プライベート、リンクローカル、CGNAT の
+        アドレスに解決されてはいけません。この確認は実際に接続する時点と、リダイレクトのたびに
+        行われるため、パッケージがフローを悪用してコントローラーにホスト自身のネットワークへ
+        アクセスさせることはできません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="templates">テンプレート</h2>
+      <p class="doc-text">
+        <code>templates</code> フィールドは、Go の <code>text/template</code> で描画され、
+        インストール時にボリュームへ書き込まれるファイルを定義します。対象のファイルがまだ存在しない
+        場合にのみ書き込まれるため、アップグレードをまたいで利用者の変更が保持されます。
+      </p>
+      <pre><code>templates:
+  config:
+    volume: data
+    path: config.yaml
+    content: |
+      host: &#123;&#123; .Responses.hostname &#125;&#125;
+      port: &#123;&#123; .Responses.port &#125;&#125;
+      name: &#123;&#123; .Package.Name &#125;&#125;
+      system: &#123;&#123; .System.Hostname &#125;&#125;</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>volume</code></td><td><strong>必須。</strong> このパッケージで定義されたボリュームの名前。</td></tr>
+            <tr><td><code>path</code></td><td><strong>必須。</strong> ボリューム内の相対パス。<code>/</code> で始めたり、<code>..</code> を含めたりはできません。</td></tr>
+            <tr><td><code>content</code></td><td><strong>必須。</strong> 描画する Go <code>text/template</code> の内容。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>テンプレートのデータコンテキスト</h3>
+      <p class="doc-text">
+        <code>&#123;&#123; &#125;&#125;</code> の式の中では、次のデータを利用できます。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>式</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>.Responses.&lt;name&gt;</code></td><td>指定した名前の質問に対する利用者の回答</td></tr>
+            <tr><td><code>.Package.Name</code></td><td>パッケージ名</td></tr>
+            <tr><td><code>.Package.Version</code></td><td>パッケージのバージョン</td></tr>
+            <tr><td><code>.Package.Repo</code></td><td>リポジトリ名</td></tr>
+            <tr><td><code>.Package.Image</code></td><td>コンパイル済みのコンテナーイメージ参照</td></tr>
+            <tr><td><code>.Package.Description</code></td><td>パッケージの説明</td></tr>
+            <tr><td><code>.System.Hostname</code></td><td>システムのホスト名</td></tr>
+            <tr><td><code>.System.ExternalIP</code></td><td>外部 IP アドレス（判明している場合）</td></tr>
+            <tr><td><code>.System.InternalIP</code></td><td>内部・LAN の IP アドレス（判明している場合）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        テンプレート名はボリューム名と同じ規則に従います。ファイルはモード <code>0600</code> で書き込まれ、
+        親ディレクトリはモード <code>0750</code> で作成されます。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="notes">ノート</h2>
+      <p class="doc-text">
+        ノートは、インストール後に表示されるキーと値のメタデータです。
+      </p>
+      <pre><code>notes:
+  URL:
+    value: "http://localhost:@port@"
+    type: url
+  Info:
+    value: "Default admin credentials are admin/admin"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>value</code></td><td><strong>必須。</strong> ノートの本文。<code>@variable@</code> によるテンプレート置換に対応します。</td></tr>
+            <tr><td><code>type</code></td><td>任意の検証タイプ: <code>url</code>、<code>phone</code>、<code>email</code>。プレーンテキストの場合は省略します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="dependencies">依存関係</h2>
+      <p class="doc-text">
+        パッケージは他のパッケージへの依存を宣言できます。依存先は親の podman ネットワークを共有するため、
+        同じ依存ツリーにあるコンテナー同士は、podman の内蔵 DNS を通じてコンテナー名で直接
+        通信できます。
+      </p>
+      <pre><code>dependencies:
+  db:
+    package: postgres
+    responses:
+      password: "@dbpass@"
+      user: "mattermost"
+      database: "mattermost"
+      port: "5432"</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>package</code></td><td><strong>必須。</strong> インストールする依存パッケージの名前。</td></tr>
+            <tr><td><code>repo</code></td><td>依存先を含むリポジトリ。既定は親のリポジトリです。</td></tr>
+            <tr><td><code>version</code></td><td>インストールするバージョン。既定は入手できる最新バージョンです。</td></tr>
+            <tr><td><code>responses</code></td><td>依存先の質問への回答。値には親の質問を参照する <code>@variable@</code> 構文を使えます。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        親パッケージは実行時に、依存ごとの環境変数を受け取ります。
+        <code>TOWNOS_DEP_&#123;KEY&#125;_HOST</code>（コンテナー名）と
+        <code>TOWNOS_DEP_&#123;KEY&#125;_PORT_&#123;port&#125;</code>（コンテナー側のポート番号）です。
+        親は環境変数の値の中で <code>@dep_KEY_host@</code> や <code>@dep_KEY_port_N@</code> の
+        テンプレート変数を使うこともできます（<a href="#template-system">テンプレートの仕組み</a>を参照）。
+      </p>
+      <p class="doc-text">
+        <strong>例:</strong> PostgreSQL への <code>db</code> 依存を持つ Mattermost パッケージは、
+        データソース URL の中でデータベースのホストを参照できます。
+      </p>
+      <pre><code>environment:
+  MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:@dbpass@@@dep_db_host@:@dep_db_port_5432@/mattermost?sslmode=disable"</code></pre>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="template-system">テンプレートの仕組み</h2>
+      <p class="doc-text">
+        Town OS には、コンパイルの異なる段階で働く 2 つのテンプレートの仕組みがあります。
+      </p>
+
+      <h3><code>@variable@</code> の置換</h3>
+      <p class="doc-text">
+        <code>@variable@</code> 構文は、パッケージのコンパイル時に、設定可能なすべてのフィールドで
+        置換されます。環境変数の値、ネットワークのポートマッピング、ネットワークのドメイン、
+        ボリュームのマウントポイント、ボリュームのクォータ、ボリュームの git URL、git ソースの URL と
+        ブランチ、テンプレートの volume と path、VM のイメージとメモリ、Proton の設定、
+        ノートの値が対象です。
+      </p>
+      <p class="doc-text">
+        質問の名前がそれぞれ変数になります。<code>@</code> という文字そのものを含めたい場合
+        （<code>git@@domain@</code> のような git の SSH URL など）は <code>@@</code> と書きます。
+        <code>@</code> を 2 つ続けると、<code>@</code> 1 つになります。
+      </p>
+      <p class="doc-text">
+        解決できなかった変数（対応する質問の回答がない名前）は、出力にそのまま残ります。
+      </p>
+
+      <h3>組み込み変数</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>変数</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>@LOCAL_EXTERNAL_HOST@</code></td><td>Town OS ホストの外部ホスト名または IP</td></tr>
+            <tr><td><code>@LOCAL_INTERNAL_HOST@</code></td><td>Town OS ホストの内部ホスト名または IP</td></tr>
+            <tr><td><code>@PACKAGE_DNS@</code></td><td>内部ネットワークでこのパッケージに割り当てられた DNS 名</td></tr>
+            <tr><td><code>@dep_KEY_host@</code></td><td>依存 KEY のコンテナーのホスト名（共有ネットワーク上で podman の DNS により解決できます）。パッケージが依存を宣言している場合にのみ利用できます。</td></tr>
+            <tr><td><code>@dep_KEY_port_N@</code></td><td>依存 KEY のコンテナーポート N。パッケージが依存を宣言している場合にのみ利用できます。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        組み込み変数は利用者の回答より先に置換されるため、そちらが優先されます。
+        依存関係のテンプレート変数（<code>@dep_*@</code>）は依存先のインストール後に解決され、
+        親の環境変数の値に適用されます。KEY は小文字の依存キー名、N はコンテナー側のポート番号です。
+      </p>
+
+      <h3>Go テンプレート（<code>templates</code> フィールド内）</h3>
+      <p class="doc-text">
+        <code>templates</code> フィールドは、ボリュームに書き込むファイルを描画するために
+        Go の <code>text/template</code> 構文（<code>&#123;&#123; .Responses.name &#125;&#125;</code>）を使います。
+        利用できるデータコンテキストは<a href="#templates">テンプレート</a>の節を参照してください。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="vm-runtime">VM ランタイム</h2>
+      <p class="doc-text">
+        <code>image</code> の代わりに <code>vm</code> フィールドを指定すると、パッケージは
+        コンテナーではなく仮想マシンを実行できます。
+      </p>
+      <pre><code>vm:
+  image: "https://example.com/my-vm.qcow2"
+  memory: 2gb
+  cpus: 2
+description: A virtual machine package</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>image</code></td><td><strong>必須。</strong> VM のディスクイメージの URL（http/https）またはファイル名。<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>memory</code></td><td>バイトの接尾辞を使ったメモリ割り当て（例: <code>1gb</code>、<code>512mb</code>）。既定は <code>1gb</code> です。<code>@variable@</code> テンプレートを含められます。</td></tr>
+            <tr><td><code>cpus</code></td><td>仮想 CPU の数。既定は 1 です。負の値は指定できません。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>vm</code> フィールドは <code>image</code> および <code>proton</code> とは併用できません。
+        VM のイメージは、コンテナーイメージのようには正規化されません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="proton-runtime">Proton ランタイム</h2>
+      <p class="doc-text">
+        <code>proton</code> フィールドを指定すると、パッケージは Proton 経由で Windows アプリケーションを実行できます。
+      </p>
+      <pre><code>image:
+  type: oci
+proton:
+  app_image: "mycompany/windows-app:1.0"
+  app_directory: /app
+  volume: app
+  exe: /app/myapp.exe
+  args: ["-fullscreen", "-config", "/app/config.ini"]
+volumes:
+  app:
+    mountpoint: /app</code></pre>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>説明</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>app_image</code></td><td><strong>必須。</strong> Windows アプリケーションを含むコンテナーイメージ。</td></tr>
+            <tr><td><code>app_directory</code></td><td><strong>必須。</strong> アプリケーションが置かれている絶対パス。</td></tr>
+            <tr><td><code>volume</code></td><td><strong>必須。</strong> このパッケージで定義されたボリュームの名前。</td></tr>
+            <tr><td><code>exe</code></td><td><strong>必須。</strong> Windows の実行ファイルへのパス。</td></tr>
+            <tr><td><code>args</code></td><td>コマンドライン引数の一覧（任意）。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>proton</code> を設定すると、コンテナーのコマンドは
+        <code>["proton", "run", &lt;exe&gt;, ...&lt;args&gt;]</code> として自動生成されます。
+        コンテナーイメージは既定でシステム全体の <code>proton_image</code> 設定
+        （<code>quay.io/town/proton:latest</code>）が使われますが、<code>image</code> を指定すれば
+        パッケージごとに上書きできます。<code>app_image</code> フィールドは、通常のコンテナーイメージ参照と
+        同じ規則でコンパイル時に正規化されます。
+        <code>proton</code> フィールドは <code>vm</code> および <code>command</code> とは併用できません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="compilation">コンパイル</h2>
+      <p class="doc-text">
+        <strong>コンパイルは、パッケージ定義と利用者の回答を、完全に解決された実行可能な構成へと変換します。</strong>
+        コンパイルのパイプラインは次の手順を実行します。
+      </p>
+      <ul class="doc-list">
+        <li>すべての質問の回答を、宣言されたタイプに照らして検証する</li>
+        <li>タイプ固有の検証を適用する（ポートの範囲、ホスト名のパターン、バイト数の解析など）</li>
+        <li>すべての <code>@variable@</code> テンプレートの記号を、解決した値に置き換える</li>
+        <li>コンテナーイメージの URL を完全修飾の参照に正規化する</li>
+        <li>インストール可能な状態まで解決したパッケージを生成する</li>
+      </ul>
+      <p class="doc-text">
+        VM パッケージの場合、メモリの文字列（<code>2gb</code> など）はバイト数に解析され、
+        CPU の既定値が適用されます。検証エラーはすべてのフィールドについてまとめて収集され、
+        一括で返されるため、利用者は 1 度の修正ですべてを直せます。エラーに 1 つずつ
+        ぶつかることはありません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="response-persistence">回答の保存</h2>
+      <p class="doc-text">
+        <strong>回答はバージョンごとに保存されます。</strong>保存先は
+        <code>responses/&lt;repo&gt;/&lt;pkg&gt;/&lt;version&gt;.json</code> です。
+        アップグレードや、アンインストール済みのボリュームからの再インストールで再利用するために、
+        <code>responses/last/&lt;repo&gt;/&lt;pkg&gt;.json</code> にも <code>last</code> のコピーが
+        保存されます。
+      </p>
+      <p class="doc-text">
+        last の回答はインストールが成功すると消去されます。つまり、パッケージをアンインストールして
+        後から再インストールすると、以前の回答が既定値として提示されます。新しいインストールが
+        成功した時点で、キャッシュされたコピーは削除されます。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="installation-workflow">インストールの流れ</h2>
+      <p class="doc-text">
+        <strong>パッケージのインストールは、決められた一連の手順で進みます。</strong>
+        ファイルの準備からサービスの起動まで、すべてがこの流れで処理されます。
+      </p>
+      <ul class="doc-list">
+        <li>リポジトリのパッケージファイルから、インストール先ディレクトリへのハードリンクの作成</li>
+        <li>回答の保存（バージョン別と <code>last</code> のコピー）</li>
+        <li>クォータと任意の UID/GID 所有者を設定したボリュームの作成</li>
+        <li>アーカイブと git ソースからのボリュームの初期化（コンテナーランタイムのみ）</li>
+        <li>テンプレートの適用（ファイルをボリュームへ描画）</li>
+        <li>systemd ユニットの生成（コンテナーは Podman ベース、VM は QEMU ベース）</li>
+        <li>ネットワーク状態ファイルの作成</li>
+        <li>サービスの開始</li>
+        <li>成功時の last の回答の消去</li>
+      </ul>
+      <p class="doc-text">
+        ボリュームの扱いは、2 つの任意フラグで制御できます。
+      </p>
+      <ul class="doc-list">
+        <li><code>reuse_volumes</code> — 同じパッケージの以前のアンインストール済みバージョンのボリュームを再利用する</li>
+        <li><code>import_from_version</code> — 特定の以前のバージョンからボリュームを取り込む</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="uninstallation">アンインストール</h2>
+      <p class="doc-text">
+        <strong>パッケージをアンインストールしても、既定ではボリュームのデータは保持されます。</strong>
+        ボリュームは削除されるのではなく、<code>installed/</code> のプレフィックスから
+        <code>uninstalled/</code> のプレフィックスへ移動されます。これにより、元のデータを保ったまま
+        再インストールできます。
+      </p>
+      <p class="doc-text">
+        アンインストールの処理では、ネットワーク状態ファイルの削除も行い、関連する systemd ユニットの
+        停止、無効化、アンインストールも実施します。
+      </p>
+      <p class="doc-text">
+        保持せずにボリュームをすぐ削除したい場合は、<code>purge_volumes</code> フラグを使います。
+        削除されたボリュームは復元できません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="install-preview">インストールのプレビュー</h2>
+      <p class="doc-text">
+        <strong>インストールを確定する前に、何が作られるのかを事前に確認できます。</strong>
+        インストールプレビューのエンドポイント（<code>POST /packages/install-preview</code>）は、
+        変更を一切加えずに、予定されるインストール内容の要約を返します。
+      </p>
+      <ul class="doc-list">
+        <li>作成されるボリューム</li>
+        <li>割り当てられるポート</li>
+        <li>アップグレードの情報（以前のバージョンからアップグレードする場合）</li>
+        <li>ランタイムの種類（コンテナーまたは VM）</li>
+        <li>回答すべき質問があるかどうか</li>
+        <li>VM パッケージの場合は VM の構成の詳細（イメージ、メモリ、CPU 数）</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="featured-packages">注目パッケージ</h2>
+      <p class="doc-text">
+        パッケージリポジトリのルート（<code>packages/</code> ディレクトリと同じ階層）に
+        <code>featured.json</code> ファイルを置くと、選んだパッケージを UI 上で目立たせられます。
+      </p>
+      <p class="doc-text">
+        このファイルには、パッケージ名の文字列からなる JSON 配列を記述します。バージョンや
+        リポジトリのプレフィックスは付けません。
+      </p>
+      <pre><code>["wordpress", "nextcloud", "postgres"]</code></pre>
+      <p class="doc-text">
+        <code>featured.json</code> に列挙されたパッケージは、API のパッケージ一覧のレスポンスで
+        <code>featured: true</code> として返されるため、UI 側で強調表示できます。このファイルは任意で、
+        存在しない場合はどのパッケージも注目扱いになりません。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="importing-repositories">リポジトリの取り込み</h2>
+      <p class="doc-text">
+        パッケージリポジトリを作ったら、ウェブ UI かファイルシステム上の設定のどちらかで、
+        自分の Town OS インスタンスに追加します。
+      </p>
+
+      <h3>UI から追加する</h3>
+      <p class="doc-text">
+        Town OS のダッシュボードにログインし、<strong>パッケージ</strong>へ移動して
+        <strong>リポジトリ</strong>タブを選び、<strong>リポジトリを追加</strong>をクリックします。
+        名前、git の URL、必要なら認証情報を入力してください。<strong>更新</strong>をクリックすると、
+        パッケージのメタデータをすぐに取得できます。
+      </p>
+
+      <h3>ファイルシステムから追加する</h3>
+      <p class="doc-text">
+        btrfs のパッケージデータディレクトリにある <code>repositories.json</code> を編集します。
+        このファイルはオブジェクトの JSON 配列です。
+      </p>
+      <pre><code>[
+  &#123;"name": "default", "url": "https://github.com/town-os/default-packages"&#125;,
+  &#123;"name": "my-packages", "url": "https://github.com/myuser/my-packages"&#125;
+]</code></pre>
+      <p class="doc-text">
+        並び順には意味があります。パッケージ名が衝突した場合、後のエントリーが先のものを上書きします。
+        プライベートなリポジトリでは、URL に認証情報を埋め込んでください。変更を反映するには、
+        サービスを再起動するか、UI で<strong>更新</strong>を実行します。
+      </p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="validation-rules">検証ルール</h2>
+      <p class="doc-text">
+        パッケージの検証とコンパイルでは、次の制約が適用されます。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>ルール</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>イメージ URL</td><td>空でないこと。文字は <code>^[a-zA-Z0-9@][a-zA-Z0-9._:/@-]*$</code> に一致すること</td></tr>
+            <tr><td>イメージのタイプ</td><td>空（既定で <code>oci</code>）または <code>oci</code></td></tr>
+            <tr><td>環境変数のキー</td><td><code>^[a-zA-Z_][a-zA-Z0-9_]*$</code> に一致すること（POSIX の慣例）</td></tr>
+            <tr><td>質問の名前</td><td><code>^[a-zA-Z0-9]+$</code> に一致すること</td></tr>
+            <tr><td>ボリューム名</td><td><code>^[a-zA-Z0-9][a-zA-Z0-9._-]*$</code> に一致すること</td></tr>
+            <tr><td>マウントポイント</td><td><code>/</code> で始まること</td></tr>
+            <tr><td>テンプレート名</td><td>ボリューム名と同じ規則</td></tr>
+            <tr><td>テンプレートのパス</td><td>空でなく、相対パスであり（先頭に <code>/</code> がない）、<code>..</code> による移動を含まないこと</td></tr>
+            <tr><td>アーカイブのディレクトリ</td><td>絶対パスであること</td></tr>
+            <tr><td>アーカイブ・git のボリューム</td><td>パッケージ内で定義されたボリュームを参照すること</td></tr>
+            <tr><td>git の URL</td><td>正しいスキームとホストを持つこと（<code>file://</code> は例外）</td></tr>
+            <tr><td>VM の CPU 数</td><td>負の値でないこと</td></tr>
+            <tr><td>Proton の app_directory</td><td>絶対パスであること</td></tr>
+            <tr><td>ランタイム</td><td><code>image</code>/<code>proton</code>（コンテナー）か <code>vm</code> のちょうど 1 つ</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        検証はテンプレート置換の前に実行されます。<code>@variable@</code> の記号を含むフィールドは、
+        コンパイルがテンプレートを解決するまで、パスと URL の検証を飛ばします。
+      </p>
+    </div>
+  </section>
+
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="style-guidelines">スタイルの指針</h2>
+      <ul class="guidelines-list">
+        <li>空のマップ（<code>environment: {}</code>、<code>internal: {}</code>、<code>volumes: {}</code>）は書かず、まるごと省略してください。</li>
+        <li>自由入力のテキストを受け付ける質問では <code>type</code> を省略してください。値のない <code>type:</code> を書かないでください。</li>
+        <li>そのパッケージが何であるかを短くまとめた <code>description</code> を入れてください。</li>
+        <li>よく知られたサービスを提供するパッケージでは、該当する機能タグを <code>supplies</code> に入れてください。</li>
+        <li>接続 URL やインストール後に重要となる情報を <code>notes</code> に入れてください。</li>
+        <li>ポート、ホスト名、認証情報をインストール時に利用者が指定できるよう、<code>@variable@</code> テンプレートを使ってください。</li>
+        <li>Go テンプレートのロジックが必要な設定ファイルには <code>templates</code> を使ってください。一度しか書き込まれないため、利用者の編集が保持されます。</li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .page-lead {
+    font-size: 1.15rem;
+    color: var(--color-text-muted);
+    max-width: 720px;
+    margin-top: 1rem;
+  }
+
+  .toc {
+    margin-top: 1.5rem;
+  }
+
+  .toc ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    columns: 2;
+    column-gap: 2rem;
+  }
+
+  .toc li {
+    margin-bottom: 0.35rem;
+    break-inside: avoid;
+  }
+
+  .toc a {
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .toc a:hover {
+    text-decoration: underline;
+  }
+
+  .doc-text {
+    color: var(--color-text-muted);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-text strong {
+    color: var(--color-text);
+  }
+
+  .alt-section {
+    background: var(--color-bg-elevated);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  h3 {
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    max-width: 800px;
+  }
+
+  .doc-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.6;
+  }
+
+  .doc-list strong {
+    color: var(--color-text);
+  }
+
+  .guidelines-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+  }
+
+  .guidelines-list li {
+    margin-bottom: 0.6rem;
+    line-height: 1.6;
+  }
+
+  .guidelines-list code {
+    font-size: 0.85em;
+  }
+</style>
