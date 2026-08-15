@@ -83,6 +83,61 @@ const base = import.meta.env.BASE_URL;
         </div>
 
         <div class="card concept-card">
+          <h3>Networks</h3>
+          <p>
+            A <strong>network</strong> is a named WireGuard overlay paired with a DNS TLD.
+            Packages install into a network, peers join it, and the TLD decides who can resolve
+            what. The <code>home</code> network always exists, cannot be removed, and is
+            DNS-only — it has no tunnel, and peer enrollment on it is refused, because every
+            account already belongs to it and membership alone should not be a way onto a
+            tunnel. Other networks get a WireGuard interface and a subnet derived from the
+            box's own identity, so a device that joins two Town OS boxes never sees a
+            collision. Disabling a network takes down only the transport: remote access stops,
+            while local DNS and the containers keep running.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Ingress</h3>
+          <p>
+            One shared front door. A single Caddy instance holds <code>:443</code> and
+            <code>:80</code> for the whole box and selects which service you reach purely by
+            SNI and Host — there are no per-service listeners and no <code>bind</code>
+            directives, so a LAN client and an overlay peer hit the same socket, get the same
+            certificate, and are proxied to the same container. A package's name is one string
+            used four ways at once: the A record, the certificate's SAN, the TLSA owner, and
+            the ingress vhost.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>TLS and the local CA</h3>
+          <p>
+            Town OS runs its own certificate authority and issues leaves for the names your
+            packages claim, so services are reachable over HTTPS without a public certificate
+            or a browser warning. The CA certificate is downloadable from
+            <code>/tls/ca.crt</code> — trusting it once is what makes every local name work.
+            Certificates are renewed in the background rather than at boot, and a TLD change
+            reissues the names that depend on it.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Object Storage</h3>
+          <p>
+            Town OS ships object storage through <strong>gfeh</strong>. A
+            <strong>partition</strong> is one btrfs subvolume with its own daemon and its own
+            set of users, and there is exactly one per network — so a user, a permission, or a
+            published link in one network means nothing in another. Each partition serves four
+            views: S3, plain HTTP, a drive-style browser, and IPFS. Users are
+            <strong>principals</strong> arranged in a tree; access is a <strong>grant</strong>,
+            always clamped to the ceiling of the principal it is given to; and a
+            <strong>published link</strong> is an exposure that can be withdrawn later. No
+            partition publishes a host port — the ingress reaches each one by container name.
+          </p>
+        </div>
+
+        <div class="card concept-card">
           <h3>Storage</h3>
           <p>
             All data is stored on btrfs subvolumes with per-package isolation. Each volume has

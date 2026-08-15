@@ -40,11 +40,15 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <li><a href="#settings">Settings</a></li>
           <li><a href="#audit">Audit Log</a></li>
           <li><a href="#pages">Pages</a></li>
+          <li><a href="#networks">Networks</a></li>
+          <li><a href="#object-storage">Object Storage</a></li>
           <li><a href="#dns">DNS</a></li>
           <li><a href="#monitoring">Monitoring</a></li>
           <li><a href="#system-services">System Services</a></li>
           <li><a href="#locales">Locales</a></li>
           <li><a href="#vm-images">VM Images</a></li>
+          <li><a href="#gfeh-admin">Object Storage Admin API (gfeh)</a></li>
+          <li><a href="#rolodex-grpc">DNS gRPC API (rolodex)</a></li>
           <li><a href="#client-libraries">Client Libraries</a></li>
           <li><a href="#development">Development Reference</a></li>
           <li><a href="#prerequisites">Prerequisites</a></li>
@@ -81,7 +85,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       </p>
       <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
       <p class="doc-text">
-        Sessions expire after 7 days of inactivity. There are three auth levels:
+        Sessions expire after 7 days of inactivity. There are five auth levels:
       </p>
       <div class="table-wrapper">
         <table>
@@ -92,9 +96,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             <tr><td><span class="auth-badge auth-public">Public</span></td><td>No token required.</td></tr>
             <tr><td><span class="auth-badge auth-authenticated">Authenticated</span></td><td>Any valid session token.</td></tr>
             <tr><td><span class="auth-badge auth-admin">Admin</span></td><td>Session token belonging to an admin account.</td></tr>
+            <tr><td><span class="auth-badge auth-grant">Grant</span></td><td>A specific grant on the account admits a non-admin. Object storage endpoints take the object storage grant; peer enrollment takes the wireguard grant, with per-network scope and per-peer ownership enforced by the handler itself.</td></tr>
+            <tr><td><span class="auth-badge auth-localhost">Localhost</span></td><td>Requests from loopback pass unauthenticated — reaching loopback already means being on the box — and every other origin needs the level named alongside the badge. Used by the systemd unit and log endpoints, which the controller's own tooling reads.</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        Creating an object storage partition is reserved for administrators even though the
+        endpoints inside one are not: a partition roots a permission tree and allocates a btrfs
+        subvolume with a quota, so the grant admits you to the users inside a partition rather
+        than to the decision that it should exist.
+      </p>
     </div>
   </section>
 
@@ -429,6 +441,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="doc-text">
         Delete a specific package volume by internal name.
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume-group</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete every volume belonging to one package in a single call, rather than removing
+        them one internal name at a time.
+      </p>
     </div>
   </section>
 
@@ -538,17 +562,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="doc-text">
         List packages grouped by repository. Accepts an optional <code>search</code> query
         parameter. Returns an array of <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code> groups.
-      </p>
-
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/packages/timezones</code>
-          <span class="auth-badge auth-authenticated">Authenticated</span>
-        </div>
-      </div>
-      <p class="doc-text">
-        List all available IANA timezone names for use in package configuration.
       </p>
 
       <div class="endpoint">
@@ -875,12 +888,30 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/units</code>
           <span class="auth-badge auth-authenticated">Authenticated</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
         List systemd units managed by Town OS. Each entry includes unit name, description,
         load/active/sub states, the associated package identifier and description, and a
         failure flag. Supports pagination parameters.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units-tree</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        The same units as the flat listing, grouped into a dependency tree: root packages at
+        the top, dependencies nested under their parent, all the way down — the same shape
+        <code>/storage/package-volumes</code> uses. Rows carry the same status data the flat
+        endpoint returns, so a client does not need a second fetch to enrich them.
       </p>
 
       <div class="endpoint">
@@ -898,9 +929,25 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
       <div class="endpoint">
         <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status/tree</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Apply an action across a package and its dependency tree in one call, in dependency
+        order. <code>enable</code> and <code>disable</code> are rejected here for the same
+        reason they are on <code>/systemd/status</code>: cascading an enable would
+        double-enable dependencies that are already linked through their parent.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs</code>
-          <span class="auth-badge auth-authenticated">Authenticated</span>
+          <span class="auth-badge auth-admin">Admin</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -915,7 +962,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs/tail</code>
-          <span class="auth-badge auth-authenticated">Authenticated</span>
+          <span class="auth-badge auth-admin">Admin</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -939,6 +988,37 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="doc-text">
         Returns <code>entries</code>, <code>cursor</code> (first entry), and
         <code>end_cursor</code> (last entry) for subsequent pagination.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree</code>
+          <span class="auth-badge auth-admin">Admin</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        The tree equivalent of <code>/systemd/logs</code>: one Server-Sent Events stream
+        carrying the journal for a package and every unit beneath it, merged in chronological
+        order. An unknown root with no install record still gets an open stream with no
+        entries rather than a 404, so the journal viewer works the same for a single unit and
+        for a whole tree.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree/tail</code>
+          <span class="auth-badge auth-admin">Admin</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        The paginated form of the merged tree journal, taking the same cursor, filter, and
+        time-range parameters as <code>/systemd/logs/tail</code>.
       </p>
     </div>
   </section>
@@ -1130,6 +1210,358 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- Networks -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="networks">Networks</h2>
+      <p class="doc-text">
+        A <strong>network</strong> is a named WireGuard overlay paired with a DNS TLD. Packages
+        install into a network, peers join it, and the TLD is what partitions who can resolve
+        what. Network names are DNS-label-safe and capped at 32 characters, because they are
+        reused as WireGuard interface suffixes and systemd unit names.
+      </p>
+      <p class="doc-text">
+        The <code>home</code> network always exists — it is seeded with the database itself,
+        not created at boot — and it is special in three ways: it <strong>cannot be
+        removed</strong> or created a second time, it is <strong>DNS-only</strong> (no
+        WireGuard interface, no subnet, no peers), and <strong>peer enrollment on it is
+        refused</strong> with a 400. Every account belongs to the home network, so accepting
+        enrollment there would make membership alone a way onto a tunnel — and the stored peer
+        would describe a tunnel that does not exist.
+      </p>
+      <p class="doc-text">
+        Disabling a network takes down only the <em>transport</em>: the WireGuard interface is
+        not brought up, which cuts remote access, while local DNS resolution and the containers
+        themselves keep running.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List networks. Each entry carries the name, TLD, subnet, the box's own overlay address,
+        public key, listen port, and enabled flag. The private key is never serialized.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/create</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Create a network. The subnet is derived deterministically from a box-identity seed and
+        the network name, drawn from <code>10.64.0.0/10</code> to stay clear of the ranges
+        consumer routers hand out. Keying on box identity means two Town OS boxes both serving
+        peers pick distinct subnets, so a device joining both never sees a collision. Creating
+        <code>home</code> returns 409 from the TLD-collision check.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a network. Refuses the <code>home</code> network.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/enable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Bring the network's WireGuard transport up.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/disable</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Take the transport down while leaving DNS and the containers running.
+      </p>
+
+      <h3>Peers</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List the peers enrolled on a network.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers/connected</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List peers currently connected, as opposed to merely enrolled.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/add</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Enrol a peer. The wireguard grant is what admits a non-admin; per-network scope and
+        per-peer ownership are enforced by the handler. Returns 400 for the <code>home</code>
+        network, which is DNS-only.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/refresh</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Renew a peer's enrollment before its TTL expires. Enrollments have a lifetime and a
+        reaper removes the ones that lapse.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a peer from a network.
+      </p>
+
+      <h3>The local CA</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/tls/ca.crt</code>
+          <span class="auth-badge auth-public">Public</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Download the box's local certificate authority in PEM form. Town OS issues its own
+        leaves for package names, so trusting this certificate is what makes those names work
+        in a browser without warnings. It is deliberately public — a CA certificate is the
+        part you are meant to distribute, and a client needs it before it holds any credential
+        to authenticate with.
+      </p>
+    </div>
+  </section>
+
+  <!-- Object Storage -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="object-storage">Object Storage</h2>
+      <p class="doc-text">
+        Town OS ships object storage through <strong>gfeh</strong>. A
+        <strong>partition</strong> is one btrfs subvolume, one <code>gfehd</code> process, one
+        admin socket, and <strong>its own set of users</strong>. There is exactly one partition
+        per Town OS network, so the object-storage namespace is split along the same boundary
+        that splits DNS and WireGuard: a principal, a grant, or an exposure in the
+        <code>office</code> partition means nothing in <code>home</code>.
+      </p>
+      <p class="doc-text">
+        Each partition serves four HTTP views on fixed container ports — S3 on 9000, HTTP on
+        9001, drive on 9002, IPFS on 9003 — and publishes <strong>no host port at all</strong>.
+        That is what makes the fixed ports safe: every partition has its own network namespace
+        and the ingress reaches it by container name, exactly as it reaches a package, so two
+        partitions both serving S3 on 9000 cannot collide.
+      </p>
+
+      <h3>Partitions</h3>
+      <p class="doc-text">
+        These four routes exist separately from <code>/storage/*</code> because
+        <code>/storage/create</code> rewrites every submitted name to
+        <code>user/&lt;name&gt;</code> unconditionally and so cannot produce a volume under the
+        <code>gfeh/</code> prefix. Their wire shapes are a published contract that gfeh's
+        client parses, not an internal detail.
+      </p>
+      <p class="doc-text">
+        Two details are load-bearing. <strong>The prefix is asymmetric</strong> — requests
+        carry a bare name, responses carry <code>gfeh/&lt;name&gt;</code>, because the prefix
+        is a Town OS namespace artifact rather than part of the partition's identity. And
+        <strong>the listing returns a bare JSON array, not a paginated envelope</strong>,
+        unlike every other list endpoint on this API: gfeh's client deserializes a plain list
+        directly and a pagination wrapper fails to decode.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Route</th><th>Auth</th><th>Request</th><th>Response</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST /gfeh/partitions/create</code></td><td>Admin</td><td><code>name</code> (no prefix), <code>quota</code></td><td>Filesystem, name <code>gfeh/&lt;n&gt;</code></td></tr>
+            <tr><td><code>POST /gfeh/partitions/modify</code></td><td>Admin</td><td><code>name</code>, <code>quota</code></td><td>Filesystem</td></tr>
+            <tr><td><code>POST /gfeh/partitions/remove</code></td><td>Admin</td><td><code>name</code></td><td>200, empty</td></tr>
+            <tr><td><code>POST /gfeh/partitions</code></td><td>Authenticated</td><td>no body</td><td>plain array of Filesystem</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Status codes a client should branch on: <strong>409</strong> already exists (gfeh's
+        provisioning is a create-or-resize and tells the two apart by this status),
+        <strong>404</strong> missing, <strong>400</strong> a bad name, <strong>403</strong> not
+        an administrator. A name containing a path separator is refused here because
+        <code>gfehd</code> refuses it at its own boundary — disagreeing about what a legal
+        partition name is would let a name like <code>../user/something</code> address a volume
+        outside the object-storage root.
+      </p>
+      <p class="doc-text">
+        Creating a partition is <strong>admin-only and cannot be reached with a grant</strong>:
+        it roots a permission tree and allocates a btrfs subvolume with a quota, so a
+        grant-holding account is refused before any handler runs.
+      </p>
+
+      <h3>Browsing</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        The object-storage overview: which partitions exist and what state they are in.
+      </p>
+
+      <h3>Principals</h3>
+      <p class="doc-text">
+        A partition's users. Adding one takes a name, a parent, and a ceiling — and
+        <strong>no password</strong>, which is why the UI never asks for one. The ceiling
+        follows gfeh's projection rule: <code>all</code> for a Town OS administrator,
+        read/write otherwise.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/principals</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List the principals in a partition.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/add</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Create a principal under a parent, with a ceiling.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/remove</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Delete a principal.
+      </p>
+
+      <h3>Grants</h3>
+      <p class="doc-text">
+        The ACLs. A grant is <strong>clamped to the principal's ceiling</strong> by
+        <code>gfehd</code>, so a client should display the permissions that came
+        <em>back</em> rather than the ones it sent — an administrator has to be able to see
+        that a grant was narrowed.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/grants</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List grants, optionally for one principal.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/add</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Grant a principal access. The response carries the permissions as actually stored.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/revoke</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Revoke a grant by id.
+      </p>
+
+      <h3>Exposures</h3>
+      <p class="doc-text">
+        A published file link, served at <code>/f/&lt;token&gt;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/exposures</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List the published links in a partition.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/exposures/withdraw</code>
+          <span class="auth-badge auth-grant">Grant</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Withdraw a published link by token, so the URL stops resolving.
+      </p>
+    </div>
+  </section>
+
   <!-- DNS -->
   <section class="section alt-section">
     <div class="container">
@@ -1216,6 +1648,128 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p class="doc-text">
         Initialize or restart the DNS server and register all installed packages.
       </p>
+
+      <h3>Blocklists</h3>
+      <p class="doc-text">
+        Two independent lists. The <strong>DNSBL</strong> is subscription-based — upstream
+        blocklists rolodex fetches and applies — with an allowlist that exempts names you want
+        resolved regardless of what an upstream list says. The <strong>local blocklist</strong>
+        (RBL) is the box's own list, edited entry by entry.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Get the DNSBL configuration: which upstream blocklists are subscribed and how they are
+        applied.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Replace the DNSBL configuration.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List the names exempted from the subscribed blocklists.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/add</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Exempt a name from the subscribed blocklists.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Drop an allowlist entry, letting the subscribed blocklists apply to that name again.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/rbl/local</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List the box's own blocklist entries.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/add</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Add a name to the local blocklist.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/remove</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Remove a name from the local blocklist.
+      </p>
+
+      <h3>Per-service DNS publishing</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/services</code>
+          <span class="auth-badge auth-authenticated">Authenticated</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        List installed services along with whether each one publishes a DNS name.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/services/set</code>
+          <span class="auth-badge auth-admin">Admin</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Turn DNS publishing on or off for one service, so a package can run without claiming a
+        name on the network.
+      </p>
     </div>
   </section>
 
@@ -1241,17 +1795,29 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         is not configured.
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/monitoring/grafana/*</code>
-          <span class="auth-badge auth-public">Public</span>
-        </div>
-      </div>
+      <h3>Reaching the dashboard data</h3>
       <p class="doc-text">
-        Reverse proxy to the local Grafana instance, stripping the
-        <code>/monitoring/grafana</code> prefix from the URL path. Returns 503 if monitoring
-        is not configured. This endpoint bypasses authentication.
+        There is <strong>no reverse proxy through the system controller</strong>. Monitoring
+        data is served on its own dedicated port, <strong>5308</strong>, and the browser talks
+        to that port directly; the controller's own port (5309) carries only
+        <code>/monitoring/status</code>. What listens on 5308 depends on the configured
+        backend:
+      </p>
+      <ul class="doc-list">
+        <li>
+          <strong>uPlot mode</strong> (the default) — a socat forwarder exposes the Prometheus
+          HTTP API on 5308, and the UI queries <code>/api/v1/query_range</code> directly,
+          rendering the charts itself.
+        </li>
+        <li>
+          <strong>Grafana mode</strong> — Grafana listens on 5308 directly through a podman
+          port mapping, and the UI embeds it in an iframe.
+        </li>
+      </ul>
+      <p class="doc-text">
+        <code>TOWN_OS_MONITORING_PORT</code> relocates the dashboard port;
+        <code>TOWN_OS_PROMETHEUS_PORT</code> and <code>TOWN_OS_NODE_EXPORTER_PORT</code> do
+        the same for the two loopback ports.
       </p>
     </div>
   </section>
@@ -1375,6 +1941,216 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- gfeh admin API -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="gfeh-admin">Object Storage Admin API (gfeh)</h2>
+      <p class="doc-text">
+        Everything above is the Town OS API, which is what an application should normally use.
+        Underneath it, each <code>gfehd</code> partition has an administrative surface of its
+        own: JSON over HTTP on its <strong>Unix socket only</strong>, never a port.
+      </p>
+      <p class="doc-text">
+        There is <strong>no token and no authentication</strong> on this surface. The
+        filesystem permissions on the socket <em>are</em> the access control, so being able to
+        reach it already means being root on the box. The socket lives on the btrfs volume
+        because that is the one filesystem both the <code>gfehd</code> container and the system
+        controller container can see.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Call</th><th>Method and path</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Health</code></td><td><code>GET /v1/health</code></td><td>Liveness, and the readiness probe.</td></tr>
+            <tr><td><code>Names</code></td><td><code>GET /v1/names</code></td><td>The names this partition wants published.</td></tr>
+            <tr><td><code>ListPrincipals</code></td><td><code>GET /v1/principals</code></td><td>The partition's user forest.</td></tr>
+            <tr><td><code>CreatePrincipal</code></td><td><code>POST /v1/principals</code></td><td>Takes <code>name</code>, <code>parent</code>, <code>ceiling</code> — and no password.</td></tr>
+            <tr><td><code>DeletePrincipal</code></td><td><code>DELETE /v1/principals/&lt;name&gt;</code></td><td>Remove a principal.</td></tr>
+            <tr><td><code>ListGrants</code></td><td><code>GET /v1/grants?principal=</code></td><td>The ACLs, optionally for one principal.</td></tr>
+            <tr><td><code>CreateGrant</code></td><td><code>POST /v1/grants</code></td><td>Grant access; clamped to the principal's ceiling.</td></tr>
+            <tr><td><code>RevokeGrant</code></td><td><code>DELETE /v1/grants/&lt;id&gt;</code></td><td>Revoke a grant.</td></tr>
+            <tr><td><code>ListExposures</code></td><td><code>GET /v1/exposures</code></td><td>Published <code>/f/&lt;token&gt;</code> links.</td></tr>
+            <tr><td><code>WithdrawExposure</code></td><td><code>DELETE /v1/exposures/&lt;token&gt;</code></td><td>Stop serving a published link.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>gfehd</code> maps its internal errors onto HTTP status codes — 404, 409, 400 —
+        and the Go client maps those back onto sentinel errors, so <code>errors.Is</code> works
+        across the socket boundary.
+      </p>
+      <p class="doc-text">
+        Where a partition's files live, for a network named <code>&lt;network&gt;</code>:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Thing</th><th>Location</th></tr></thead>
+          <tbody>
+            <tr><td>Partition data</td><td><code>&lt;btrfsBase&gt;/gfeh/&lt;network&gt;</code>, mounted at <code>/data/&lt;network&gt;</code></td></tr>
+            <tr><td>Config</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/gfehd.yaml</code></td></tr>
+            <tr><td>Admin socket</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/run/admin.sock</code></td></tr>
+            <tr><td>Unit</td><td><code>town-os-system--gfeh-&lt;network&gt;.service</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- rolodex gRPC API -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="rolodex-grpc">DNS gRPC API (rolodex)</h2>
+      <p class="doc-text">
+        The <code>/dns/*</code> endpoints above are the Town OS view of DNS. Rolodex itself is
+        managed over <strong>gRPC</strong>, exposed on a Unix socket
+        (<code>/var/run/rolodex-dns.sock</code> by default) and optionally on TCP. Out of the
+        box the socket is the only management path — <code>grpc.tcp_bind</code> is empty.
+      </p>
+      <p class="doc-text">
+        There is one service, <code>rolodex_dns.RolodexDnsService</code>, carrying 74 methods.
+        Every path is <code>/rolodex_dns.RolodexDnsService/&lt;Method&gt;</code>. The full
+        message definitions live in <code>proto/rolodex_dns.proto</code> in the rolodex-dns
+        repository; the groupings below are what those methods cover.
+      </p>
+
+      <h3>Records and resolution</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRecord</code></td><td>Add a DNS record to the local database.</td></tr>
+            <tr><td><code>RemoveRecord</code></td><td>Remove records from the local database.</td></tr>
+            <tr><td><code>ListRecords</code></td><td>Query the local database with optional filters.</td></tr>
+            <tr><td><code>SetForwarders</code></td><td>Configure the upstream forwarders.</td></tr>
+            <tr><td><code>SetResolutionMode</code> / <code>GetResolutionMode</code></td><td>Change and read the upstream resolution mode at runtime.</td></tr>
+            <tr><td><code>GetSearchDomains</code></td><td>The search domains for a client IP.</td></tr>
+            <tr><td><code>FlushCache</code></td><td>Clear the DNS and blocklist caches.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Authoritative zones</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddAuthoritativeZone</code></td><td>Declare a zone authoritative.</td></tr>
+            <tr><td><code>RemoveAuthoritativeZone</code></td><td>Drop a zone from the authoritative list.</td></tr>
+            <tr><td><code>ListAuthoritativeZones</code></td><td>List the authoritative zones.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Network scopes</h3>
+      <p class="doc-text">
+        Scopes are how rolodex partitions who can resolve what, and they are what Town OS
+        networks map onto. An IP-to-scope association carries a TTL and has to be refreshed.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateNetworkScope</code> / <code>DeleteNetworkScope</code> / <code>ListNetworkScopes</code></td><td>Manage scopes. Deleting one takes its records and associations with it.</td></tr>
+            <tr><td><code>JoinNetwork</code> / <code>LeaveNetwork</code></td><td>Associate a client IP with a scope, or remove the association.</td></tr>
+            <tr><td><code>GetNetworkAssociations</code></td><td>Read the IP-to-scope associations.</td></tr>
+            <tr><td><code>AddScopedRecord</code> / <code>RemoveScopedRecord</code> / <code>ListScopedRecords</code></td><td>Records that exist only within one scope.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Scope TLDs</h3>
+      <p class="doc-text">
+        Per-network owned zones, partitioned across networks.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddScopeTld</code> / <code>RemoveScopeTld</code> / <code>ListScopeTlds</code></td><td>Register a globally-unique TLD as owned by a scope.</td></tr>
+            <tr><td><code>SetScopeTldForwarders</code> / <code>ListScopeTldForwarders</code></td><td>The peer forwarders for a scope's TLD.</td></tr>
+            <tr><td><code>ListScopeTldListeners</code></td><td>The ingress DNS listeners bound to a scope's TLDs.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Blocklists</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDnsblConfig</code> / <code>GetDnsblConfig</code></td><td>The subscription-based domain blocklist configuration.</td></tr>
+            <tr><td><code>AddDnsblAllowlistEntry</code></td><td>Exempt a name <em>and its subdomains</em> from the name-based blocklist check.</td></tr>
+            <tr><td><code>RemoveDnsblAllowlistEntry</code> / <code>ListDnsblAllowlistEntries</code></td><td>Manage the allowlist.</td></tr>
+            <tr><td><code>AddLocalBlocklistEntry</code> / <code>RemoveLocalBlocklistEntry</code> / <code>ListLocalBlocklistEntries</code></td><td>The box's own blocklist.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Encrypted transports</h3>
+      <p class="doc-text">
+        Each transport has a matching setter and getter. DoH serves HTTP/2 and, when
+        <code>enable_h3</code> is on, HTTP/3 on the same address, port, and certificate.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDotConfig</code> / <code>GetDotConfig</code></td><td>DNS over TLS.</td></tr>
+            <tr><td><code>SetDohConfig</code> / <code>GetDohConfig</code></td><td>DNS over HTTPS, including HTTP/3.</td></tr>
+            <tr><td><code>SetDoqConfig</code> / <code>GetDoqConfig</code></td><td>DNS over QUIC.</td></tr>
+            <tr><td><code>SetProxyConfig</code> / <code>GetProxyConfig</code></td><td>The HTTP proxy configuration.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DNSSEC, DANE, and ACME</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>GenerateDnssecKey</code> / <code>ListDnssecKeys</code> / <code>DeleteDnssecKey</code></td><td>Per-zone DNSSEC key material.</td></tr>
+            <tr><td><code>GetDsRecords</code></td><td>The DS records for a zone.</td></tr>
+            <tr><td><code>SignZone</code></td><td>Sign a zone with its DNSSEC keys.</td></tr>
+            <tr><td><code>GenerateTlsaRecord</code> / <code>ListTlsaRecords</code></td><td>TLSA records, generated from a certificate.</td></tr>
+            <tr><td><code>GenerateDaneRootCa</code></td><td>Generate a DANE root CA certificate.</td></tr>
+            <tr><td><code>EnsureZoneCa</code></td><td>Ensure a zone has a CA.</td></tr>
+            <tr><td><code>RequestAcmeCert</code> / <code>GetAcmeStatus</code></td><td>Request a certificate over ACME DNS-01, and read its status.</td></tr>
+            <tr><td><code>CreateEabCredential</code> / <code>RemoveEabCredential</code></td><td>Mint an External Account Binding (kid plus HMAC) scoped to a zone, for an ACME client's newAccount.</td></tr>
+            <tr><td><code>ListAcmeAccounts</code> / <code>ListAcmeCertificates</code></td><td>Registered ACME accounts and issued certificates.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DHCP</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddDhcpPool</code> / <code>RemoveDhcpPool</code> / <code>ListDhcpPools</code></td><td>Address pools for allocation within a scope.</td></tr>
+            <tr><td><code>ListDhcpLeases</code> / <code>DeleteDhcpLease</code></td><td>Leases, deleted by MAC address.</td></tr>
+            <tr><td><code>SetDhcpCertOption</code> / <code>RemoveDhcpCertOption</code> / <code>ListDhcpCertOptions</code></td><td>A certificate delivered to clients over DHCP for a scope.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Diagnostics and tuning</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Method</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>GetCacheStats</code> / <code>FlushDnsCache</code></td><td>Cache statistics, and clearing the response cache.</td></tr>
+            <tr><td><code>GetQueryLatencyStats</code></td><td>Upstream query latency.</td></tr>
+            <tr><td><code>SetTtlDriftConfig</code> / <code>GetTtlDriftConfig</code></td><td>TTL drift configuration.</td></tr>
+            <tr><td><code>SetTrackedTlds</code> / <code>ListTrackedTlds</code></td><td>The tracked-TLD list behind the per-TLD metrics, stored and effective.</td></tr>
+            <tr><td><code>SetDns64Config</code> / <code>GetDns64Config</code></td><td>DNS64 configuration.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Client Libraries -->
   <section class="section">
     <div class="container">
@@ -1450,7 +2226,6 @@ client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309
             <tr><td><code>ListInstalled(ctx, params)</code></td><td>Installed packages as <code>"repo/name@version"</code>.</td></tr>
             <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>Stored configuration responses.</td></tr>
             <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>Detailed info including questions, responses, and notes.</td></tr>
-            <tr><td><code>ListTimezones(ctx)</code></td><td>Available IANA timezone names.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1865,6 +2640,14 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
     background: #6b2737;
     color: #f4a5b8;
   }
+  .auth-grant {
+    background: #3d3a1f;
+    color: #e0d48a;
+  }
+  .auth-localhost {
+    background: #1f3d33;
+    color: #8ad4b8;
+  }
 
   .format-tags {
     display: flex;
@@ -1928,6 +2711,18 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
   }
 
   .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .doc-list li {
     margin-bottom: 0.5rem;
   }
 </style>

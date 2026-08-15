@@ -442,6 +442,53 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         <li><strong>Recursive only</strong> — resolves everything iteratively from the root servers with no fallback. Guarantees no query is ever handed to a third-party resolver, but every external name fails on networks that block or hijack outbound port 53 (hotels, captive portals, some ISPs).</li>
         <li><strong>Forward</strong> — always sends unmatched queries to upstream resolvers (Google Public DNS by default). This is the classic forwarding behavior.</li>
       </ul>
+      <p class="doc-text">
+        Note that this setting is about how the box reaches <em>the internet</em>. Encrypted
+        DNS in the other direction — what your own devices use to reach the box — is covered
+        next.
+      </p>
+
+      <h3 id="encrypted-dns">Encrypted DNS from Your Devices</h3>
+      <p class="doc-text">
+        <strong>Town OS serves encrypted DNS to your own devices, not just for itself.</strong>
+        Three endpoints are available, all answering for the same names as plain DNS on port
+        53:
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNS over HTTPS (DoH)</strong> — <code>https://dns.&lt;tld&gt;/dns-query</code>. This one goes through the ingress on the standard HTTPS port, which is why it is the most likely to work on a restrictive network.</li>
+        <li><strong>DNS over TLS (DoT)</strong> — <code>dns.&lt;tld&gt;</code> on port <strong>853</strong>.</li>
+        <li><strong>DNS over QUIC (DoQ)</strong> — <code>dns.&lt;tld&gt;</code> on port <strong>853</strong> over UDP.</li>
+      </ul>
+      <p class="doc-text">
+        All three present a certificate issued by <strong>your box's own certificate
+        authority</strong>, with the same name and addresses the rest of the box uses. If you
+        have already installed the root CA on the device (see
+        <a href="#trusting-the-ca">Trusting the Certificate Authority</a>), they validate with nothing
+        further to configure.
+      </p>
+      <p class="doc-text">
+        <strong>A device that has never trusted your CA can still verify these endpoints.</strong>
+        Town OS publishes DANE records pinning the certificate in the zone it is authoritative
+        for, under both <code>_853._tcp.dns.&lt;tld&gt;</code> and
+        <code>_853._udp.dns.&lt;tld&gt;</code> — one for each transport, because a DANE-aware
+        client that finds no record for the transport it chose fails closed. Since the device
+        can reach the resolver, it can fetch the pin, and so it can check what it is being
+        handed without installing anything first.
+      </p>
+      <p class="doc-text">
+        <strong>Clients that support DDR find all of this on their own.</strong> Town OS
+        publishes a designation record at <code>_dns.resolver.arpa</code> (RFC 9462) naming the
+        DoH URL and the DoT and DoQ ports, in that order of preference — DoH first because port
+        443 survives filtering that blocks 853. A DDR-aware device pointed at your box for
+        ordinary DNS discovers and upgrades to the encrypted endpoint by itself.
+      </p>
+      <p class="doc-text">
+        These three listeners are opened from the install image's configuration at startup, so
+        unlike most DNS settings they are not switched on from the dashboard. The certificate
+        behind them is renewed in the background while the box is merely running — no reboot
+        required — and the new DANE pin is published before the old one is withdrawn, so there
+        is no window in which a validating client would refuse the connection.
+      </p>
 
       <h3 id="blocklists">Blocking Malicious Domains</h3>
       <p class="doc-text">

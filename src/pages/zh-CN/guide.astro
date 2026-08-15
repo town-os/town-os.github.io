@@ -415,6 +415,45 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         <li><strong>仅递归</strong>——全部从根服务器迭代解析，不做任何回退。可以保证查询绝不会交给第三方解析器，但在封锁或劫持出站 53 端口的网络（酒店、门户认证网络、某些 ISP）中，所有外部名称都会解析失败。</li>
         <li><strong>转发</strong>——始终把未匹配的查询发给上游解析器（默认是 Google Public DNS）。这就是传统的转发行为。</li>
       </ul>
+      <p class="doc-text">
+        请注意，这项设置说的是本机如何访问<em>互联网</em>。而另一个方向上的加密 DNS——
+        也就是你自己的设备用来访问本机的方式——将在下面介绍。
+      </p>
+
+      <h3 id="encrypted-dns">从你的设备使用加密 DNS</h3>
+      <p class="doc-text">
+        <strong>Town OS 不只为自己使用加密 DNS，也把它提供给你自己的设备。</strong>
+        共有三个可用端点，它们解析的名称与 53 端口上的普通 DNS 完全相同：
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNS over HTTPS（DoH）</strong>——<code>https://dns.&lt;tld&gt;/dns-query</code>。它经由 ingress 走标准 HTTPS 端口，因此在限制严格的网络中最有可能可用。</li>
+        <li><strong>DNS over TLS（DoT）</strong>——<code>dns.&lt;tld&gt;</code>，<strong>853</strong> 端口。</li>
+        <li><strong>DNS over QUIC（DoQ）</strong>——<code>dns.&lt;tld&gt;</code>，<strong>853</strong> 端口，基于 UDP。</li>
+      </ul>
+      <p class="doc-text">
+        这三者出示的证书都由<strong>本机自己的证书颁发机构</strong>签发，所用的名称和地址与系统其余部分一致。
+        如果你已经在设备上安装了根 CA（参见
+        <a href="#trusting-the-ca">信任证书颁发机构</a>），它们无需任何额外配置即可通过校验。
+      </p>
+      <p class="doc-text">
+        <strong>从未信任过你的 CA 的设备同样可以验证这些端点。</strong>
+        Town OS 会在它作为权威的区域中发布 DANE 记录来锚定该证书，分别位于
+        <code>_853._tcp.dns.&lt;tld&gt;</code> 与 <code>_853._udp.dns.&lt;tld&gt;</code>——
+        每种传输各一条，因为支持 DANE 的客户端如果找不到自己所选传输对应的记录，就会以失败告终。
+        由于该设备本就能访问这台解析器，它就能取到这份锚定信息，从而在不预先安装任何东西的情况下，
+        校验自己收到的证书。
+      </p>
+      <p class="doc-text">
+        <strong>支持 DDR 的客户端会自行发现这一切。</strong>Town OS 会在
+        <code>_dns.resolver.arpa</code>（RFC 9462）发布指派记录，按优先级依次给出 DoH 的 URL 以及
+        DoT 和 DoQ 的端口——DoH 排在最前，因为 443 端口能够穿过那些封锁 853 的过滤。
+        只要把支持 DDR 的设备指向本机做普通 DNS，它就会自己发现并升级到加密端点。
+      </p>
+      <p class="doc-text">
+        这三个监听器是在启动时由安装镜像的配置打开的，因此与绝大多数 DNS 设置不同，它们无法从控制面板开启。
+        其背后的证书会在本机仅仅处于运行状态时于后台续期——无需重启——
+        并且新的 DANE 锚定会在旧的撤下之前先行发布，因此不存在任何会让校验型客户端拒绝连接的时间窗口。
+      </p>
 
       <h3 id="blocklists">拦截恶意域名</h3>
       <p class="doc-text">

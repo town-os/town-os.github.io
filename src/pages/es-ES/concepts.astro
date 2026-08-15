@@ -87,6 +87,65 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         </div>
 
         <div class="card concept-card">
+          <h3>Redes</h3>
+          <p>
+            Una <strong>red</strong> es una superposición WireGuard con nombre, emparejada con
+            un TLD de DNS. Los paquetes se instalan en una red, los pares se unen a ella y el
+            TLD decide quién puede resolver qué. La red <code>home</code> siempre existe, no se
+            puede eliminar y es solo de DNS: no tiene túnel, y el enrolamiento de pares en ella
+            se rechaza, porque toda cuenta ya pertenece a ella y la mera pertenencia no debería
+            ser una forma de entrar en un túnel. Las demás redes obtienen una interfaz WireGuard
+            y una subred derivada de la identidad del propio ordenador, de modo que un
+            dispositivo que se une a dos ordenadores Town OS nunca ve una colisión. Deshabilitar
+            una red solo tira abajo el transporte: el acceso remoto se corta, mientras el DNS
+            local y los contenedores siguen ejecutándose.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Ingress</h3>
+          <p>
+            Una única puerta de entrada compartida. Una sola instancia de Caddy retiene
+            <code>:443</code> y <code>:80</code> para todo el ordenador y selecciona a qué
+            servicio llegas puramente por SNI y Host — no hay escuchas por servicio ni
+            directivas <code>bind</code>, así que un cliente de la LAN y un par de la
+            superposición llegan al mismo socket, obtienen el mismo certificado y se
+            redirigen al mismo contenedor. El nombre de un paquete es una sola cadena usada de
+            cuatro maneras a la vez: el registro A, el SAN del certificado, el propietario del
+            TLSA y el vhost del ingress.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>TLS y la autoridad certificadora local</h3>
+          <p>
+            Town OS ejecuta su propia autoridad certificadora y emite certificados para los
+            nombres que reclaman tus paquetes, de modo que los servicios quedan accesibles por
+            HTTPS sin un certificado público ni una advertencia del navegador. El certificado de
+            la CA se descarga desde <code>/tls/ca.crt</code>: confiar en él una vez es lo que
+            hace funcionar todos los nombres locales. Los certificados se renuevan en segundo
+            plano en lugar de al arrancar, y un cambio de TLD reemite los nombres que dependen
+            de él.
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Almacenamiento de objetos</h3>
+          <p>
+            Town OS incorpora almacenamiento de objetos mediante <strong>gfeh</strong>. Una
+            <strong>partición</strong> es un subvolumen btrfs con su propio demonio y su propio
+            conjunto de usuarios, y hay exactamente una por red, así que un usuario, un permiso
+            o un enlace publicado en una red no significan nada en otra. Cada partición sirve
+            cuatro vistas: S3, HTTP simple, un explorador tipo unidad e IPFS. Los usuarios son
+            <strong>principales</strong> dispuestos en un árbol; el acceso es una
+            <strong>concesión</strong>, siempre recortada al techo del principal al que se
+            otorga; y un <strong>enlace publicado</strong> es una exposición que después puede
+            retirarse. Ninguna partición publica un puerto del anfitrión — el ingress llega a
+            cada una por el nombre del contenedor.
+          </p>
+        </div>
+
+        <div class="card concept-card">
           <h3>Almacenamiento</h3>
           <p>
             Todos los datos se guardan en subvolúmenes btrfs con aislamiento por paquete. Cada

@@ -39,11 +39,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <li><a href="#settings">设置</a></li>
           <li><a href="#audit">审计日志</a></li>
           <li><a href="#pages">页面</a></li>
+          <li><a href="#networks">网络</a></li>
+          <li><a href="#object-storage">对象存储</a></li>
           <li><a href="#dns">DNS</a></li>
           <li><a href="#monitoring">监控</a></li>
           <li><a href="#system-services">系统服务</a></li>
           <li><a href="#locales">语言区域</a></li>
           <li><a href="#vm-images">虚拟机镜像</a></li>
+          <li><a href="#gfeh-admin">对象存储管理 API（gfeh）</a></li>
+          <li><a href="#rolodex-grpc">DNS gRPC API（rolodex）</a></li>
           <li><a href="#client-libraries">客户端库</a></li>
           <li><a href="#development">开发参考</a></li>
           <li><a href="#prerequisites">先决条件</a></li>
@@ -79,7 +83,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </p>
       <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
       <p class="doc-text">
-        会话在闲置 7 天后过期。共有三种权限级别：
+        会话在闲置 7 天后过期。共有五种权限级别：
       </p>
       <div class="table-wrapper">
         <table>
@@ -90,9 +94,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <tr><td><span class="auth-badge auth-public">公开</span></td><td>无需令牌。</td></tr>
             <tr><td><span class="auth-badge auth-authenticated">已认证</span></td><td>任意有效的会话令牌。</td></tr>
             <tr><td><span class="auth-badge auth-admin">管理员</span></td><td>属于管理员账户的会话令牌。</td></tr>
+            <tr><td><span class="auth-badge auth-grant">授权</span></td><td>账户上的某项具体授权可以放行非管理员。对象存储端点使用对象存储授权；对等设备注册使用 wireguard 授权，而按网络的范围与每个对等设备的归属由处理器自身校验。</td></tr>
+            <tr><td><span class="auth-badge auth-localhost">Localhost</span></td><td>来自环回地址的请求无需认证即可通过——能够访问环回地址本身就意味着已经在这台机器上——其他来源则需要徽章旁标注的级别。systemd 单元与日志端点使用它，因为控制器自身的工具会读取这些端点。</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        即便分区内部的端点并不限于管理员，创建对象存储分区仍然只保留给管理员：
+        分区是一棵权限树的根，并且会分配一个带配额的 btrfs 子卷，
+        因此授权准许你操作分区内部的用户，而不是准许你决定这个分区是否应当存在。
+      </p>
     </div>
   </section>
 
@@ -423,6 +434,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         按内部名称删除某个特定的软件包卷。
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume-group</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        一次调用即删除属于某个软件包的全部卷，而不必逐个按内部名称移除。
+      </p>
     </div>
   </section>
 
@@ -529,17 +551,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         按仓库分组列出软件包。接受可选的 <code>search</code> 查询参数。
         返回一个由 <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code> 组成的数组。
-      </p>
-
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/packages/timezones</code>
-          <span class="auth-badge auth-authenticated">已认证</span>
-        </div>
-      </div>
-      <p class="doc-text">
-        列出所有可用的 IANA 时区名称，供软件包配置使用。
       </p>
 
       <div class="endpoint">
@@ -862,11 +873,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/units</code>
           <span class="auth-badge auth-authenticated">已认证</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
         列出由 Town OS 管理的 systemd 单元。每个条目包含单元名称、描述、
         load/active/sub 状态、关联的软件包标识符与描述，以及一个失败标志。支持分页参数。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units-tree</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        与扁平列表相同的单元，但按依赖关系组织成树：根软件包在最上层，依赖逐层嵌套在其父级之下——
+        与 <code>/storage/package-volumes</code> 采用的结构相同。每一行都带有扁平端点返回的同样的状态数据，
+        因此客户端无需再发一次请求来补全信息。
       </p>
 
       <div class="endpoint">
@@ -884,9 +912,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       <div class="endpoint">
         <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status/tree</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        一次调用即按依赖顺序对某个软件包及其整棵依赖树施加同一操作。
+        这里同样拒绝 <code>enable</code> 和 <code>disable</code>，原因与 <code>/systemd/status</code> 一致：
+        级联执行 enable 会把那些已经通过父级关联的依赖重复启用一次。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs</code>
-          <span class="auth-badge auth-authenticated">已认证</span>
+          <span class="auth-badge auth-admin">管理员</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -901,7 +944,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs/tail</code>
-          <span class="auth-badge auth-authenticated">已认证</span>
+          <span class="auth-badge auth-admin">管理员</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -925,6 +970,34 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         返回 <code>entries</code>、<code>cursor</code>（首条）和
         <code>end_cursor</code>（末条），供后续分页使用。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree</code>
+          <span class="auth-badge auth-admin">管理员</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        <code>/systemd/logs</code> 的树形对应端点：用一条 Server-Sent Events 流承载某个软件包
+        及其之下所有单元的日志，并按时间顺序合并。即便是没有安装记录的未知根，
+        也会得到一条打开但没有条目的流，而不是 404，因此日志查看器对单个单元和整棵树的处理方式完全一致。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree/tail</code>
+          <span class="auth-badge auth-admin">管理员</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        合并后的树形日志的分页形式，接受与 <code>/systemd/logs/tail</code> 相同的游标、过滤与时间范围参数。
       </p>
     </div>
   </section>
@@ -1112,6 +1185,340 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- Networks -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="networks">网络</h2>
+      <p class="doc-text">
+        <strong>网络</strong>是一个具名的 WireGuard 覆盖网，并与一个 DNS TLD 配对。
+        软件包安装到某个网络中，对等设备加入这个网络，而 TLD 决定谁能解析什么。
+        网络名称必须是合法的 DNS 标签，且不超过 32 个字符，因为它们同时会被用作
+        WireGuard 接口后缀和 systemd 单元名称。
+      </p>
+      <p class="doc-text">
+        <code>home</code> 网络始终存在——它随数据库一同种入，而不是在启动时创建——并且在三个方面很特殊：
+        它<strong>无法删除</strong>，也不能被第二次创建；它<strong>只提供 DNS</strong>
+        （没有 WireGuard 接口、没有子网、没有对等设备）；而且在它上面<strong>注册对等设备会被拒绝</strong>，
+        返回 400。每个账户都属于 home 网络，因此若在此接受注册，仅凭成员身份就等于获得了进入隧道的途径，
+        而且保存下来的对等设备所描述的隧道根本不存在。
+      </p>
+      <p class="doc-text">
+        禁用网络只会停掉<em>传输层</em>：WireGuard 接口不会被拉起，远程访问因此中断，
+        而本地 DNS 解析和容器本身照常运行。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出网络。每个条目包含名称、TLD、子网、本机在覆盖网中的地址、公钥、监听端口和启用标志。
+        私钥永远不会被序列化。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/create</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        创建网络。子网由本机身份种子与网络名称确定性地推导而来，取自
+        <code>10.64.0.0/10</code>，以避开家用路由器常用的地址段。
+        以本机身份为依据，意味着两台都在提供对等接入的 Town OS 主机会选出不同的子网，
+        因此同时加入两者的设备永远不会遇到冲突。创建 <code>home</code> 会因 TLD 冲突检查而返回 409。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/remove</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        删除网络。会拒绝 <code>home</code> 网络。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/enable</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        拉起该网络的 WireGuard 传输层。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/disable</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        停掉传输层，同时让 DNS 和容器继续运行。
+      </p>
+
+      <h3>对等设备</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已在某个网络中注册的对等设备。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers/connected</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出当前确实处于连接状态的对等设备，而不只是已注册的。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/add</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        注册一个对等设备。wireguard 授权是放行非管理员的依据；按网络的范围与每个对等设备的归属由处理器校验。
+        对 <code>home</code> 网络返回 400，因为它只提供 DNS。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/refresh</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在对等设备的 TTL 到期之前续期其注册。注册是有时效的，回收器会清除已过期的条目。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/remove</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        把某个对等设备从网络中移除。
+      </p>
+
+      <h3>本地 CA</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/tls/ca.crt</code>
+          <span class="auth-badge auth-public">公开</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以 PEM 格式下载本机的本地证书颁发机构。Town OS 会为软件包名称签发自己的证书，
+        因此信任这张证书正是让那些名称在浏览器中不再报警的关键。它被刻意设为公开：
+        CA 证书本来就是用来分发的那一部分，而且客户端在持有任何可用于认证的凭据之前就需要它。
+      </p>
+    </div>
+  </section>
+
+  <!-- Object Storage -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="object-storage">对象存储</h2>
+      <p class="doc-text">
+        Town OS 通过 <strong>gfeh</strong> 提供对象存储。一个<strong>分区</strong>包含一个 btrfs 子卷、
+        一个 <code>gfehd</code> 进程、一个管理套接字，以及<strong>它自己的一套用户</strong>。
+        每个 Town OS 网络恰好对应一个分区，因此对象存储的命名空间与 DNS、WireGuard 沿着同一条边界划分：
+        <code>office</code> 分区中的主体、授权或公开暴露，在 <code>home</code> 中毫无意义。
+      </p>
+      <p class="doc-text">
+        每个分区在固定的容器端口上提供四种 HTTP 视图——S3 在 9000、HTTP 在 9001、云盘在 9002、IPFS 在 9003——
+        并且<strong>完全不发布宿主机端口</strong>。这正是固定端口之所以安全的原因：
+        每个分区都有自己的网络命名空间，ingress 通过容器名称访问它，与访问软件包的方式完全一样，
+        所以两个都在 9000 上提供 S3 的分区不可能冲突。
+      </p>
+
+      <h3>分区</h3>
+      <p class="doc-text">
+        这四条路由之所以独立于 <code>/storage/*</code>，是因为 <code>/storage/create</code>
+        会无条件地把提交上来的名称改写为 <code>user/&lt;名称&gt;</code>，因此无法生成
+        <code>gfeh/</code> 前缀下的卷。它们的报文形态是 gfeh 客户端会解析的公开契约，而非内部细节。
+      </p>
+      <p class="doc-text">
+        有两处细节至关重要。<strong>前缀是不对称的</strong>：请求携带的是裸名称，
+        响应携带的是 <code>gfeh/&lt;名称&gt;</code>，因为该前缀是 Town OS 的命名空间产物，
+        并不属于分区自身的身份。以及<strong>列表返回的是裸 JSON 数组，而不是分页信封</strong>，
+        这与本 API 中其他所有列表端点都不同：gfeh 客户端直接反序列化一个普通列表，
+        而分页包装会导致解码失败。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>路由</th><th>权限</th><th>请求</th><th>响应</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST /gfeh/partitions/create</code></td><td>管理员</td><td><code>name</code>（不带前缀）、<code>quota</code></td><td>Filesystem，名称为 <code>gfeh/&lt;n&gt;</code></td></tr>
+            <tr><td><code>POST /gfeh/partitions/modify</code></td><td>管理员</td><td><code>name</code>、<code>quota</code></td><td>Filesystem</td></tr>
+            <tr><td><code>POST /gfeh/partitions/remove</code></td><td>管理员</td><td><code>name</code></td><td>200，空响应</td></tr>
+            <tr><td><code>POST /gfeh/partitions</code></td><td>已认证</td><td>无请求体</td><td>Filesystem 的普通数组</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        客户端应当据以分支的状态码：<strong>409</strong> 已存在（gfeh 的置备是「创建或调整大小」，
+        正是靠这个状态区分两者）、<strong>404</strong> 不存在、<strong>400</strong> 名称非法、
+        <strong>403</strong> 非管理员。含有路径分隔符的名称在这里就会被拒绝，
+        因为 <code>gfehd</code> 在它自己的边界上也会拒绝——双方对「什么是合法分区名」若不一致，
+        就会让 <code>../user/something</code> 这样的名称指向对象存储根之外的卷。
+      </p>
+      <p class="doc-text">
+        创建分区<strong>仅限管理员，且无法通过授权取得</strong>：
+        它是一棵权限树的根，并且会分配一个带配额的 btrfs 子卷，
+        因此持有授权的账户会在任何处理器运行之前就被拒绝。
+      </p>
+
+      <h3>浏览</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        对象存储总览：存在哪些分区，以及它们各自处于什么状态。
+      </p>
+
+      <h3>主体</h3>
+      <p class="doc-text">
+        分区中的用户。创建一个主体需要名称、父级和权限上限——但<strong>不需要密码</strong>，
+        这正是界面从不索要密码的原因。上限遵循 gfeh 的投影规则：
+        Town OS 管理员为 <code>all</code>，其余为读/写。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/principals</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出某个分区中的主体。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/add</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在某个父级之下创建主体，并设定其权限上限。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/remove</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        删除一个主体。
+      </p>
+
+      <h3>授权</h3>
+      <p class="doc-text">
+        即访问控制列表。<code>gfehd</code> 会<strong>把授权收窄到主体的权限上限</strong>，
+        因此客户端应当展示<em>返回回来</em>的权限，而不是自己发出去的那些：
+        管理员必须能够看出某项授权被收窄了。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/grants</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出授权，也可以只列出某一个主体的。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/add</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        给某个主体授予访问权限。响应中带有实际存储下来的权限。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/revoke</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        按 id 撤销一项授权。
+      </p>
+
+      <h3>公开暴露</h3>
+      <p class="doc-text">
+        一条已发布的文件链接，服务于 <code>/f/&lt;token&gt;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/exposures</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出某个分区中已发布的链接。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/exposures/withdraw</code>
+          <span class="auth-badge auth-grant">授权</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        按 token 撤回一条已发布的链接，使该 URL 不再可用。
+      </p>
+    </div>
+  </section>
+
   <!-- DNS -->
   <section class="section alt-section">
     <div class="container">
@@ -1197,6 +1604,125 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         初始化或重启 DNS 服务器，并注册所有已安装的软件包。
       </p>
+
+      <h3>屏蔽列表</h3>
+      <p class="doc-text">
+        这是两份互相独立的列表。<strong>DNSBL</strong> 基于订阅——由 rolodex 拉取并应用的上游屏蔽列表——
+        并配有一份放行列表，用来豁免那些无论上游列表怎么说都希望能够解析的名称。
+        <strong>本地屏蔽列表</strong>（RBL）则是本机自己的列表，逐条编辑。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        获取 DNSBL 配置：订阅了哪些上游屏蔽列表，以及如何应用它们。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        替换 DNSBL 配置。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已从订阅屏蔽列表中豁免的名称。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/add</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        把某个名称从订阅的屏蔽列表中豁免出来。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/remove</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        删除一条放行记录，让订阅的屏蔽列表重新对该名称生效。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/rbl/local</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出本机自有屏蔽列表中的条目。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/add</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        向本地屏蔽列表添加一个名称。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/remove</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        从本地屏蔽列表中移除一个名称。
+      </p>
+
+      <h3>按服务发布 DNS</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/services</code>
+          <span class="auth-badge auth-authenticated">已认证</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已安装的服务，以及每个服务是否发布了 DNS 名称。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/services/set</code>
+          <span class="auth-badge auth-admin">管理员</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        为某个服务开启或关闭 DNS 发布，使软件包可以在不占用网络名称的情况下运行。
+      </p>
     </div>
   </section>
 
@@ -1221,17 +1747,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         当未配置监控时返回 <code>&lbrace;"status": "disabled"&rbrace;</code>。
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/monitoring/grafana/*</code>
-          <span class="auth-badge auth-public">公开</span>
-        </div>
-      </div>
+      <h3>如何取得面板数据</h3>
       <p class="doc-text">
-        反向代理到本地的 Grafana 实例，并从 URL 路径中剥掉
-        <code>/monitoring/grafana</code> 前缀。未配置监控时返回 503。
-        该端点会绕过身份验证。
+        <strong>系统控制器上并不存在任何反向代理。</strong>监控数据在自己专用的
+        <strong>5308</strong> 端口上提供，浏览器直接与该端口通信；控制器自身的端口（5309）只承载
+        <code>/monitoring/status</code>。5308 上监听什么，取决于所配置的后端：
+      </p>
+      <ul class="doc-list">
+        <li>
+          <strong>uPlot 模式</strong>（默认）——由一个 socat 转发器把 Prometheus 的 HTTP API 暴露在 5308 上，
+          界面直接查询 <code>/api/v1/query_range</code>，并自行绘制图表。
+        </li>
+        <li>
+          <strong>Grafana 模式</strong>——Grafana 通过 podman 的端口映射直接监听 5308，界面用 iframe 将其嵌入。
+        </li>
+      </ul>
+      <p class="doc-text">
+        <code>TOWN_OS_MONITORING_PORT</code> 可以改变面板端口；
+        <code>TOWN_OS_PROMETHEUS_PORT</code> 与 <code>TOWN_OS_NODE_EXPORTER_PORT</code> 对两个环回端口起同样作用。
       </p>
     </div>
   </section>
@@ -1353,6 +1886,213 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- gfeh admin API -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="gfeh-admin">对象存储管理 API（gfeh）</h2>
+      <p class="doc-text">
+        以上都是 Town OS 的 API，通常应用程序应当使用它。在它之下，
+        每个 <code>gfehd</code> 分区还有自己的管理接口：
+        以 JSON over HTTP 提供，并且<strong>只在它的 Unix 套接字上</strong>，绝不监听端口。
+      </p>
+      <p class="doc-text">
+        这个接口上<strong>既没有令牌，也没有身份验证</strong>。套接字的文件系统权限<em>本身</em>就是访问控制，
+        因此能够访问到它，就已经意味着是这台机器上的 root。套接字位于 btrfs 卷上，
+        因为那是 <code>gfehd</code> 容器与系统控制器容器都能看到的唯一一个文件系统。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>调用</th><th>方法与路径</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Health</code></td><td><code>GET /v1/health</code></td><td>存活探测，同时也用作就绪探测。</td></tr>
+            <tr><td><code>Names</code></td><td><code>GET /v1/names</code></td><td>该分区希望发布的名称。</td></tr>
+            <tr><td><code>ListPrincipals</code></td><td><code>GET /v1/principals</code></td><td>该分区的用户森林。</td></tr>
+            <tr><td><code>CreatePrincipal</code></td><td><code>POST /v1/principals</code></td><td>接受 <code>name</code>、<code>parent</code>、<code>ceiling</code>——不含密码。</td></tr>
+            <tr><td><code>DeletePrincipal</code></td><td><code>DELETE /v1/principals/&lt;name&gt;</code></td><td>移除一个主体。</td></tr>
+            <tr><td><code>ListGrants</code></td><td><code>GET /v1/grants?principal=</code></td><td>访问控制列表，可只取某一个主体的。</td></tr>
+            <tr><td><code>CreateGrant</code></td><td><code>POST /v1/grants</code></td><td>授予访问权限；会被收窄到主体的上限。</td></tr>
+            <tr><td><code>RevokeGrant</code></td><td><code>DELETE /v1/grants/&lt;id&gt;</code></td><td>撤销一项授权。</td></tr>
+            <tr><td><code>ListExposures</code></td><td><code>GET /v1/exposures</code></td><td>已发布的 <code>/f/&lt;token&gt;</code> 链接。</td></tr>
+            <tr><td><code>WithdrawExposure</code></td><td><code>DELETE /v1/exposures/&lt;token&gt;</code></td><td>停止提供某条已发布的链接。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>gfehd</code> 会把内部错误映射为 HTTP 状态码——404、409、400——
+        而 Go 客户端再把它们映射回哨兵错误，因此 <code>errors.Is</code> 在跨越套接字边界之后依然可用。
+      </p>
+      <p class="doc-text">
+        对于名为 <code>&lt;network&gt;</code> 的网络，其分区的文件位置如下：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>内容</th><th>位置</th></tr></thead>
+          <tbody>
+            <tr><td>分区数据</td><td><code>&lt;btrfsBase&gt;/gfeh/&lt;network&gt;</code>，挂载于 <code>/data/&lt;network&gt;</code></td></tr>
+            <tr><td>配置</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/gfehd.yaml</code></td></tr>
+            <tr><td>管理套接字</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/run/admin.sock</code></td></tr>
+            <tr><td>单元</td><td><code>town-os-system--gfeh-&lt;network&gt;.service</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- rolodex gRPC API -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="rolodex-grpc">DNS gRPC API（rolodex）</h2>
+      <p class="doc-text">
+        上面的 <code>/dns/*</code> 端点是 Town OS 视角下的 DNS。rolodex 本身通过
+        <strong>gRPC</strong> 管理，暴露在一个 Unix 套接字上（默认为
+        <code>/var/run/rolodex-dns.sock</code>），也可以选择暴露在 TCP 上。
+        开箱即用时，套接字是唯一的管理通道——<code>grpc.tcp_bind</code> 为空。
+      </p>
+      <p class="doc-text">
+        只有一个服务 <code>rolodex_dns.RolodexDnsService</code>，包含 74 个方法。
+        所有路径均为 <code>/rolodex_dns.RolodexDnsService/&lt;方法名&gt;</code>。
+        完整的消息定义位于 rolodex-dns 仓库的 <code>proto/rolodex_dns.proto</code>；
+        下面的分组说明这些方法各自覆盖了什么。
+      </p>
+
+      <h3>记录与解析</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRecord</code></td><td>向本地数据库添加一条 DNS 记录。</td></tr>
+            <tr><td><code>RemoveRecord</code></td><td>从本地数据库移除记录。</td></tr>
+            <tr><td><code>ListRecords</code></td><td>按可选过滤条件查询本地数据库。</td></tr>
+            <tr><td><code>SetForwarders</code></td><td>配置上游转发器。</td></tr>
+            <tr><td><code>SetResolutionMode</code> / <code>GetResolutionMode</code></td><td>在运行时更改并读取解析模式。</td></tr>
+            <tr><td><code>GetSearchDomains</code></td><td>某个客户端 IP 对应的搜索域。</td></tr>
+            <tr><td><code>FlushCache</code></td><td>清空 DNS 与屏蔽列表缓存。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>权威区域</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddAuthoritativeZone</code></td><td>把某个区域声明为权威区域。</td></tr>
+            <tr><td><code>RemoveAuthoritativeZone</code></td><td>把某个区域从权威列表中移除。</td></tr>
+            <tr><td><code>ListAuthoritativeZones</code></td><td>列出所有权威区域。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>网络范围</h3>
+      <p class="doc-text">
+        范围是 rolodex 划分「谁能解析什么」的方式，也是 Town OS 网络所映射到的对象。
+        IP 与范围的关联带有 TTL，需要定期刷新。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateNetworkScope</code> / <code>DeleteNetworkScope</code> / <code>ListNetworkScopes</code></td><td>管理范围。删除一个范围会连同它的记录与关联一起删除。</td></tr>
+            <tr><td><code>JoinNetwork</code> / <code>LeaveNetwork</code></td><td>把客户端 IP 关联到某个范围，或解除该关联。</td></tr>
+            <tr><td><code>GetNetworkAssociations</code></td><td>读取 IP 与范围的关联。</td></tr>
+            <tr><td><code>AddScopedRecord</code> / <code>RemoveScopedRecord</code> / <code>ListScopedRecords</code></td><td>只在某个范围内存在的记录。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>范围 TLD</h3>
+      <p class="doc-text">
+        按网络归属的区域，在各网络之间划分。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddScopeTld</code> / <code>RemoveScopeTld</code> / <code>ListScopeTlds</code></td><td>把一个全局唯一的 TLD 注册为某个范围所有。</td></tr>
+            <tr><td><code>SetScopeTldForwarders</code> / <code>ListScopeTldForwarders</code></td><td>某个范围的 TLD 所对应的对端转发器。</td></tr>
+            <tr><td><code>ListScopeTldListeners</code></td><td>绑定到某个范围各 TLD 上的 ingress DNS 监听器。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>屏蔽列表</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDnsblConfig</code> / <code>GetDnsblConfig</code></td><td>基于订阅的域名屏蔽列表配置。</td></tr>
+            <tr><td><code>AddDnsblAllowlistEntry</code></td><td>把某个名称<em>及其子域</em>从基于名称的屏蔽检查中豁免。</td></tr>
+            <tr><td><code>RemoveDnsblAllowlistEntry</code> / <code>ListDnsblAllowlistEntries</code></td><td>管理放行列表。</td></tr>
+            <tr><td><code>AddLocalBlocklistEntry</code> / <code>RemoveLocalBlocklistEntry</code> / <code>ListLocalBlocklistEntries</code></td><td>本机自有的屏蔽列表。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>加密传输</h3>
+      <p class="doc-text">
+        每种传输都有对应的设置与读取方法。DoH 提供 HTTP/2，并在 <code>enable_h3</code> 开启时，
+        在同一地址、同一端口、同一证书上提供 HTTP/3。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDotConfig</code> / <code>GetDotConfig</code></td><td>DNS over TLS。</td></tr>
+            <tr><td><code>SetDohConfig</code> / <code>GetDohConfig</code></td><td>DNS over HTTPS，含 HTTP/3。</td></tr>
+            <tr><td><code>SetDoqConfig</code> / <code>GetDoqConfig</code></td><td>DNS over QUIC。</td></tr>
+            <tr><td><code>SetProxyConfig</code> / <code>GetProxyConfig</code></td><td>HTTP 代理配置。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DNSSEC、DANE 与 ACME</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GenerateDnssecKey</code> / <code>ListDnssecKeys</code> / <code>DeleteDnssecKey</code></td><td>按区域管理 DNSSEC 密钥材料。</td></tr>
+            <tr><td><code>GetDsRecords</code></td><td>某个区域的 DS 记录。</td></tr>
+            <tr><td><code>SignZone</code></td><td>用区域自己的 DNSSEC 密钥为其签名。</td></tr>
+            <tr><td><code>GenerateTlsaRecord</code> / <code>ListTlsaRecords</code></td><td>由证书生成的 TLSA 记录。</td></tr>
+            <tr><td><code>GenerateDaneRootCa</code></td><td>生成用于 DANE 的根 CA 证书。</td></tr>
+            <tr><td><code>EnsureZoneCa</code></td><td>确保某个区域拥有 CA。</td></tr>
+            <tr><td><code>RequestAcmeCert</code> / <code>GetAcmeStatus</code></td><td>通过 ACME DNS-01 申请证书，并查询其状态。</td></tr>
+            <tr><td><code>CreateEabCredential</code> / <code>RemoveEabCredential</code></td><td>签发限定于某个区域的外部账户绑定（kid 加 HMAC），供 ACME 客户端的 newAccount 使用。</td></tr>
+            <tr><td><code>ListAcmeAccounts</code> / <code>ListAcmeCertificates</code></td><td>已注册的 ACME 账户与已签发的证书。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DHCP</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddDhcpPool</code> / <code>RemoveDhcpPool</code> / <code>ListDhcpPools</code></td><td>在某个范围内用于分配的地址池。</td></tr>
+            <tr><td><code>ListDhcpLeases</code> / <code>DeleteDhcpLease</code></td><td>地址租约，按 MAC 地址删除。</td></tr>
+            <tr><td><code>SetDhcpCertOption</code> / <code>RemoveDhcpCertOption</code> / <code>ListDhcpCertOptions</code></td><td>为某个范围通过 DHCP 下发给客户端的证书。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>诊断与调优</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GetCacheStats</code> / <code>FlushDnsCache</code></td><td>缓存统计，以及清空响应缓存。</td></tr>
+            <tr><td><code>GetQueryLatencyStats</code></td><td>上游查询延迟。</td></tr>
+            <tr><td><code>SetTtlDriftConfig</code> / <code>GetTtlDriftConfig</code></td><td>TTL 漂移配置。</td></tr>
+            <tr><td><code>SetTrackedTlds</code> / <code>ListTrackedTlds</code></td><td>按 TLD 指标背后所跟踪的 TLD 列表，包括已存储的与实际生效的。</td></tr>
+            <tr><td><code>SetDns64Config</code> / <code>GetDns64Config</code></td><td>DNS64 配置。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Client Libraries -->
   <section class="section">
     <div class="container">
@@ -1428,7 +2168,6 @@ client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309
             <tr><td><code>ListInstalled(ctx, params)</code></td><td>以 <code>"repo/name@version"</code> 形式列出已安装的软件包。</td></tr>
             <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>已保存的配置回答。</td></tr>
             <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>详细信息，含提问、回答与说明。</td></tr>
-            <tr><td><code>ListTimezones(ctx)</code></td><td>可用的 IANA 时区名称。</td></tr>
           </tbody>
         </table>
       </div>
@@ -1842,6 +2581,14 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
     background: #6b2737;
     color: #f4a5b8;
   }
+  .auth-grant {
+    background: #3d3a1f;
+    color: #e0d48a;
+  }
+  .auth-localhost {
+    background: #1f3d33;
+    color: #8ad4b8;
+  }
 
   .format-tags {
     display: flex;
@@ -1905,6 +2652,18 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
   }
 
   .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .doc-list li {
     margin-bottom: 0.5rem;
   }
 </style>

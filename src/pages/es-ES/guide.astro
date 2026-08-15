@@ -447,6 +447,54 @@ dig @&lt;ip-de-town-os&gt; gitea.default.home</code></pre>
         <li><strong>Solo recursivo</strong> — resuelve todo de forma iterativa desde los servidores raíz, sin alternativas. Garantiza que ninguna consulta se entregue a un resolutor de terceros, pero todos los nombres externos fallan en redes que bloquean o secuestran el puerto 53 saliente (hoteles, portales cautivos, algunos ISP).</li>
         <li><strong>Reenvío</strong> — siempre envía las consultas que no coinciden a resolutores externos (Google Public DNS por omisión). Es el comportamiento clásico de reenvío.</li>
       </ul>
+      <p class="doc-text">
+        Ten en cuenta que este ajuste trata de cómo el ordenador llega a <em>internet</em>. El DNS
+        cifrado en la otra dirección — el que usan tus propios dispositivos para llegar al
+        ordenador — se ve a continuación.
+      </p>
+
+      <h3 id="encrypted-dns">DNS cifrado desde tus dispositivos</h3>
+      <p class="doc-text">
+        <strong>Town OS sirve DNS cifrado a tus propios dispositivos, no solo para sí mismo.</strong>
+        Hay tres extremos disponibles, y todos responden por los mismos nombres que el DNS simple
+        del puerto 53:
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNS sobre HTTPS (DoH)</strong> — <code>https://dns.&lt;tld&gt;/dns-query</code>. Este pasa por el ingress en el puerto HTTPS estándar, y por eso es el que tiene más probabilidades de funcionar en una red restrictiva.</li>
+        <li><strong>DNS sobre TLS (DoT)</strong> — <code>dns.&lt;tld&gt;</code> en el puerto <strong>853</strong>.</li>
+        <li><strong>DNS sobre QUIC (DoQ)</strong> — <code>dns.&lt;tld&gt;</code> en el puerto <strong>853</strong> sobre UDP.</li>
+      </ul>
+      <p class="doc-text">
+        Los tres presentan un certificado emitido por <strong>la autoridad certificadora del
+        propio ordenador</strong>, con el mismo nombre y las mismas direcciones que usa el resto
+        del sistema. Si ya has instalado la CA raíz en el dispositivo (véase
+        <a href="#trusting-the-ca">Confiar en la autoridad certificadora</a>), se validan sin nada
+        más que configurar.
+      </p>
+      <p class="doc-text">
+        <strong>Un dispositivo que nunca ha confiado en tu CA también puede verificar estos
+        extremos.</strong> Town OS publica registros DANE que fijan el certificado en la zona de la
+        que es autoritativo, bajo <code>_853._tcp.dns.&lt;tld&gt;</code> y
+        <code>_853._udp.dns.&lt;tld&gt;</code> — uno por cada transporte, porque un cliente que
+        entiende DANE y no encuentra registro para el transporte que eligió falla cerrado. Como el
+        dispositivo puede llegar al resolutor, puede descargar la fijación, y así puede comprobar
+        lo que se le entrega sin instalar nada antes.
+      </p>
+      <p class="doc-text">
+        <strong>Los clientes compatibles con DDR encuentran todo esto solos.</strong> Town OS
+        publica un registro de designación en <code>_dns.resolver.arpa</code> (RFC 9462) que nombra
+        la URL de DoH y los puertos de DoT y DoQ, en ese orden de preferencia — DoH primero, porque
+        el puerto 443 sobrevive al filtrado que bloquea el 853. Un dispositivo con DDR apuntado a tu
+        ordenador para DNS común descubre el extremo cifrado y se pasa a él por su cuenta.
+      </p>
+      <p class="doc-text">
+        Estas tres escuchas se abren desde la configuración de la imagen de instalación al arrancar,
+        así que, a diferencia de casi todos los ajustes de DNS, no se activan desde el panel. El
+        certificado que hay detrás se renueva en segundo plano mientras el ordenador simplemente
+        está encendido — sin reiniciar — y la nueva fijación DANE se publica antes de retirar la
+        anterior, de modo que no hay ningún momento en que un cliente que valida rechazaría la
+        conexión.
+      </p>
 
       <h3 id="blocklists">Bloquear dominios maliciosos</h3>
       <p class="doc-text">

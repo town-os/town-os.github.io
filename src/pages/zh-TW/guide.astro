@@ -415,6 +415,45 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         <li><strong>僅遞迴</strong>——一律從根伺服器逐層解析，不做任何退回。可保證查詢絕不交給第三方解析器，但在封鎖或劫持對外 53 埠的網路（旅館、需登入的公共網路、部分 ISP）中，所有外部名稱都會失敗。</li>
         <li><strong>轉送</strong>——一律把未比對到的查詢送往上游解析器（預設為 Google Public DNS）。這就是傳統的轉送行為。</li>
       </ul>
+      <p class="doc-text">
+        請注意，這項設定講的是本機如何連上<em>網際網路</em>。而另一個方向的加密 DNS——
+        也就是你自己的裝置用來連到本機的方式——會在下面說明。
+      </p>
+
+      <h3 id="encrypted-dns">從你的裝置使用加密 DNS</h3>
+      <p class="doc-text">
+        <strong>Town OS 不只自己使用加密 DNS，也把它提供給你自己的裝置。</strong>
+        共有三個可用端點，它們解析的名稱與 53 埠上的一般 DNS 完全相同：
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNS over HTTPS（DoH）</strong>——<code>https://dns.&lt;tld&gt;/dns-query</code>。它經由 ingress 走標準 HTTPS 埠，因此在限制嚴格的網路中最有機會可用。</li>
+        <li><strong>DNS over TLS（DoT）</strong>——<code>dns.&lt;tld&gt;</code>，<strong>853</strong> 埠。</li>
+        <li><strong>DNS over QUIC（DoQ）</strong>——<code>dns.&lt;tld&gt;</code>，<strong>853</strong> 埠，走 UDP。</li>
+      </ul>
+      <p class="doc-text">
+        這三者出示的憑證都由<strong>本機自己的憑證授權單位</strong>簽發，所用的名稱與位址和系統其餘部分一致。
+        如果你已經在裝置上安裝了根 CA（參見
+        <a href="#trusting-the-ca">信任憑證授權單位</a>），它們不需要任何額外設定即可通過驗證。
+      </p>
+      <p class="doc-text">
+        <strong>從未信任過你的 CA 的裝置一樣可以驗證這些端點。</strong>
+        Town OS 會在它具權威的區域中發布 DANE 記錄來釘選該憑證，分別位於
+        <code>_853._tcp.dns.&lt;tld&gt;</code> 與 <code>_853._udp.dns.&lt;tld&gt;</code>——
+        每種傳輸各一筆，因為支援 DANE 的用戶端若找不到自己所選傳輸對應的記錄，就會直接以失敗收場。
+        由於該裝置本來就連得到這台解析器，它就能取得這份釘選資訊，
+        從而在不預先安裝任何東西的情況下，驗證自己收到的憑證。
+      </p>
+      <p class="doc-text">
+        <strong>支援 DDR 的用戶端會自行找到這一切。</strong>Town OS 會在
+        <code>_dns.resolver.arpa</code>（RFC 9462）發布指定記錄，依優先順序列出 DoH 的 URL 以及
+        DoT 和 DoQ 的埠——DoH 排在最前，因為 443 埠能穿過那些封鎖 853 的過濾。
+        只要把支援 DDR 的裝置指向本機做一般 DNS，它就會自己發現並升級到加密端點。
+      </p>
+      <p class="doc-text">
+        這三個監聽器是在開機時由安裝映像檔的設定開啟的，因此與絕大多數 DNS 設定不同，它們無法從儀表板開啟。
+        其背後的憑證會在本機僅僅處於執行狀態時於背景續期——不需要重新開機——
+        而且新的 DANE 釘選會在舊的撤下之前先行發布，因此不存在任何會讓驗證型用戶端拒絕連線的時間空窗。
+      </p>
 
       <h3 id="blocklists">封鎖惡意網域</h3>
       <p class="doc-text">

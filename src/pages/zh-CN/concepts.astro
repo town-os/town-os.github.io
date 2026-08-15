@@ -69,6 +69,51 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         </div>
 
         <div class="card concept-card">
+          <h3>网络</h3>
+          <p>
+            <strong>网络</strong>是一个具名的 WireGuard 覆盖网，并与一个 DNS TLD 配对。软件包安装到某个网络中，
+            对等设备加入这个网络，而 TLD 决定谁能解析什么。<code>home</code> 网络始终存在、无法删除，
+            并且只提供 DNS——它没有隧道，而且在它上面的对等设备注册会被拒绝，因为每个账户本就属于它，
+            仅凭成员身份不应成为进入隧道的途径。其他网络则会获得 WireGuard 接口，以及一个由本机自身身份推导出的子网，
+            因此同时加入两台 Town OS 主机的设备永远不会遇到冲突。禁用网络只会停掉传输层：
+            远程访问中断，而本地 DNS 与容器照常运行。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Ingress</h3>
+          <p>
+            一扇共享的前门。单个 Caddy 实例为整台主机持有 <code>:443</code> 与 <code>:80</code>，
+            并且完全依据 SNI 和 Host 来决定你访问到哪个服务——没有按服务划分的监听器，也没有 <code>bind</code> 指令，
+            所以局域网客户端和覆盖网对等设备命中同一个套接字、拿到同一张证书、被代理到同一个容器。
+            软件包的名称是一个字符串，同时以四种方式被使用：A 记录、证书的 SAN、TLSA 的所有者，以及 ingress 的虚拟主机。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>TLS 与本地 CA</h3>
+          <p>
+            Town OS 运行自己的证书颁发机构，为软件包所声明的名称签发证书，
+            因此无需公共证书、也不会有浏览器警告，服务就能通过 HTTPS 访问。
+            CA 证书可从 <code>/tls/ca.crt</code> 下载——只要信任它一次，所有本地名称就都能正常工作。
+            证书在后台续期，而不是在启动时续期；更改 TLD 会重新签发依赖于它的名称。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>对象存储</h3>
+          <p>
+            Town OS 通过 <strong>gfeh</strong> 提供对象存储。一个<strong>分区</strong>是一个 btrfs 子卷，
+            拥有自己的守护进程和自己的一套用户，并且每个网络恰好对应一个分区——
+            因此某个网络中的用户、权限或已发布链接，在另一个网络中毫无意义。每个分区提供四种视图：
+            S3、普通 HTTP、类似云盘的浏览界面，以及 IPFS。用户是按树状结构组织的<strong>主体</strong>；
+            访问权限是一项<strong>授权</strong>，并且始终被收窄到所授予主体的权限上限；
+            而<strong>已发布链接</strong>是一次可以事后撤回的公开暴露。任何分区都不会发布宿主机端口——
+            ingress 通过容器名称访问它们。
+          </p>
+        </div>
+
+        <div class="card concept-card">
           <h3>存储（Storage）</h3>
           <p>
             所有数据都存放在 btrfs 子卷上，按软件包相互隔离。每个卷都有一个容器内的挂载点、

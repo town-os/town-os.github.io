@@ -444,6 +444,48 @@ dig @&lt;town-os-ip&gt; gitea.default.home</code></pre>
         <li><strong>再帰のみ</strong> — すべてをルートサーバーから反復的に解決し、代替手段は使いません。第三者のリゾルバーに問い合わせが渡らないことを保証できますが、外向きのポート 53 を遮断・乗っ取るネットワーク（ホテル、キャプティブポータル、一部の ISP）では外部の名前がすべて解決できなくなります。</li>
         <li><strong>転送</strong> — 一致しない問い合わせを常に上位のリゾルバー（既定では Google Public DNS）へ送ります。従来からある転送の動作です。</li>
       </ul>
+      <p class="doc-text">
+        この設定は、この機器が<em>インターネット</em>へ到達する方法についてのものである点にご注意ください。
+        逆方向の暗号化 DNS、つまりお使いの端末がこの機器へ到達するために使うものについては、次に説明します。
+      </p>
+
+      <h3 id="encrypted-dns">お使いの端末から暗号化 DNS を使う</h3>
+      <p class="doc-text">
+        <strong>Town OS は自分自身のためだけでなく、お使いの端末に対しても暗号化 DNS を提供します。</strong>
+        利用できるエンドポイントは三つあり、いずれもポート 53 の平文 DNS とまったく同じ名前に応答します。
+      </p>
+      <ul class="doc-list">
+        <li><strong>DNS over HTTPS（DoH）</strong> — <code>https://dns.&lt;tld&gt;/dns-query</code>。これは ingress を経由して標準の HTTPS ポートを使うので、制限の厳しいネットワークでも最も通りやすいものです。</li>
+        <li><strong>DNS over TLS（DoT）</strong> — <code>dns.&lt;tld&gt;</code> のポート <strong>853</strong>。</li>
+        <li><strong>DNS over QUIC（DoQ）</strong> — <code>dns.&lt;tld&gt;</code> のポート <strong>853</strong>、UDP 上。</li>
+      </ul>
+      <p class="doc-text">
+        三つとも、<strong>この機器自身の認証局</strong>が発行した証明書を提示します。名前もアドレスも、
+        システムのほかの部分が使っているものと同じです。端末にルート CA を既にインストールしてあるなら
+        （<a href="#trusting-the-ca">認証局を信頼する</a>をご覧ください）、ほかに設定するものはなく、
+        そのまま検証が通ります。
+      </p>
+      <p class="doc-text">
+        <strong>お使いの CA を一度も信頼したことがない端末でも、これらのエンドポイントを検証できます。</strong>
+        Town OS は、自分が権威を持つゾーンの中に、証明書を固定する DANE レコードを
+        <code>_853._tcp.dns.&lt;tld&gt;</code> と <code>_853._udp.dns.&lt;tld&gt;</code> の両方に公開します。
+        トランスポートごとに一つずつ置くのは、DANE に対応したクライアントが、自分の選んだトランスポートの
+        レコードを見つけられないと接続を拒否してしまうからです。その端末はこのリゾルバーに到達できるのですから、
+        固定情報も取得でき、事前に何もインストールすることなく、渡された証明書を確かめられます。
+      </p>
+      <p class="doc-text">
+        <strong>DDR に対応したクライアントは、これらを自分で見つけます。</strong>Town OS は
+        <code>_dns.resolver.arpa</code>（RFC 9462）に指定レコードを公開し、DoH の URL と DoT・DoQ の
+        ポートを、その優先順で示します。DoH が先頭なのは、853 を遮断するフィルタリングでもポート 443 なら
+        通り抜けられるからです。DDR 対応の端末を通常の DNS としてこの機器に向けておけば、
+        あとは自分で暗号化エンドポイントを見つけて切り替えます。
+      </p>
+      <p class="doc-text">
+        この三つのリスナーは、起動時にインストールイメージの設定から開かれます。そのため、ほとんどの DNS 設定とは
+        異なり、ダッシュボードから有効にすることはできません。その背後にある証明書は、機器が動いてさえいれば
+        バックグラウンドで更新され、再起動は要りません。新しい DANE の固定情報は古いものを取り下げる前に
+        公開されるので、検証するクライアントが接続を拒む瞬間は生じません。
+      </p>
 
       <h3 id="blocklists">悪意あるドメインをブロックする</h3>
       <p class="doc-text">

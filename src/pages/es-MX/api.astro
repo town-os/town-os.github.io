@@ -40,11 +40,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <li><a href="#settings">Ajustes</a></li>
           <li><a href="#audit">Bitácora de auditoría</a></li>
           <li><a href="#pages">Páginas</a></li>
+          <li><a href="#networks">Redes</a></li>
+          <li><a href="#object-storage">Almacenamiento de objetos</a></li>
           <li><a href="#dns">DNS</a></li>
           <li><a href="#monitoring">Monitoreo</a></li>
           <li><a href="#system-services">Servicios del sistema</a></li>
           <li><a href="#locales">Idiomas</a></li>
           <li><a href="#vm-images">Imágenes de máquina virtual</a></li>
+          <li><a href="#gfeh-admin">API de administración del almacenamiento de objetos (gfeh)</a></li>
+          <li><a href="#rolodex-grpc">API gRPC de DNS (rolodex)</a></li>
           <li><a href="#client-libraries">Bibliotecas cliente</a></li>
           <li><a href="#development">Referencia de desarrollo</a></li>
           <li><a href="#prerequisites">Requisitos previos</a></li>
@@ -82,7 +86,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </p>
       <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
       <p class="doc-text">
-        Las sesiones caducan a los 7 días de inactividad. Hay tres niveles de autorización:
+        Las sesiones caducan a los 7 días de inactividad. Hay cinco niveles de autorización:
       </p>
       <div class="table-wrapper">
         <table>
@@ -93,9 +97,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <tr><td><span class="auth-badge auth-public">Público</span></td><td>No requiere token.</td></tr>
             <tr><td><span class="auth-badge auth-authenticated">Autenticado</span></td><td>Cualquier token de sesión válido.</td></tr>
             <tr><td><span class="auth-badge auth-admin">Administrador</span></td><td>Token de sesión de una cuenta de administrador.</td></tr>
+            <tr><td><span class="auth-badge auth-grant">Concesión</span></td><td>Una concesión específica en la cuenta deja pasar a quien no es administrador. Los extremos de almacenamiento de objetos toman la concesión de almacenamiento de objetos; el enrolamiento de pares toma la de wireguard, y el alcance por red y la pertenencia de cada par los aplica el propio manejador.</td></tr>
+            <tr><td><span class="auth-badge auth-localhost">Localhost</span></td><td>Las peticiones desde loopback pasan sin autenticarse — poder llegar a loopback ya significa estar en la computadora — y cualquier otro origen necesita el nivel que aparece junto a la insignia. Lo usan los extremos de unidades y de bitácoras de systemd, que lee el propio instrumental del controlador.</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        Crear una partición de almacenamiento de objetos queda reservado a los administradores
+        aunque los extremos de dentro de una partición no lo estén: una partición es la raíz de
+        un árbol de permisos y aparta un subvolumen btrfs con cuota, así que la concesión te
+        admite a los usuarios que hay dentro de una partición, no a la decisión de que deba
+        existir.
+      </p>
     </div>
   </section>
 
@@ -440,6 +453,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         Borra un volumen concreto de un paquete usando su nombre interno.
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume-group</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Borra de una sola llamada todos los volúmenes que pertenecen a un paquete, en lugar de
+        quitarlos uno por uno por nombre interno.
+      </p>
     </div>
   </section>
 
@@ -551,17 +576,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         Lista los paquetes agrupados por repositorio. Acepta un parámetro de consulta
         <code>search</code> opcional. Devuelve un arreglo de grupos
         <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code>.
-      </p>
-
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/packages/timezones</code>
-          <span class="auth-badge auth-authenticated">Autenticado</span>
-        </div>
-      </div>
-      <p class="doc-text">
-        Lista todos los nombres de zona horaria IANA disponibles para la configuración de paquetes.
       </p>
 
       <div class="endpoint">
@@ -894,12 +908,31 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/units</code>
           <span class="auth-badge auth-authenticated">Autenticado</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
         Lista las unidades de systemd que administra Town OS. Cada entrada incluye el nombre de la
         unidad, la descripción, los estados load/active/sub, el identificador y la descripción del
         paquete asociado, y una bandera de fallo. Admite parámetros de paginación.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units-tree</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Las mismas unidades que el listado plano, pero agrupadas en un árbol de dependencias:
+        los paquetes raíz arriba y las dependencias anidadas bajo su padre, hasta abajo — la
+        misma forma que usa <code>/storage/package-volumes</code>. Las filas traen los mismos
+        datos de estado que devuelve el extremo plano, así que un cliente no necesita una
+        segunda petición para enriquecerlas.
       </p>
 
       <div class="endpoint">
@@ -917,9 +950,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       <div class="endpoint">
         <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status/tree</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Aplica una acción a un paquete y a todo su árbol de dependencias en una sola llamada, en
+        orden de dependencia. Aquí se rechazan <code>enable</code> y <code>disable</code> por la
+        misma razón que en <code>/systemd/status</code>: encadenar un enable habilitaría dos
+        veces las dependencias que ya están enlazadas a través de su padre.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs</code>
-          <span class="auth-badge auth-authenticated">Autenticado</span>
+          <span class="auth-badge auth-admin">Administrador</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -935,7 +984,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs/tail</code>
-          <span class="auth-badge auth-authenticated">Autenticado</span>
+          <span class="auth-badge auth-admin">Administrador</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -959,6 +1010,37 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         Devuelve <code>entries</code>, <code>cursor</code> (la primera entrada) y
         <code>end_cursor</code> (la última) para seguir paginando.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        El equivalente en árbol de <code>/systemd/logs</code>: un solo flujo de Server-Sent
+        Events con la bitácora de un paquete y de todas las unidades por debajo de él,
+        entremezcladas en orden cronológico. Una raíz desconocida sin registro de instalación
+        igual recibe un flujo abierto y sin entradas en lugar de un 404, así que el visor de
+        bitácoras funciona igual para una unidad suelta y para todo un árbol.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree/tail</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        La forma paginada de la bitácora entremezclada del árbol, que toma los mismos parámetros
+        de cursor, filtro y rango de tiempo que <code>/systemd/logs/tail</code>.
       </p>
     </div>
   </section>
@@ -1155,6 +1237,363 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- Networks -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="networks">Redes</h2>
+      <p class="doc-text">
+        Una <strong>red</strong> es una superposición WireGuard con nombre, emparejada con un TLD
+        de DNS. Los paquetes se instalan en una red, los pares se unen a ella y el TLD es lo que
+        divide quién puede resolver qué. Los nombres de red son seguros como etiqueta DNS y están
+        topados a 32 caracteres, porque se reutilizan como sufijos de interfaz WireGuard y como
+        nombres de unidad de systemd.
+      </p>
+      <p class="doc-text">
+        La red <code>home</code> siempre existe — se siembra junto con la propia base de datos, no
+        se crea al arrancar — y es especial de tres maneras: <strong>no se puede eliminar</strong>
+        ni crear una segunda vez, es <strong>solo de DNS</strong> (sin interfaz WireGuard, sin
+        subred, sin pares), y <strong>el enrolamiento de pares en ella se rechaza</strong> con un
+        400. Toda cuenta pertenece a la red home, así que aceptar el enrolamiento ahí haría que la
+        simple membresía fuera una manera de entrar a un túnel — y el par guardado describiría un
+        túnel que no existe.
+      </p>
+      <p class="doc-text">
+        Deshabilitar una red baja únicamente el <em>transporte</em>: la interfaz WireGuard no se
+        levanta, lo que corta el acceso remoto, mientras la resolución DNS local y los contenedores
+        siguen corriendo.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las redes. Cada entrada trae el nombre, el TLD, la subred, la dirección de la propia
+        computadora en la superposición, la llave pública, el puerto de escucha y la bandera de
+        habilitación. La llave privada nunca se serializa.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/create</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Crea una red. La subred se deriva de forma determinista de una semilla de identidad de la
+        computadora y del nombre de la red, tomada de <code>10.64.0.0/10</code> para no chocar con
+        los rangos que reparten los routers domésticos. Derivarla de la identidad de la
+        computadora hace que dos computadoras Town OS que sirvan pares elijan subredes distintas,
+        así que un dispositivo que se une a las dos nunca ve una colisión. Crear <code>home</code>
+        devuelve 409 por la comprobación de colisión de TLD.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina una red. Rechaza la red <code>home</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/enable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Levanta el transporte WireGuard de la red.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/disable</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Baja el transporte dejando el DNS y los contenedores corriendo.
+      </p>
+
+      <h3>Pares</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los pares enrolados en una red.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers/connected</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los pares conectados en este momento, a diferencia de los que solo están enrolados.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/add</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Enrola un par. La concesión de wireguard es lo que deja pasar a quien no es administrador;
+        el alcance por red y la pertenencia de cada par los aplica el manejador. Devuelve 400 para
+        la red <code>home</code>, que es solo de DNS.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/refresh</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Renueva el enrolamiento de un par antes de que caduque su TTL. Los enrolamientos tienen
+        vigencia y un recolector quita los que se vencen.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Quita un par de una red.
+      </p>
+
+      <h3>La autoridad certificadora local</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/tls/ca.crt</code>
+          <span class="auth-badge auth-public">Público</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Descarga en formato PEM la autoridad certificadora local de la computadora. Town OS emite
+        sus propios certificados para los nombres de los paquetes, así que confiar en este
+        certificado es lo que hace que esos nombres funcionen en un navegador sin advertencias. Es
+        público a propósito: un certificado de CA es justo la parte que se reparte, y un cliente lo
+        necesita antes de tener cualquier credencial con la que autenticarse.
+      </p>
+    </div>
+  </section>
+
+  <!-- Object Storage -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="object-storage">Almacenamiento de objetos</h2>
+      <p class="doc-text">
+        Town OS trae almacenamiento de objetos por medio de <strong>gfeh</strong>. Una
+        <strong>partición</strong> es un subvolumen btrfs, un proceso <code>gfehd</code>, un socket
+        de administración y <strong>su propio conjunto de usuarios</strong>. Hay exactamente una
+        partición por red de Town OS, así que el espacio de nombres del almacenamiento de objetos
+        se parte por la misma frontera que parte el DNS y WireGuard: un principal, una concesión o
+        una exposición en la partición <code>office</code> no significan nada en <code>home</code>.
+      </p>
+      <p class="doc-text">
+        Cada partición sirve cuatro vistas HTTP en puertos de contenedor fijos — S3 en el 9000,
+        HTTP en el 9001, unidad en el 9002 e IPFS en el 9003 — y <strong>no publica ningún puerto
+        del anfitrión</strong>. Eso es justo lo que vuelve seguros los puertos fijos: cada
+        partición tiene su propio espacio de nombres de red y el ingress llega a ella por el nombre
+        del contenedor, igual que llega a un paquete, así que dos particiones sirviendo S3 en el
+        9000 no pueden chocar.
+      </p>
+
+      <h3>Particiones</h3>
+      <p class="doc-text">
+        Estas cuatro rutas existen aparte de <code>/storage/*</code> porque
+        <code>/storage/create</code> reescribe todo nombre que se le manda a
+        <code>user/&lt;nombre&gt;</code> sin excepción, y por eso no puede producir un volumen bajo
+        el prefijo <code>gfeh/</code>. Sus formas en el cable son un contrato publicado que el
+        cliente de gfeh interpreta, no un detalle interno.
+      </p>
+      <p class="doc-text">
+        Hay dos detalles que cargan peso. <strong>El prefijo es asimétrico</strong>: las peticiones
+        llevan el nombre pelón y las respuestas llevan <code>gfeh/&lt;nombre&gt;</code>, porque el
+        prefijo es un artefacto del espacio de nombres de Town OS y no parte de la identidad de la
+        partición. Y <strong>el listado devuelve un arreglo JSON pelón, no un sobre paginado</strong>,
+        a diferencia de todos los demás extremos de listado de esta API: el cliente de gfeh
+        deserializa una lista simple directamente y una envoltura de paginación no se puede
+        decodificar.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Ruta</th><th>Autorización</th><th>Petición</th><th>Respuesta</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST /gfeh/partitions/create</code></td><td>Administrador</td><td><code>name</code> (sin prefijo), <code>quota</code></td><td>Filesystem, nombre <code>gfeh/&lt;n&gt;</code></td></tr>
+            <tr><td><code>POST /gfeh/partitions/modify</code></td><td>Administrador</td><td><code>name</code>, <code>quota</code></td><td>Filesystem</td></tr>
+            <tr><td><code>POST /gfeh/partitions/remove</code></td><td>Administrador</td><td><code>name</code></td><td>200, vacío</td></tr>
+            <tr><td><code>POST /gfeh/partitions</code></td><td>Autenticado</td><td>sin cuerpo</td><td>arreglo simple de Filesystem</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        Códigos de estado sobre los que un cliente debe ramificar: <strong>409</strong> ya existe
+        (el aprovisionamiento de gfeh es un crear-o-redimensionar y distingue los dos casos por
+        este estado), <strong>404</strong> no existe, <strong>400</strong> nombre inválido,
+        <strong>403</strong> no es administrador. Un nombre que trae un separador de rutas se
+        rechaza aquí porque <code>gfehd</code> lo rechaza en su propia frontera — no ponerse de
+        acuerdo sobre qué es un nombre de partición legal dejaría que un nombre como
+        <code>../user/algo</code> apuntara a un volumen fuera de la raíz del almacenamiento de
+        objetos.
+      </p>
+      <p class="doc-text">
+        Crear una partición es <strong>solo de administrador y no se alcanza con una
+        concesión</strong>: es la raíz de un árbol de permisos y aparta un subvolumen btrfs con
+        cuota, así que a una cuenta con concesión se le niega antes de que corra ningún manejador.
+      </p>
+
+      <h3>Exploración</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        El panorama del almacenamiento de objetos: qué particiones existen y en qué estado están.
+      </p>
+
+      <h3>Principales</h3>
+      <p class="doc-text">
+        Los usuarios de una partición. Crear uno toma un nombre, un padre y un techo — y
+        <strong>ninguna contraseña</strong>, que es la razón por la que la interfaz nunca la pide.
+        El techo sigue la regla de proyección de gfeh: <code>all</code> para un administrador de
+        Town OS, lectura/escritura en los demás casos.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/principals</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los principales de una partición.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/add</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Crea un principal bajo un padre, con un techo.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/remove</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Elimina un principal.
+      </p>
+
+      <h3>Concesiones</h3>
+      <p class="doc-text">
+        Las listas de control de acceso. <code>gfehd</code> <strong>recorta la concesión al techo
+        del principal</strong>, así que un cliente debe mostrar los permisos que <em>regresaron</em>
+        y no los que mandó: un administrador tiene que poder ver que una concesión se estrechó.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/grants</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las concesiones, opcionalmente las de un solo principal.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/add</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Le da acceso a un principal. La respuesta trae los permisos tal como quedaron guardados.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/revoke</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Revoca una concesión por id.
+      </p>
+
+      <h3>Exposiciones</h3>
+      <p class="doc-text">
+        Un enlace de archivo publicado, servido en <code>/f/&lt;token&gt;</code>.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/exposures</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los enlaces publicados de una partición.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/exposures/withdraw</code>
+          <span class="auth-badge auth-grant">Concesión</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Retira un enlace publicado por su token, para que la URL deje de resolver.
+      </p>
+    </div>
+  </section>
+
   <!-- DNS -->
   <section class="section alt-section">
     <div class="container">
@@ -1242,6 +1681,130 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         Inicializa o reinicia el servidor DNS y registra todos los paquetes instalados.
       </p>
+
+      <h3>Listas de bloqueo</h3>
+      <p class="doc-text">
+        Son dos listas independientes. La <strong>DNSBL</strong> se basa en suscripciones —
+        listas de bloqueo externas que rolodex descarga y aplica — con una lista de permitidos
+        que exime a los nombres que quieres que se resuelvan sin importar lo que diga una lista
+        externa. La <strong>lista de bloqueo local</strong> (RBL) es la lista propia de la
+        computadora, que se edita entrada por entrada.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Obtiene la configuración de DNSBL: a qué listas de bloqueo externas se está suscrito y
+        cómo se aplican.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Reemplaza la configuración de DNSBL.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los nombres eximidos de las listas de bloqueo suscritas.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/add</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Exime un nombre de las listas de bloqueo suscritas.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Quita una entrada de la lista de permitidos, dejando que las listas suscritas vuelvan a
+        aplicarse a ese nombre.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/rbl/local</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista las entradas de la lista de bloqueo propia de la computadora.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/add</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Agrega un nombre a la lista de bloqueo local.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/remove</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Quita un nombre de la lista de bloqueo local.
+      </p>
+
+      <h3>Publicación de servicios en DNS</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/services</code>
+          <span class="auth-badge auth-authenticated">Autenticado</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Lista los servicios instalados junto con si cada uno publica o no un nombre en DNS.
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/services/set</code>
+          <span class="auth-badge auth-admin">Administrador</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        Prende o apaga la publicación en DNS de un servicio, para que un paquete pueda correr sin
+        reclamar un nombre en la red.
+      </p>
     </div>
   </section>
 
@@ -1268,17 +1831,29 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         monitoreo no está configurado.
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/monitoring/grafana/*</code>
-          <span class="auth-badge auth-public">Público</span>
-        </div>
-      </div>
+      <h3>Cómo se llega a los datos del panel</h3>
       <p class="doc-text">
-        Proxy inverso hacia la instancia local de Grafana, quitando el prefijo
-        <code>/monitoring/grafana</code> de la ruta. Devuelve 503 si el monitoreo no está
-        configurado. Este endpoint se salta la autenticación.
+        <strong>No hay ningún proxy inverso a través del controlador del sistema.</strong> Los
+        datos de monitoreo se sirven en su propio puerto dedicado, el <strong>5308</strong>, y el
+        navegador habla directo con ese puerto; el puerto del controlador (5309) solo lleva
+        <code>/monitoring/status</code>. Lo que escucha en el 5308 depende del backend
+        configurado:
+      </p>
+      <ul class="doc-list">
+        <li>
+          <strong>Modo uPlot</strong> (el de omisión) — un reenviador socat expone la API HTTP de
+          Prometheus en el 5308, y la interfaz consulta <code>/api/v1/query_range</code>
+          directamente y dibuja las gráficas ella misma.
+        </li>
+        <li>
+          <strong>Modo Grafana</strong> — Grafana escucha directo en el 5308 mediante un mapeo de
+          puertos de podman, y la interfaz lo empotra en un iframe.
+        </li>
+      </ul>
+      <p class="doc-text">
+        <code>TOWN_OS_MONITORING_PORT</code> cambia de lugar el puerto del panel;
+        <code>TOWN_OS_PROMETHEUS_PORT</code> y <code>TOWN_OS_NODE_EXPORTER_PORT</code> hacen lo
+        mismo con los dos puertos de loopback.
       </p>
     </div>
   </section>
@@ -1404,6 +1979,218 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- gfeh admin API -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="gfeh-admin">API de administración del almacenamiento de objetos (gfeh)</h2>
+      <p class="doc-text">
+        Todo lo de arriba es la API de Town OS, que es la que normalmente debe usar una
+        aplicación. Por debajo de ella, cada partición de <code>gfehd</code> tiene su propia
+        superficie administrativa: JSON sobre HTTP en <strong>únicamente su socket Unix</strong>,
+        nunca en un puerto.
+      </p>
+      <p class="doc-text">
+        En esta superficie <strong>no hay token ni autenticación</strong>. Los permisos del sistema
+        de archivos sobre el socket <em>son</em> el control de acceso, así que poder llegar a él ya
+        significa ser root en la computadora. El socket vive en el volumen btrfs porque es el único
+        sistema de archivos que ven a la vez el contenedor de <code>gfehd</code> y el del
+        controlador del sistema.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Llamada</th><th>Método y ruta</th><th>Para qué sirve</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Health</code></td><td><code>GET /v1/health</code></td><td>Señal de vida, y también la sonda de disponibilidad.</td></tr>
+            <tr><td><code>Names</code></td><td><code>GET /v1/names</code></td><td>Los nombres que esta partición quiere publicar.</td></tr>
+            <tr><td><code>ListPrincipals</code></td><td><code>GET /v1/principals</code></td><td>El bosque de usuarios de la partición.</td></tr>
+            <tr><td><code>CreatePrincipal</code></td><td><code>POST /v1/principals</code></td><td>Toma <code>name</code>, <code>parent</code>, <code>ceiling</code> — y ninguna contraseña.</td></tr>
+            <tr><td><code>DeletePrincipal</code></td><td><code>DELETE /v1/principals/&lt;name&gt;</code></td><td>Quita un principal.</td></tr>
+            <tr><td><code>ListGrants</code></td><td><code>GET /v1/grants?principal=</code></td><td>Las ACL, opcionalmente de un principal.</td></tr>
+            <tr><td><code>CreateGrant</code></td><td><code>POST /v1/grants</code></td><td>Da acceso; se recorta al techo del principal.</td></tr>
+            <tr><td><code>RevokeGrant</code></td><td><code>DELETE /v1/grants/&lt;id&gt;</code></td><td>Revoca una concesión.</td></tr>
+            <tr><td><code>ListExposures</code></td><td><code>GET /v1/exposures</code></td><td>Enlaces publicados en <code>/f/&lt;token&gt;</code>.</td></tr>
+            <tr><td><code>WithdrawExposure</code></td><td><code>DELETE /v1/exposures/&lt;token&gt;</code></td><td>Deja de servir un enlace publicado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>gfehd</code> mapea sus errores internos a códigos de estado HTTP — 404, 409, 400 — y
+        el cliente de Go los mapea de vuelta a errores centinela, así que <code>errors.Is</code>
+        funciona al otro lado del socket.
+      </p>
+      <p class="doc-text">
+        Dónde viven los archivos de una partición, para una red llamada <code>&lt;network&gt;</code>:
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Cosa</th><th>Ubicación</th></tr></thead>
+          <tbody>
+            <tr><td>Datos de la partición</td><td><code>&lt;btrfsBase&gt;/gfeh/&lt;network&gt;</code>, montado en <code>/data/&lt;network&gt;</code></td></tr>
+            <tr><td>Configuración</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/gfehd.yaml</code></td></tr>
+            <tr><td>Socket de administración</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/run/admin.sock</code></td></tr>
+            <tr><td>Unidad</td><td><code>town-os-system--gfeh-&lt;network&gt;.service</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- rolodex gRPC API -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="rolodex-grpc">API gRPC de DNS (rolodex)</h2>
+      <p class="doc-text">
+        Los extremos <code>/dns/*</code> de arriba son la vista de DNS que da Town OS. Rolodex en
+        sí se administra por <strong>gRPC</strong>, expuesto en un socket Unix
+        (<code>/var/run/rolodex-dns.sock</code> por omisión) y opcionalmente en TCP. De fábrica el
+        socket es la única vía de administración: <code>grpc.tcp_bind</code> viene vacío.
+      </p>
+      <p class="doc-text">
+        Hay un solo servicio, <code>rolodex_dns.RolodexDnsService</code>, con 74 métodos. Toda ruta
+        es <code>/rolodex_dns.RolodexDnsService/&lt;Método&gt;</code>. Las definiciones completas de
+        los mensajes están en <code>proto/rolodex_dns.proto</code> del repositorio rolodex-dns; los
+        agrupamientos de abajo son lo que esos métodos cubren.
+      </p>
+
+      <h3>Registros y resolución</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRecord</code></td><td>Agrega un registro DNS a la base local.</td></tr>
+            <tr><td><code>RemoveRecord</code></td><td>Quita registros de la base local.</td></tr>
+            <tr><td><code>ListRecords</code></td><td>Consulta la base local con filtros opcionales.</td></tr>
+            <tr><td><code>SetForwarders</code></td><td>Configura los reenviadores externos.</td></tr>
+            <tr><td><code>SetResolutionMode</code> / <code>GetResolutionMode</code></td><td>Cambia y lee el modo de resolución en caliente.</td></tr>
+            <tr><td><code>GetSearchDomains</code></td><td>Los dominios de búsqueda de una IP cliente.</td></tr>
+            <tr><td><code>FlushCache</code></td><td>Limpia las cachés de DNS y de listas de bloqueo.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Zonas autoritativas</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddAuthoritativeZone</code></td><td>Declara una zona como autoritativa.</td></tr>
+            <tr><td><code>RemoveAuthoritativeZone</code></td><td>Saca una zona de la lista de autoritativas.</td></tr>
+            <tr><td><code>ListAuthoritativeZones</code></td><td>Lista las zonas autoritativas.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Alcances de red</h3>
+      <p class="doc-text">
+        Los alcances son la forma en que rolodex divide quién resuelve qué, y son a lo que se mapean
+        las redes de Town OS. La asociación de una IP con un alcance trae un TTL y hay que
+        refrescarla.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateNetworkScope</code> / <code>DeleteNetworkScope</code> / <code>ListNetworkScopes</code></td><td>Administra alcances. Borrar uno se lleva sus registros y asociaciones.</td></tr>
+            <tr><td><code>JoinNetwork</code> / <code>LeaveNetwork</code></td><td>Asocia una IP cliente con un alcance, o quita la asociación.</td></tr>
+            <tr><td><code>GetNetworkAssociations</code></td><td>Lee las asociaciones de IP con alcance.</td></tr>
+            <tr><td><code>AddScopedRecord</code> / <code>RemoveScopedRecord</code> / <code>ListScopedRecords</code></td><td>Registros que solo existen dentro de un alcance.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>TLD de alcance</h3>
+      <p class="doc-text">
+        Zonas propias de cada red, repartidas entre redes.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddScopeTld</code> / <code>RemoveScopeTld</code> / <code>ListScopeTlds</code></td><td>Registra un TLD globalmente único como propiedad de un alcance.</td></tr>
+            <tr><td><code>SetScopeTldForwarders</code> / <code>ListScopeTldForwarders</code></td><td>Los reenviadores pares del TLD de un alcance.</td></tr>
+            <tr><td><code>ListScopeTldListeners</code></td><td>Las escuchas DNS del ingress ligadas a los TLD de un alcance.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Listas de bloqueo</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDnsblConfig</code> / <code>GetDnsblConfig</code></td><td>La configuración de la lista de bloqueo por suscripción.</td></tr>
+            <tr><td><code>AddDnsblAllowlistEntry</code></td><td>Exime un nombre <em>y sus subdominios</em> de la comprobación por nombre.</td></tr>
+            <tr><td><code>RemoveDnsblAllowlistEntry</code> / <code>ListDnsblAllowlistEntries</code></td><td>Administra la lista de permitidos.</td></tr>
+            <tr><td><code>AddLocalBlocklistEntry</code> / <code>RemoveLocalBlocklistEntry</code> / <code>ListLocalBlocklistEntries</code></td><td>La lista de bloqueo propia de la computadora.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Transportes cifrados</h3>
+      <p class="doc-text">
+        Cada transporte tiene su par de métodos para fijar y leer. DoH sirve HTTP/2 y, cuando
+        <code>enable_h3</code> está prendido, HTTP/3 en la misma dirección, puerto y certificado.
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDotConfig</code> / <code>GetDotConfig</code></td><td>DNS sobre TLS.</td></tr>
+            <tr><td><code>SetDohConfig</code> / <code>GetDohConfig</code></td><td>DNS sobre HTTPS, incluido HTTP/3.</td></tr>
+            <tr><td><code>SetDoqConfig</code> / <code>GetDoqConfig</code></td><td>DNS sobre QUIC.</td></tr>
+            <tr><td><code>SetProxyConfig</code> / <code>GetProxyConfig</code></td><td>La configuración del proxy HTTP.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DNSSEC, DANE y ACME</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>GenerateDnssecKey</code> / <code>ListDnssecKeys</code> / <code>DeleteDnssecKey</code></td><td>Material de llaves DNSSEC por zona.</td></tr>
+            <tr><td><code>GetDsRecords</code></td><td>Los registros DS de una zona.</td></tr>
+            <tr><td><code>SignZone</code></td><td>Firma una zona con sus llaves DNSSEC.</td></tr>
+            <tr><td><code>GenerateTlsaRecord</code> / <code>ListTlsaRecords</code></td><td>Registros TLSA, generados a partir de un certificado.</td></tr>
+            <tr><td><code>GenerateDaneRootCa</code></td><td>Genera un certificado de CA raíz para DANE.</td></tr>
+            <tr><td><code>EnsureZoneCa</code></td><td>Asegura que una zona tenga una CA.</td></tr>
+            <tr><td><code>RequestAcmeCert</code> / <code>GetAcmeStatus</code></td><td>Pide un certificado por ACME DNS-01 y consulta su estado.</td></tr>
+            <tr><td><code>CreateEabCredential</code> / <code>RemoveEabCredential</code></td><td>Acuña un External Account Binding (kid más HMAC) acotado a una zona, para el newAccount de un cliente ACME.</td></tr>
+            <tr><td><code>ListAcmeAccounts</code> / <code>ListAcmeCertificates</code></td><td>Cuentas ACME registradas y certificados emitidos.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DHCP</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddDhcpPool</code> / <code>RemoveDhcpPool</code> / <code>ListDhcpPools</code></td><td>Rangos de direcciones para asignar dentro de un alcance.</td></tr>
+            <tr><td><code>ListDhcpLeases</code> / <code>DeleteDhcpLease</code></td><td>Concesiones de dirección, borradas por dirección MAC.</td></tr>
+            <tr><td><code>SetDhcpCertOption</code> / <code>RemoveDhcpCertOption</code> / <code>ListDhcpCertOptions</code></td><td>Un certificado entregado a los clientes por DHCP para un alcance.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Diagnóstico y ajuste</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>Método</th><th>Para qué sirve</th></tr></thead>
+          <tbody>
+            <tr><td><code>GetCacheStats</code> / <code>FlushDnsCache</code></td><td>Estadísticas de caché, y limpieza de la caché de respuestas.</td></tr>
+            <tr><td><code>GetQueryLatencyStats</code></td><td>Latencia de las consultas externas.</td></tr>
+            <tr><td><code>SetTtlDriftConfig</code> / <code>GetTtlDriftConfig</code></td><td>Configuración de deriva de TTL.</td></tr>
+            <tr><td><code>SetTrackedTlds</code> / <code>ListTrackedTlds</code></td><td>La lista de TLD vigilados detrás de las métricas por TLD, guardada y efectiva.</td></tr>
+            <tr><td><code>SetDns64Config</code> / <code>GetDns64Config</code></td><td>Configuración de DNS64.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Client Libraries -->
   <section class="section">
     <div class="container">
@@ -1479,7 +2266,6 @@ client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309
             <tr><td><code>ListInstalled(ctx, params)</code></td><td>Paquetes instalados como <code>"repo/nombre@versión"</code>.</td></tr>
             <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>Respuestas de configuración guardadas.</td></tr>
             <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>Información detallada, con preguntas, respuestas y notas.</td></tr>
-            <tr><td><code>ListTimezones(ctx)</code></td><td>Nombres de zona horaria IANA disponibles.</td></tr>
           </tbody>
         </table>
       </div>
@@ -1895,6 +2681,14 @@ TOWN_OS_REPO_PASSWORD=&lt;contraseña&gt;</code></pre>
     background: #6b2737;
     color: #f4a5b8;
   }
+  .auth-grant {
+    background: #3d3a1f;
+    color: #e0d48a;
+  }
+  .auth-localhost {
+    background: #1f3d33;
+    color: #8ad4b8;
+  }
 
   .format-tags {
     display: flex;
@@ -1958,6 +2752,18 @@ TOWN_OS_REPO_PASSWORD=&lt;contraseña&gt;</code></pre>
   }
 
   .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .doc-list li {
     margin-bottom: 0.5rem;
   }
 </style>

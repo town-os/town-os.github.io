@@ -39,11 +39,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <li><a href="#settings">設定</a></li>
           <li><a href="#audit">稽核記錄</a></li>
           <li><a href="#pages">頁面</a></li>
+          <li><a href="#networks">網路</a></li>
+          <li><a href="#object-storage">物件儲存</a></li>
           <li><a href="#dns">DNS</a></li>
           <li><a href="#monitoring">監控</a></li>
           <li><a href="#system-services">系統服務</a></li>
           <li><a href="#locales">語言地區</a></li>
           <li><a href="#vm-images">虛擬機器映像檔</a></li>
+          <li><a href="#gfeh-admin">物件儲存管理 API（gfeh）</a></li>
+          <li><a href="#rolodex-grpc">DNS gRPC API（rolodex）</a></li>
           <li><a href="#client-libraries">用戶端函式庫</a></li>
           <li><a href="#development">開發參考</a></li>
           <li><a href="#prerequisites">先決條件</a></li>
@@ -79,7 +83,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </p>
       <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
       <p class="doc-text">
-        工作階段閒置 7 天後過期。共有三種驗證層級：
+        工作階段閒置 7 天後過期。共有五種驗證層級：
       </p>
       <div class="table-wrapper">
         <table>
@@ -90,9 +94,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <tr><td><span class="auth-badge auth-public">公開</span></td><td>不需要權杖。</td></tr>
             <tr><td><span class="auth-badge auth-authenticated">已驗證</span></td><td>任何有效的工作階段權杖。</td></tr>
             <tr><td><span class="auth-badge auth-admin">管理者</span></td><td>屬於管理者帳號的工作階段權杖。</td></tr>
+            <tr><td><span class="auth-badge auth-grant">授權</span></td><td>帳號上的某項特定授權可以放行非管理者。物件儲存端點使用物件儲存授權；對等裝置註冊使用 wireguard 授權，而依網路的範圍與每個對等裝置的歸屬則由處理常式本身檢查。</td></tr>
+            <tr><td><span class="auth-badge auth-localhost">Localhost</span></td><td>來自 loopback 的請求不需驗證即可通過——能連到 loopback 本身就代表已經在這台機器上——其他來源則需要徽章旁標示的層級。systemd unit 與記錄端點使用它，因為控制器自己的工具會讀取這些端點。</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        即使分割區內部的端點並不限於管理者，建立物件儲存分割區仍然只保留給管理者：
+        分割區是一棵權限樹的根，並且會配置一個帶配額的 btrfs 子磁碟區，
+        因此授權允許你操作分割區內部的使用者，而不是允許你決定這個分割區該不該存在。
+      </p>
     </div>
   </section>
 
@@ -423,6 +434,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         依內部名稱刪除某個特定的套件磁碟區。
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume-group</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        一次呼叫即刪除屬於某個套件的所有磁碟區，不必逐一依內部名稱移除。
+      </p>
     </div>
   </section>
 
@@ -529,17 +551,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         依套件庫分組列出套件。接受選用的 <code>search</code> 查詢參數。
         回傳一個由 <code>&lbrace;"repo": "...", "packages": [...]&rbrace;</code> 組成的陣列。
-      </p>
-
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/packages/timezones</code>
-          <span class="auth-badge auth-authenticated">已驗證</span>
-        </div>
-      </div>
-      <p class="doc-text">
-        列出所有可用的 IANA 時區名稱，供套件設定使用。
       </p>
 
       <div class="endpoint">
@@ -862,11 +873,28 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/units</code>
           <span class="auth-badge auth-authenticated">已驗證</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
         列出由 Town OS 管理的 systemd unit。每筆項目含 unit 名稱、描述、
         load/active/sub 狀態、關聯的套件識別碼與描述，以及一個失敗旗標。支援分頁參數。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units-tree</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        與扁平清單相同的 unit，但依相依關係組成樹狀：根套件在最上層，相依項逐層巢狀於其父項之下——
+        與 <code>/storage/package-volumes</code> 採用的結構相同。每一列都帶有扁平端點回傳的相同狀態資料，
+        因此用戶端不需要再送一次請求來補齊資訊。
       </p>
 
       <div class="endpoint">
@@ -884,9 +912,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       <div class="endpoint">
         <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status/tree</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        一次呼叫即依相依順序，對某個套件及其整棵相依樹套用同一個動作。
+        這裡同樣拒絕 <code>enable</code> 與 <code>disable</code>，理由與 <code>/systemd/status</code> 相同：
+        連鎖執行 enable 會把那些已透過父項連結的相依項重複啟用一次。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs</code>
-          <span class="auth-badge auth-authenticated">已驗證</span>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -901,7 +944,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs/tail</code>
-          <span class="auth-badge auth-authenticated">已驗證</span>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -925,6 +970,34 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         回傳 <code>entries</code>、<code>cursor</code>（第一筆）與
         <code>end_cursor</code>（最後一筆），供後續分頁使用。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree</code>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        <code>/systemd/logs</code> 的樹狀對應端點：以一條 Server-Sent Events 串流承載某個套件
+        及其之下所有 unit 的記錄，並依時間順序合併。即使是沒有安裝紀錄的未知根，
+        也會得到一條開啟但沒有項目的串流，而不是 404，因此記錄檢視器對單一 unit 與整棵樹的處理方式完全一致。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree/tail</code>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        合併後樹狀記錄的分頁形式，接受與 <code>/systemd/logs/tail</code> 相同的游標、篩選與時間範圍參數。
       </p>
     </div>
   </section>
@@ -1112,6 +1185,340 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- Networks -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="networks">網路</h2>
+      <p class="doc-text">
+        <strong>網路</strong>是一個具名的 WireGuard 疊加網路，並與一個 DNS TLD 配對。
+        套件安裝到某個網路中，對等裝置加入這個網路，而 TLD 決定誰能解析什麼。
+        網路名稱必須是合法的 DNS 標籤，且不超過 32 個字元，因為它們同時會被當作
+        WireGuard 介面字尾與 systemd unit 名稱使用。
+      </p>
+      <p class="doc-text">
+        <code>home</code> 網路始終存在——它隨資料庫一併植入，而不是在開機時建立——並且在三個方面很特別：
+        它<strong>無法刪除</strong>，也不能被第二次建立；它<strong>只提供 DNS</strong>
+        （沒有 WireGuard 介面、沒有子網路、沒有對等裝置）；而且在它上面<strong>註冊對等裝置會被拒絕</strong>，
+        回傳 400。每個帳號都屬於 home 網路，因此若在此接受註冊，單憑成員身分就等於取得了進入通道的途徑，
+        而且儲存下來的對等裝置所描述的通道根本不存在。
+      </p>
+      <p class="doc-text">
+        停用網路只會關掉<em>傳輸層</em>：WireGuard 介面不會被拉起，遠端存取因此中斷，
+        而本地 DNS 解析與容器本身照常執行。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出網路。每筆項目含名稱、TLD、子網路、本機在疊加網路中的位址、公鑰、監聽連接埠與啟用旗標。
+        私鑰永遠不會被序列化。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/create</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        建立網路。子網路由本機識別種子與網路名稱以確定性方式推導而來，取自
+        <code>10.64.0.0/10</code>，以避開家用路由器常用的位址範圍。
+        以本機識別為依據，代表兩台都在提供對等接入的 Town OS 主機會選出不同的子網路，
+        因此同時加入兩者的裝置永遠不會遇到衝突。建立 <code>home</code> 會因 TLD 衝突檢查而回傳 409。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除網路。會拒絕 <code>home</code> 網路。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        拉起該網路的 WireGuard 傳輸層。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        關掉傳輸層，同時讓 DNS 與容器繼續執行。
+      </p>
+
+      <h3>對等裝置</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已在某個網路中註冊的對等裝置。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers/connected</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出目前確實處於連線狀態的對等裝置，而不只是已註冊的。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/add</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        註冊一個對等裝置。wireguard 授權是放行非管理者的依據；依網路的範圍與每個對等裝置的歸屬由處理常式檢查。
+        對 <code>home</code> 網路會回傳 400，因為它只提供 DNS。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/refresh</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在對等裝置的 TTL 到期之前續期其註冊。註冊是有時效的，回收程序會清掉已過期的項目。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        把某個對等裝置從網路中移除。
+      </p>
+
+      <h3>本地 CA</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/tls/ca.crt</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        以 PEM 格式下載本機的本地憑證授權單位。Town OS 會為套件名稱簽發自己的憑證，
+        因此信任這張憑證正是讓那些名稱在瀏覽器中不再出現警告的關鍵。它刻意設為公開：
+        CA 憑證本來就是拿來散布的那一部分，而且用戶端在持有任何可用於驗證的憑據之前就需要它。
+      </p>
+    </div>
+  </section>
+
+  <!-- Object Storage -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="object-storage">物件儲存</h2>
+      <p class="doc-text">
+        Town OS 透過 <strong>gfeh</strong> 提供物件儲存。一個<strong>分割區</strong>包含一個 btrfs 子磁碟區、
+        一個 <code>gfehd</code> 行程、一個管理 socket，以及<strong>它自己的一套使用者</strong>。
+        每個 Town OS 網路恰好對應一個分割區，因此物件儲存的命名空間與 DNS、WireGuard 沿著同一條邊界劃分：
+        <code>office</code> 分割區中的主體、授權或公開曝光，在 <code>home</code> 中毫無意義。
+      </p>
+      <p class="doc-text">
+        每個分割區在固定的容器連接埠上提供四種 HTTP 檢視——S3 在 9000、HTTP 在 9001、雲端硬碟在 9002、IPFS 在 9003——
+        並且<strong>完全不發布主機連接埠</strong>。這正是固定連接埠之所以安全的原因：
+        每個分割區都有自己的網路命名空間，ingress 透過容器名稱存取它，與存取套件的方式完全一樣，
+        所以兩個都在 9000 上提供 S3 的分割區不可能衝突。
+      </p>
+
+      <h3>分割區</h3>
+      <p class="doc-text">
+        這四條路由之所以獨立於 <code>/storage/*</code>，是因為 <code>/storage/create</code>
+        會無條件把送進來的名稱改寫成 <code>user/&lt;名稱&gt;</code>，因此無法產生
+        <code>gfeh/</code> 前綴底下的磁碟區。它們的封包形態是 gfeh 用戶端會解析的公開契約，而非內部細節。
+      </p>
+      <p class="doc-text">
+        有兩處細節至關重要。<strong>前綴是不對稱的</strong>：請求帶的是裸名稱，
+        回應帶的是 <code>gfeh/&lt;名稱&gt;</code>，因為該前綴是 Town OS 的命名空間產物，
+        並不屬於分割區本身的身分。以及<strong>清單回傳的是裸 JSON 陣列，而不是分頁信封</strong>，
+        這與本 API 中其他所有清單端點都不同：gfeh 用戶端會直接反序列化一個普通清單，
+        而分頁包裝會導致解碼失敗。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>路由</th><th>權限</th><th>請求</th><th>回應</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST /gfeh/partitions/create</code></td><td>管理者</td><td><code>name</code>（不帶前綴）、<code>quota</code></td><td>Filesystem，名稱為 <code>gfeh/&lt;n&gt;</code></td></tr>
+            <tr><td><code>POST /gfeh/partitions/modify</code></td><td>管理者</td><td><code>name</code>、<code>quota</code></td><td>Filesystem</td></tr>
+            <tr><td><code>POST /gfeh/partitions/remove</code></td><td>管理者</td><td><code>name</code></td><td>200，空回應</td></tr>
+            <tr><td><code>POST /gfeh/partitions</code></td><td>已驗證</td><td>無請求主體</td><td>Filesystem 的普通陣列</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        用戶端應據以分支的狀態碼：<strong>409</strong> 已存在（gfeh 的佈建是「建立或調整大小」，
+        正是靠這個狀態區分兩者）、<strong>404</strong> 不存在、<strong>400</strong> 名稱不合法、
+        <strong>403</strong> 非管理者。含有路徑分隔符號的名稱在這裡就會被拒絕，
+        因為 <code>gfehd</code> 在它自己的邊界上同樣會拒絕——雙方對「什麼是合法分割區名稱」若不一致，
+        就會讓 <code>../user/something</code> 這樣的名稱指向物件儲存根目錄之外的磁碟區。
+      </p>
+      <p class="doc-text">
+        建立分割區<strong>僅限管理者，且無法透過授權取得</strong>：
+        它是一棵權限樹的根，並且會配置一個帶配額的 btrfs 子磁碟區，
+        因此持有授權的帳號會在任何處理常式執行之前就被拒絕。
+      </p>
+
+      <h3>瀏覽</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        物件儲存總覽：存在哪些分割區，以及它們各自處於什麼狀態。
+      </p>
+
+      <h3>主體</h3>
+      <p class="doc-text">
+        分割區中的使用者。建立一個主體需要名稱、父項與權限上限——但<strong>不需要密碼</strong>，
+        這正是介面從不索取密碼的原因。上限遵循 gfeh 的投影規則：
+        Town OS 管理者為 <code>all</code>，其餘為讀／寫。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/principals</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出某個分割區中的主體。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/add</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在某個父項底下建立主體，並設定其權限上限。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/remove</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除一個主體。
+      </p>
+
+      <h3>授權</h3>
+      <p class="doc-text">
+        也就是存取控制清單。<code>gfehd</code> 會<strong>把授權收窄到主體的權限上限</strong>，
+        因此用戶端應顯示<em>回傳回來</em>的權限，而不是自己送出去的那些：
+        管理者必須能夠看出某項授權被收窄了。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/grants</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出授權，也可以只列出某一個主體的。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/add</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        授予某個主體存取權限。回應中帶有實際儲存下來的權限。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/revoke</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依 id 撤銷一項授權。
+      </p>
+
+      <h3>公開曝光</h3>
+      <p class="doc-text">
+        一條已發布的檔案連結，服務於 <code>/f/&lt;token&gt;</code>。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/exposures</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出某個分割區中已發布的連結。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/exposures/withdraw</code>
+          <span class="auth-badge auth-grant">授權</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        依 token 撤回一條已發布的連結，使該網址不再可用。
+      </p>
+    </div>
+  </section>
+
   <!-- DNS -->
   <section class="section alt-section">
     <div class="container">
@@ -1197,6 +1604,125 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         初始化或重新啟動 DNS 伺服器，並註冊所有已安裝的套件。
       </p>
+
+      <h3>封鎖清單</h3>
+      <p class="doc-text">
+        這是兩份彼此獨立的清單。<strong>DNSBL</strong> 以訂閱為基礎——由 rolodex 取回並套用的上游封鎖清單——
+        並搭配一份放行清單，用來豁免那些無論上游清單怎麼說都希望能解析的名稱。
+        <strong>本地封鎖清單</strong>（RBL）則是本機自己的清單，逐筆編輯。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取得 DNSBL 設定：訂閱了哪些上游封鎖清單，以及如何套用它們。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        取代 DNSBL 設定。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已從訂閱封鎖清單中豁免的名稱。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        把某個名稱從訂閱的封鎖清單中豁免出來。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        刪除一筆放行紀錄，讓訂閱的封鎖清單重新對該名稱生效。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/rbl/local</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出本機自有封鎖清單中的項目。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        在本地封鎖清單中加入一個名稱。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        從本地封鎖清單移除一個名稱。
+      </p>
+
+      <h3>依服務發布 DNS</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/services</code>
+          <span class="auth-badge auth-authenticated">已驗證</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        列出已安裝的服務，以及每個服務是否發布了 DNS 名稱。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/services/set</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        為某個服務開啟或關閉 DNS 發布，讓套件可以在不佔用網路名稱的情況下執行。
+      </p>
     </div>
   </section>
 
@@ -1221,17 +1747,24 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         未設定監控時會回傳 <code>&lbrace;"status": "disabled"&rbrace;</code>。
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/monitoring/grafana/*</code>
-          <span class="auth-badge auth-public">公開</span>
-        </div>
-      </div>
+      <h3>如何取得儀表板資料</h3>
       <p class="doc-text">
-        反向代理到本機的 Grafana 執行個體，並從網址路徑中去掉
-        <code>/monitoring/grafana</code> 前綴。未設定監控時回傳 503。
-        此端點會略過身分驗證。
+        <strong>系統控制器上並不存在任何反向代理。</strong>監控資料由專屬的
+        <strong>5308</strong> 連接埠提供，瀏覽器直接與該連接埠通訊；控制器自己的連接埠（5309）只承載
+        <code>/monitoring/status</code>。5308 上由誰監聽，取決於所設定的後端：
+      </p>
+      <ul class="doc-list">
+        <li>
+          <strong>uPlot 模式</strong>（預設）——由一個 socat 轉送器把 Prometheus 的 HTTP API 開在 5308 上，
+          介面直接查詢 <code>/api/v1/query_range</code>，並自行繪製圖表。
+        </li>
+        <li>
+          <strong>Grafana 模式</strong>——Grafana 透過 podman 的連接埠對應直接監聽 5308，介面則以 iframe 內嵌。
+        </li>
+      </ul>
+      <p class="doc-text">
+        <code>TOWN_OS_MONITORING_PORT</code> 可以更動儀表板連接埠；
+        <code>TOWN_OS_PROMETHEUS_PORT</code> 與 <code>TOWN_OS_NODE_EXPORTER_PORT</code> 對兩個 loopback 連接埠有同樣作用。
       </p>
     </div>
   </section>
@@ -1353,6 +1886,213 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- gfeh admin API -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="gfeh-admin">物件儲存管理 API（gfeh）</h2>
+      <p class="doc-text">
+        以上都是 Town OS 的 API，通常應用程式應該使用它。在它之下，
+        每個 <code>gfehd</code> 分割區還有自己的管理介面：
+        以 JSON over HTTP 提供，而且<strong>只在它的 Unix socket 上</strong>，絕不監聽連接埠。
+      </p>
+      <p class="doc-text">
+        這個介面上<strong>既沒有權杖，也沒有身分驗證</strong>。socket 的檔案系統權限<em>本身</em>就是存取控制，
+        因此能夠連到它，就已經代表是這台機器上的 root。socket 位於 btrfs 磁碟區上，
+        因為那是 <code>gfehd</code> 容器與系統控制器容器都看得到的唯一一個檔案系統。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>呼叫</th><th>方法與路徑</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Health</code></td><td><code>GET /v1/health</code></td><td>存活探測，同時也用作就緒探測。</td></tr>
+            <tr><td><code>Names</code></td><td><code>GET /v1/names</code></td><td>該分割區希望發布的名稱。</td></tr>
+            <tr><td><code>ListPrincipals</code></td><td><code>GET /v1/principals</code></td><td>該分割區的使用者樹林。</td></tr>
+            <tr><td><code>CreatePrincipal</code></td><td><code>POST /v1/principals</code></td><td>接受 <code>name</code>、<code>parent</code>、<code>ceiling</code>——不含密碼。</td></tr>
+            <tr><td><code>DeletePrincipal</code></td><td><code>DELETE /v1/principals/&lt;name&gt;</code></td><td>移除一個主體。</td></tr>
+            <tr><td><code>ListGrants</code></td><td><code>GET /v1/grants?principal=</code></td><td>存取控制清單，可只取某一個主體的。</td></tr>
+            <tr><td><code>CreateGrant</code></td><td><code>POST /v1/grants</code></td><td>授予存取權限；會被收窄到主體的上限。</td></tr>
+            <tr><td><code>RevokeGrant</code></td><td><code>DELETE /v1/grants/&lt;id&gt;</code></td><td>撤銷一項授權。</td></tr>
+            <tr><td><code>ListExposures</code></td><td><code>GET /v1/exposures</code></td><td>已發布的 <code>/f/&lt;token&gt;</code> 連結。</td></tr>
+            <tr><td><code>WithdrawExposure</code></td><td><code>DELETE /v1/exposures/&lt;token&gt;</code></td><td>停止提供某條已發布的連結。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>gfehd</code> 會把內部錯誤對應成 HTTP 狀態碼——404、409、400——
+        而 Go 用戶端再把它們對應回哨兵錯誤，因此 <code>errors.Is</code> 跨過 socket 邊界之後依然可用。
+      </p>
+      <p class="doc-text">
+        對於名為 <code>&lt;network&gt;</code> 的網路，其分割區的檔案位置如下：
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>內容</th><th>位置</th></tr></thead>
+          <tbody>
+            <tr><td>分割區資料</td><td><code>&lt;btrfsBase&gt;/gfeh/&lt;network&gt;</code>，掛載於 <code>/data/&lt;network&gt;</code></td></tr>
+            <tr><td>設定</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/gfehd.yaml</code></td></tr>
+            <tr><td>管理 socket</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/run/admin.sock</code></td></tr>
+            <tr><td>unit</td><td><code>town-os-system--gfeh-&lt;network&gt;.service</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- rolodex gRPC API -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="rolodex-grpc">DNS gRPC API（rolodex）</h2>
+      <p class="doc-text">
+        上面的 <code>/dns/*</code> 端點是 Town OS 視角下的 DNS。rolodex 本身透過
+        <strong>gRPC</strong> 管理，開在一個 Unix socket 上（預設為
+        <code>/var/run/rolodex-dns.sock</code>），也可以選擇開在 TCP 上。
+        預設情況下，socket 是唯一的管理通道——<code>grpc.tcp_bind</code> 是空的。
+      </p>
+      <p class="doc-text">
+        只有一個服務 <code>rolodex_dns.RolodexDnsService</code>，包含 74 個方法。
+        所有路徑均為 <code>/rolodex_dns.RolodexDnsService/&lt;方法名稱&gt;</code>。
+        完整的訊息定義位於 rolodex-dns 儲存庫的 <code>proto/rolodex_dns.proto</code>；
+        下面的分組說明這些方法各自涵蓋什麼。
+      </p>
+
+      <h3>記錄與解析</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRecord</code></td><td>在本地資料庫加入一筆 DNS 記錄。</td></tr>
+            <tr><td><code>RemoveRecord</code></td><td>從本地資料庫移除記錄。</td></tr>
+            <tr><td><code>ListRecords</code></td><td>以可選的篩選條件查詢本地資料庫。</td></tr>
+            <tr><td><code>SetForwarders</code></td><td>設定上游轉送器。</td></tr>
+            <tr><td><code>SetResolutionMode</code> / <code>GetResolutionMode</code></td><td>在執行時變更並讀取解析模式。</td></tr>
+            <tr><td><code>GetSearchDomains</code></td><td>某個用戶端 IP 對應的搜尋網域。</td></tr>
+            <tr><td><code>FlushCache</code></td><td>清空 DNS 與封鎖清單快取。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>權威區域</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddAuthoritativeZone</code></td><td>把某個區域宣告為權威區域。</td></tr>
+            <tr><td><code>RemoveAuthoritativeZone</code></td><td>把某個區域從權威清單中移除。</td></tr>
+            <tr><td><code>ListAuthoritativeZones</code></td><td>列出所有權威區域。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>網路範圍</h3>
+      <p class="doc-text">
+        範圍是 rolodex 劃分「誰能解析什麼」的方式，也是 Town OS 網路所對應到的對象。
+        IP 與範圍的關聯帶有 TTL，需要定期更新。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateNetworkScope</code> / <code>DeleteNetworkScope</code> / <code>ListNetworkScopes</code></td><td>管理範圍。刪除一個範圍會連同它的記錄與關聯一起刪除。</td></tr>
+            <tr><td><code>JoinNetwork</code> / <code>LeaveNetwork</code></td><td>把用戶端 IP 關聯到某個範圍，或解除該關聯。</td></tr>
+            <tr><td><code>GetNetworkAssociations</code></td><td>讀取 IP 與範圍的關聯。</td></tr>
+            <tr><td><code>AddScopedRecord</code> / <code>RemoveScopedRecord</code> / <code>ListScopedRecords</code></td><td>只在某個範圍內存在的記錄。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>範圍 TLD</h3>
+      <p class="doc-text">
+        依網路歸屬的區域，在各網路之間劃分。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddScopeTld</code> / <code>RemoveScopeTld</code> / <code>ListScopeTlds</code></td><td>把一個全域唯一的 TLD 註冊為某個範圍所有。</td></tr>
+            <tr><td><code>SetScopeTldForwarders</code> / <code>ListScopeTldForwarders</code></td><td>某個範圍的 TLD 所對應的對端轉送器。</td></tr>
+            <tr><td><code>ListScopeTldListeners</code></td><td>繫結到某個範圍各 TLD 上的 ingress DNS 監聽器。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>封鎖清單</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDnsblConfig</code> / <code>GetDnsblConfig</code></td><td>以訂閱為基礎的網域封鎖清單設定。</td></tr>
+            <tr><td><code>AddDnsblAllowlistEntry</code></td><td>把某個名稱<em>及其子網域</em>從依名稱的封鎖檢查中豁免。</td></tr>
+            <tr><td><code>RemoveDnsblAllowlistEntry</code> / <code>ListDnsblAllowlistEntries</code></td><td>管理放行清單。</td></tr>
+            <tr><td><code>AddLocalBlocklistEntry</code> / <code>RemoveLocalBlocklistEntry</code> / <code>ListLocalBlocklistEntries</code></td><td>本機自有的封鎖清單。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>加密傳輸</h3>
+      <p class="doc-text">
+        每種傳輸都有對應的設定與讀取方法。DoH 提供 HTTP/2，並在 <code>enable_h3</code> 開啟時，
+        於同一位址、同一連接埠、同一憑證上提供 HTTP/3。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDotConfig</code> / <code>GetDotConfig</code></td><td>DNS over TLS。</td></tr>
+            <tr><td><code>SetDohConfig</code> / <code>GetDohConfig</code></td><td>DNS over HTTPS，含 HTTP/3。</td></tr>
+            <tr><td><code>SetDoqConfig</code> / <code>GetDoqConfig</code></td><td>DNS over QUIC。</td></tr>
+            <tr><td><code>SetProxyConfig</code> / <code>GetProxyConfig</code></td><td>HTTP 代理設定。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DNSSEC、DANE 與 ACME</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GenerateDnssecKey</code> / <code>ListDnssecKeys</code> / <code>DeleteDnssecKey</code></td><td>依區域管理 DNSSEC 金鑰材料。</td></tr>
+            <tr><td><code>GetDsRecords</code></td><td>某個區域的 DS 記錄。</td></tr>
+            <tr><td><code>SignZone</code></td><td>以區域自己的 DNSSEC 金鑰為其簽章。</td></tr>
+            <tr><td><code>GenerateTlsaRecord</code> / <code>ListTlsaRecords</code></td><td>由憑證產生的 TLSA 記錄。</td></tr>
+            <tr><td><code>GenerateDaneRootCa</code></td><td>產生用於 DANE 的根 CA 憑證。</td></tr>
+            <tr><td><code>EnsureZoneCa</code></td><td>確保某個區域擁有 CA。</td></tr>
+            <tr><td><code>RequestAcmeCert</code> / <code>GetAcmeStatus</code></td><td>透過 ACME DNS-01 申請憑證，並查詢其狀態。</td></tr>
+            <tr><td><code>CreateEabCredential</code> / <code>RemoveEabCredential</code></td><td>簽發限定於某個區域的外部帳戶繫結（kid 加 HMAC），供 ACME 用戶端的 newAccount 使用。</td></tr>
+            <tr><td><code>ListAcmeAccounts</code> / <code>ListAcmeCertificates</code></td><td>已註冊的 ACME 帳戶與已簽發的憑證。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DHCP</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddDhcpPool</code> / <code>RemoveDhcpPool</code> / <code>ListDhcpPools</code></td><td>在某個範圍內用於配發的位址池。</td></tr>
+            <tr><td><code>ListDhcpLeases</code> / <code>DeleteDhcpLease</code></td><td>位址租約，依 MAC 位址刪除。</td></tr>
+            <tr><td><code>SetDhcpCertOption</code> / <code>RemoveDhcpCertOption</code> / <code>ListDhcpCertOptions</code></td><td>為某個範圍透過 DHCP 下發給用戶端的憑證。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>診斷與調校</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>方法</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GetCacheStats</code> / <code>FlushDnsCache</code></td><td>快取統計，以及清空回應快取。</td></tr>
+            <tr><td><code>GetQueryLatencyStats</code></td><td>上游查詢延遲。</td></tr>
+            <tr><td><code>SetTtlDriftConfig</code> / <code>GetTtlDriftConfig</code></td><td>TTL 漂移設定。</td></tr>
+            <tr><td><code>SetTrackedTlds</code> / <code>ListTrackedTlds</code></td><td>依 TLD 指標背後所追蹤的 TLD 清單，包括已儲存的與實際生效的。</td></tr>
+            <tr><td><code>SetDns64Config</code> / <code>GetDns64Config</code></td><td>DNS64 設定。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Client Libraries -->
   <section class="section">
     <div class="container">
@@ -1428,7 +2168,6 @@ client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309
             <tr><td><code>ListInstalled(ctx, params)</code></td><td>以 <code>"repo/name@version"</code> 形式列出已安裝的套件。</td></tr>
             <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>已儲存的設定回答。</td></tr>
             <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>詳細資訊，含問題、回答與註記。</td></tr>
-            <tr><td><code>ListTimezones(ctx)</code></td><td>可用的 IANA 時區名稱。</td></tr>
           </tbody>
         </table>
       </div>
@@ -1842,6 +2581,14 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
     background: #6b2737;
     color: #f4a5b8;
   }
+  .auth-grant {
+    background: #3d3a1f;
+    color: #e0d48a;
+  }
+  .auth-localhost {
+    background: #1f3d33;
+    color: #8ad4b8;
+  }
 
   .format-tags {
     display: flex;
@@ -1905,6 +2652,18 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
   }
 
   .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .doc-list li {
     margin-bottom: 0.5rem;
   }
 </style>

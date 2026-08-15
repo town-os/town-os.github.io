@@ -40,11 +40,15 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <li><a href="#settings">設定</a></li>
           <li><a href="#audit">監査ログ</a></li>
           <li><a href="#pages">ページ</a></li>
+          <li><a href="#networks">ネットワーク</a></li>
+          <li><a href="#object-storage">オブジェクトストレージ</a></li>
           <li><a href="#dns">DNS</a></li>
           <li><a href="#monitoring">モニタリング</a></li>
           <li><a href="#system-services">システムサービス</a></li>
           <li><a href="#locales">ロケール</a></li>
           <li><a href="#vm-images">VM イメージ</a></li>
+          <li><a href="#gfeh-admin">オブジェクトストレージ管理 API（gfeh）</a></li>
+          <li><a href="#rolodex-grpc">DNS gRPC API（rolodex）</a></li>
           <li><a href="#client-libraries">クライアントライブラリ</a></li>
           <li><a href="#development">開発リファレンス</a></li>
           <li><a href="#prerequisites">事前に必要なもの</a></li>
@@ -81,7 +85,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       </p>
       <pre><code>Authorization: Bearer &lt;token&gt;</code></pre>
       <p class="doc-text">
-        セッションは 7 日間操作がないと期限切れになります。認証レベルは 3 種類あります。
+        セッションは 7 日間操作がないと期限切れになります。認証レベルは 5 種類あります。
       </p>
       <div class="table-wrapper">
         <table>
@@ -92,9 +96,17 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
             <tr><td><span class="auth-badge auth-public">公開</span></td><td>トークンは不要です。</td></tr>
             <tr><td><span class="auth-badge auth-authenticated">認証済み</span></td><td>有効なセッショントークンであれば何でも構いません。</td></tr>
             <tr><td><span class="auth-badge auth-admin">管理者</span></td><td>管理者アカウントに属するセッショントークン。</td></tr>
+            <tr><td><span class="auth-badge auth-grant">グラント</span></td><td>アカウントに与えられた個別のグラントが、管理者でない利用者を通します。オブジェクトストレージのエンドポイントはオブジェクトストレージのグラントを、ピア登録は wireguard のグラントを使い、ネットワークごとの範囲と各ピアの所有関係はハンドラー自身が確認します。</td></tr>
+            <tr><td><span class="auth-badge auth-localhost">Localhost</span></td><td>ループバックからのリクエストは認証なしで通ります。ループバックに到達できること自体が、その機器の上にいることを意味するからです。それ以外の送信元には、バッジの隣に並ぶレベルが必要です。コントローラー自身のツールが読み取る systemd のユニットとログのエンドポイントで使われています。</td></tr>
           </tbody>
         </table>
       </div>
+      <p class="doc-text">
+        パーティションの内部にあるエンドポイントは管理者に限られていませんが、オブジェクトストレージの
+        パーティションを作ることだけは管理者に留保されています。パーティションは権限ツリーの根であり、
+        クォータ付きの btrfs サブボリュームを確保するからです。グラントが許すのはパーティションの中にいる
+        利用者を扱うことであって、そのパーティションが存在すべきかどうかを決めることではありません。
+      </p>
     </div>
   </section>
 
@@ -433,6 +445,18 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         内部名を指定して、特定のパッケージのボリュームを削除します。
       </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/storage/remove-package-volume-group</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        内部名を一つずつ指定して消していく代わりに、一つのパッケージに属するボリュームを
+        一度の呼び出しですべて削除します。
+      </p>
     </div>
   </section>
 
@@ -545,16 +569,6 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         のグループの配列を返します。
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/packages/timezones</code>
-          <span class="auth-badge auth-authenticated">認証済み</span>
-        </div>
-      </div>
-      <p class="doc-text">
-        パッケージの設定で使える IANA のタイムゾーン名をすべて一覧します。
-      </p>
 
       <div class="endpoint">
         <div class="endpoint-header">
@@ -886,12 +900,30 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/units</code>
           <span class="auth-badge auth-authenticated">認証済み</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
         Town OS が管理する systemd のユニットを一覧します。各エントリーには、ユニット名、説明、
         load/active/sub の状態、関連するパッケージの識別子と説明、失敗フラグが含まれます。
         ページ送りのパラメーターに対応しています。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/units-tree</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        平坦な一覧と同じユニットを、依存関係のツリーにまとめて返します。ルートのパッケージが最上位に来て、
+        依存はその親の下へ順に入れ子になります。<code>/storage/package-volumes</code> と同じ形です。
+        各行には平坦なエンドポイントが返すのと同じ状態のデータが入っているので、
+        クライアントが情報を補うために二度目のリクエストを送る必要はありません。
       </p>
 
       <div class="endpoint">
@@ -909,9 +941,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
       <div class="endpoint">
         <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/systemd/status/tree</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        一つのパッケージとその依存ツリー全体に対して、依存関係の順に同じ操作を一度の呼び出しで適用します。
+        ここでも <code>enable</code> と <code>disable</code> は拒否されます。理由は
+        <code>/systemd/status</code> と同じで、enable を連鎖させると、親を通して既にリンクされている
+        依存を二重に有効化してしまうからです。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs</code>
-          <span class="auth-badge auth-authenticated">認証済み</span>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -926,7 +974,9 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         <div class="endpoint-header">
           <span class="method get">GET</span>
           <code class="endpoint-path">/systemd/logs/tail</code>
-          <span class="auth-badge auth-authenticated">認証済み</span>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
         </div>
       </div>
       <p class="doc-text">
@@ -950,6 +1000,36 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         以降のページ送りのために、<code>entries</code>、<code>cursor</code>（最初のエントリー）、
         <code>end_cursor</code>（最後のエントリー）を返します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree</code>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        <code>/systemd/logs</code> のツリー版です。一つのパッケージと、その下にあるすべてのユニットの
+        ジャーナルを、時系列に混ぜて一本の Server-Sent Events ストリームで流します。インストールの記録が
+        ない未知のルートであっても、404 ではなくエントリーのない開いたストリームが返るので、
+        ジャーナルビューアーは単一のユニットでもツリー全体でも同じように動きます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/systemd/logs/tree/tail</code>
+          <span class="auth-badge auth-admin">管理者</span>
+          /
+          <span class="auth-badge auth-localhost">Localhost</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        混ぜ合わせたツリーのジャーナルをページ送りで取得する形式で、
+        <code>/systemd/logs/tail</code> と同じカーソル・フィルター・期間のパラメーターを受け取ります。
       </p>
     </div>
   </section>
@@ -1144,6 +1224,355 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- Networks -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="networks">ネットワーク</h2>
+      <p class="doc-text">
+        <strong>ネットワーク</strong>とは、名前を持つ WireGuard オーバーレイと DNS の TLD を
+        組み合わせたものです。パッケージはネットワークにインストールされ、ピアはそこに参加し、
+        誰が何を解決できるかを分けるのが TLD です。ネットワーク名は DNS ラベルとして安全な形式で、
+        32 文字までに制限されています。WireGuard のインターフェース接尾辞と systemd の
+        ユニット名にそのまま使い回されるからです。
+      </p>
+      <p class="doc-text">
+        <code>home</code> ネットワークは常に存在します。起動時に作られるのではなく、データベースそのものと
+        一緒に植え付けられます。そして三つの点で特別です。<strong>削除できず</strong>、二度目を作ることも
+        できません。<strong>DNS 専用</strong>です（WireGuard のインターフェースもサブネットもピアも
+        ありません）。そして<strong>ピアの登録は 400 で拒否されます</strong>。すべてのアカウントは
+        home ネットワークに属しているので、ここで登録を受け付ければ、所属しているというだけで
+        トンネルへの入口になってしまい、しかも保存されたピアは存在しないトンネルを記述することになります。
+      </p>
+      <p class="doc-text">
+        ネットワークを無効にすると止まるのは<em>伝送路</em>だけです。WireGuard のインターフェースが
+        立ち上がらなくなるのでリモートからの接続は切れますが、ローカルの DNS 解決とコンテナー自体は
+        動き続けます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ネットワークを一覧します。各エントリーには、名前、TLD、サブネット、オーバーレイ上での
+        この機器自身のアドレス、公開鍵、待ち受けポート、有効フラグが入ります。秘密鍵が
+        シリアライズされることはありません。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/create</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ネットワークを作成します。サブネットは、機器の識別情報のシードとネットワーク名から決定的に
+        導かれ、家庭用ルーターが配りがちな範囲を避けるために <code>10.64.0.0/10</code> から取られます。
+        機器の識別情報を鍵にしているので、ピアを受け入れる Town OS の機器が 2 台あっても別々の
+        サブネットを選び、両方に参加する端末が衝突を見ることはありません。<code>home</code> を作ろうと
+        すると、TLD の衝突チェックによって 409 が返ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ネットワークを削除します。<code>home</code> ネットワークは拒否されます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/enable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        そのネットワークの WireGuard の伝送路を立ち上げます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/disable</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        DNS とコンテナーを動かしたまま、伝送路だけを止めます。
+      </p>
+
+      <h3>ピア</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        あるネットワークに登録されているピアを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/networks/peers/connected</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        登録されているだけでなく、実際に今つながっているピアを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/add</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ピアを登録します。管理者でない利用者を通すのは wireguard のグラントで、ネットワークごとの
+        範囲と各ピアの所有関係はハンドラーが確認します。<code>home</code> ネットワークは DNS 専用なので
+        400 が返ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/refresh</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ピアの登録を TTL が切れる前に更新します。登録には期限があり、期限切れになったものは
+        回収する仕組みが取り除きます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/networks/peers/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ピアをネットワークから取り除きます。
+      </p>
+
+      <h3>ローカル CA</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/tls/ca.crt</code>
+          <span class="auth-badge auth-public">公開</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        この機器のローカル認証局を PEM 形式でダウンロードします。Town OS はパッケージの名前に対して
+        自前の証明書を発行するので、この証明書を信頼することが、それらの名前をブラウザーで警告なしに
+        使えるようにする鍵になります。公開されているのは意図的です。CA 証明書は配布するためのもので
+        あり、クライアントは認証に使える資格情報を持つより前にこれを必要とするからです。
+      </p>
+    </div>
+  </section>
+
+  <!-- Object Storage -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="object-storage">オブジェクトストレージ</h2>
+      <p class="doc-text">
+        Town OS は <strong>gfeh</strong> によってオブジェクトストレージを提供します。
+        <strong>パーティション</strong>とは、一つの btrfs サブボリューム、一つの <code>gfehd</code>
+        プロセス、一つの管理ソケット、そして<strong>専用の利用者群</strong>のことです。Town OS の
+        ネットワークごとにちょうど一つ存在するので、オブジェクトストレージの名前空間は DNS や
+        WireGuard と同じ境界で分かれます。<code>office</code> パーティションのプリンシパル、グラント、
+        公開は、<code>home</code> では何の意味も持ちません。
+      </p>
+      <p class="doc-text">
+        各パーティションは固定のコンテナーポートで四つの HTTP ビューを提供します。S3 が 9000、
+        HTTP が 9001、ドライブが 9002、IPFS が 9003 です。そして<strong>ホストのポートは一切
+        公開しません</strong>。固定ポートが安全なのはまさにそのためで、各パーティションは自分の
+        ネットワーク名前空間を持ち、ingress はパッケージに到達するのと同じようにコンテナー名で
+        到達します。ですから 9000 で S3 を提供するパーティションが二つあっても衝突しません。
+      </p>
+
+      <h3>パーティション</h3>
+      <p class="doc-text">
+        この四つのルートが <code>/storage/*</code> とは別に存在するのは、<code>/storage/create</code> が
+        送られてきた名前を無条件に <code>user/&lt;名前&gt;</code> へ書き換えてしまい、
+        <code>gfeh/</code> プレフィックスの下にボリュームを作れないからです。これらのワイヤー形式は
+        gfeh のクライアントが解釈する公開された契約であって、内部の実装の詳細ではありません。
+      </p>
+      <p class="doc-text">
+        重要な点が二つあります。<strong>プレフィックスは非対称です</strong>。リクエストは素の名前を運び、
+        レスポンスは <code>gfeh/&lt;名前&gt;</code> を運びます。プレフィックスは Town OS の名前空間の
+        産物であって、パーティションの識別子の一部ではないからです。そして<strong>一覧はページ送りの
+        封筒ではなく、素の JSON 配列を返します</strong>。この API のほかのどの一覧エンドポイントとも
+        違う点で、gfeh のクライアントは素のリストを直接デシリアライズするため、ページ送りの包みでは
+        デコードに失敗します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>ルート</th><th>権限</th><th>リクエスト</th><th>レスポンス</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>POST /gfeh/partitions/create</code></td><td>管理者</td><td><code>name</code>（プレフィックスなし）、<code>quota</code></td><td>Filesystem、名前は <code>gfeh/&lt;n&gt;</code></td></tr>
+            <tr><td><code>POST /gfeh/partitions/modify</code></td><td>管理者</td><td><code>name</code>、<code>quota</code></td><td>Filesystem</td></tr>
+            <tr><td><code>POST /gfeh/partitions/remove</code></td><td>管理者</td><td><code>name</code></td><td>200、本文なし</td></tr>
+            <tr><td><code>POST /gfeh/partitions</code></td><td>認証済み</td><td>本文なし</td><td>Filesystem の素の配列</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        クライアントが分岐すべきステータスコードは次のとおりです。<strong>409</strong> は既に存在
+        （gfeh のプロビジョニングは「作成または容量変更」であり、この二つをこのステータスで見分けます）、
+        <strong>404</strong> は存在しない、<strong>400</strong> は名前が不正、<strong>403</strong> は
+        管理者ではない。パスの区切り文字を含む名前はここで拒否されます。<code>gfehd</code> も自分の
+        境界で拒否するからで、「正当なパーティション名とは何か」で食い違えば、
+        <code>../user/something</code> のような名前がオブジェクトストレージのルートの外にある
+        ボリュームを指せてしまいます。
+      </p>
+      <p class="doc-text">
+        パーティションの作成は<strong>管理者専用で、グラントでは到達できません</strong>。
+        権限ツリーの根であり、クォータ付きの btrfs サブボリュームを確保するものなので、
+        グラントを持つアカウントはハンドラーが動くより前に拒否されます。
+      </p>
+
+      <h3>閲覧</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        オブジェクトストレージの全体像です。どのパーティションが存在し、それぞれどのような状態かが分かります。
+      </p>
+
+      <h3>プリンシパル</h3>
+      <p class="doc-text">
+        パーティションの利用者です。作成には名前・親・上限を渡しますが、<strong>パスワードは
+        渡しません</strong>。UI が一度もパスワードを尋ねないのはそのためです。上限は gfeh の投影規則に
+        従い、Town OS の管理者なら <code>all</code>、それ以外は読み書きになります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/principals</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パーティション内のプリンシパルを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/add</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        親の下にプリンシパルを、上限を添えて作成します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/principals/remove</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        プリンシパルを削除します。
+      </p>
+
+      <h3>グラント</h3>
+      <p class="doc-text">
+        ACL のことです。<code>gfehd</code> は<strong>グラントをプリンシパルの上限まで切り詰めます</strong>。
+        ですからクライアントは、送った権限ではなく<em>返ってきた</em>権限を表示すべきです。
+        グラントが狭められたことを管理者が見て取れなければならないからです。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/grants</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        グラントを一覧します。一つのプリンシパルに絞ることもできます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/add</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        プリンシパルにアクセス権を与えます。レスポンスには実際に保存された権限が入ります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/grants/revoke</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        id を指定してグラントを取り消します。
+      </p>
+
+      <h3>公開</h3>
+      <p class="doc-text">
+        <code>/f/&lt;token&gt;</code> で提供される、公開されたファイルのリンクです。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/gfeh/exposures</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        パーティション内で公開されているリンクを一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/gfeh/exposures/withdraw</code>
+          <span class="auth-badge auth-grant">グラント</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        トークンを指定して公開リンクを取り下げ、その URL が解決しないようにします。
+      </p>
+    </div>
+  </section>
+
   <!-- DNS -->
   <section class="section alt-section">
     <div class="container">
@@ -1230,6 +1659,127 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
       <p class="doc-text">
         DNS サーバーを初期化または再起動し、インストール済みのパッケージをすべて登録します。
       </p>
+
+      <h3>ブロックリスト</h3>
+      <p class="doc-text">
+        互いに独立した二つのリストがあります。<strong>DNSBL</strong> は購読型で、rolodex が取得して
+        適用する上流のブロックリストです。これには許可リストが付いていて、上流のリストが何と言おうと
+        解決させたい名前を除外できます。<strong>ローカルのブロックリスト</strong>（RBL）は
+        この機器自身のリストで、一件ずつ編集します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        DNSBL の構成を取得します。どの上流ブロックリストを購読していて、どのように適用しているかが分かります。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        DNSBL の構成を置き換えます。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        購読中のブロックリストから除外されている名前を一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        購読中のブロックリストから、ある名前を除外します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/dnsbl/allowlist/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        許可リストの項目を取り除き、購読中のブロックリストがその名前に再び適用されるようにします。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/rbl/local</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        この機器自身のブロックリストの項目を一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/add</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ローカルのブロックリストに名前を追加します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/rbl/local/remove</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        ローカルのブロックリストから名前を取り除きます。
+      </p>
+
+      <h3>サービスごとの DNS 公開</h3>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method get">GET</span>
+          <code class="endpoint-path">/dns/services</code>
+          <span class="auth-badge auth-authenticated">認証済み</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        インストール済みのサービスを、それぞれが DNS に名前を公開しているかどうかとあわせて一覧します。
+      </p>
+
+      <div class="endpoint">
+        <div class="endpoint-header">
+          <span class="method post">POST</span>
+          <code class="endpoint-path">/dns/services/set</code>
+          <span class="auth-badge auth-admin">管理者</span>
+        </div>
+      </div>
+      <p class="doc-text">
+        あるサービスの DNS 公開を切り替えます。パッケージが、ネットワーク上の名前を主張せずに
+        動けるようにするためのものです。
+      </p>
     </div>
   </section>
 
@@ -1255,17 +1805,27 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         監視が構成されていない場合は <code>&lbrace;"status": "disabled"&rbrace;</code> を返します。
       </p>
 
-      <div class="endpoint">
-        <div class="endpoint-header">
-          <span class="method get">GET</span>
-          <code class="endpoint-path">/monitoring/grafana/*</code>
-          <span class="auth-badge auth-public">公開</span>
-        </div>
-      </div>
+      <h3>ダッシュボードのデータへの到達方法</h3>
       <p class="doc-text">
-        ローカルの Grafana インスタンスへのリバースプロキシで、URL のパスから
-        <code>/monitoring/grafana</code> のプレフィックスを取り除きます。監視が構成されていない
-        場合は 503 を返します。このエンドポイントは認証を経由しません。
+        <strong>システムコントローラーを通るリバースプロキシは存在しません。</strong>
+        監視データは専用のポート <strong>5308</strong> で提供され、ブラウザーはそのポートと直接やり取りします。
+        コントローラー自身のポート（5309）が担うのは <code>/monitoring/status</code> だけです。
+        5308 で何が待ち受けるかは、構成されたバックエンドによって決まります。
+      </p>
+      <ul class="doc-list">
+        <li>
+          <strong>uPlot モード</strong>（既定）—— socat のフォワーダーが Prometheus の HTTP API を
+          5308 に出し、UI は <code>/api/v1/query_range</code> を直接問い合わせて、自分でグラフを描きます。
+        </li>
+        <li>
+          <strong>Grafana モード</strong>—— podman のポートマッピングによって Grafana が 5308 で直接待ち受け、
+          UI はそれを iframe に埋め込みます。
+        </li>
+      </ul>
+      <p class="doc-text">
+        <code>TOWN_OS_MONITORING_PORT</code> はダッシュボードのポートを移動させ、
+        <code>TOWN_OS_PROMETHEUS_PORT</code> と <code>TOWN_OS_NODE_EXPORTER_PORT</code> は
+        二つのループバックのポートに対して同じ働きをします。
       </p>
     </div>
   </section>
@@ -1389,6 +1949,216 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
     </div>
   </section>
 
+  <!-- gfeh admin API -->
+  <section class="section">
+    <div class="container">
+      <h2 class="section-title" id="gfeh-admin">オブジェクトストレージ管理 API（gfeh）</h2>
+      <p class="doc-text">
+        ここまではすべて Town OS の API で、アプリケーションが普段使うべきものはそちらです。その下で、
+        各 <code>gfehd</code> パーティションは独自の管理面を持っています。JSON over HTTP ですが、
+        <strong>その Unix ソケットの上だけ</strong>で提供され、ポートで待ち受けることはありません。
+      </p>
+      <p class="doc-text">
+        この面には<strong>トークンも認証もありません</strong>。ソケットに対するファイルシステムの
+        パーミッション<em>そのもの</em>がアクセス制御であり、そこへ到達できる時点で、その機器の
+        root であることを意味します。ソケットが btrfs のボリュームの上にあるのは、
+        <code>gfehd</code> のコンテナーとシステムコントローラーのコンテナーの双方から見える
+        唯一のファイルシステムがそこだからです。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>呼び出し</th><th>メソッドとパス</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>Health</code></td><td><code>GET /v1/health</code></td><td>生存確認であり、レディネスプローブでもあります。</td></tr>
+            <tr><td><code>Names</code></td><td><code>GET /v1/names</code></td><td>このパーティションが公開したい名前。</td></tr>
+            <tr><td><code>ListPrincipals</code></td><td><code>GET /v1/principals</code></td><td>パーティションの利用者のフォレスト。</td></tr>
+            <tr><td><code>CreatePrincipal</code></td><td><code>POST /v1/principals</code></td><td><code>name</code>、<code>parent</code>、<code>ceiling</code> を受け取ります。パスワードはありません。</td></tr>
+            <tr><td><code>DeletePrincipal</code></td><td><code>DELETE /v1/principals/&lt;name&gt;</code></td><td>プリンシパルを取り除きます。</td></tr>
+            <tr><td><code>ListGrants</code></td><td><code>GET /v1/grants?principal=</code></td><td>ACL。一つのプリンシパルに絞ることもできます。</td></tr>
+            <tr><td><code>CreateGrant</code></td><td><code>POST /v1/grants</code></td><td>アクセス権を与えます。プリンシパルの上限まで切り詰められます。</td></tr>
+            <tr><td><code>RevokeGrant</code></td><td><code>DELETE /v1/grants/&lt;id&gt;</code></td><td>グラントを取り消します。</td></tr>
+            <tr><td><code>ListExposures</code></td><td><code>GET /v1/exposures</code></td><td>公開された <code>/f/&lt;token&gt;</code> のリンク。</td></tr>
+            <tr><td><code>WithdrawExposure</code></td><td><code>DELETE /v1/exposures/&lt;token&gt;</code></td><td>公開リンクの提供をやめます。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="doc-text">
+        <code>gfehd</code> は内部のエラーを HTTP のステータスコード（404、409、400）に対応付け、
+        Go のクライアントがそれをセンチネルエラーへ戻します。おかげで <code>errors.Is</code> が
+        ソケットの境界をまたいでも機能します。
+      </p>
+      <p class="doc-text">
+        <code>&lt;network&gt;</code> という名前のネットワークについて、パーティションのファイルの置き場所は次のとおりです。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>対象</th><th>場所</th></tr></thead>
+          <tbody>
+            <tr><td>パーティションのデータ</td><td><code>&lt;btrfsBase&gt;/gfeh/&lt;network&gt;</code>、<code>/data/&lt;network&gt;</code> にマウント</td></tr>
+            <tr><td>構成</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/gfehd.yaml</code></td></tr>
+            <tr><td>管理ソケット</td><td><code>&lt;btrfsBase&gt;/gfeh-control/&lt;network&gt;/run/admin.sock</code></td></tr>
+            <tr><td>ユニット</td><td><code>town-os-system--gfeh-&lt;network&gt;.service</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- rolodex gRPC API -->
+  <section class="section alt-section">
+    <div class="container">
+      <h2 class="section-title" id="rolodex-grpc">DNS gRPC API（rolodex）</h2>
+      <p class="doc-text">
+        上にある <code>/dns/*</code> のエンドポイントは、Town OS から見た DNS です。rolodex 自体は
+        <strong>gRPC</strong> で管理され、Unix ソケット（既定では
+        <code>/var/run/rolodex-dns.sock</code>）に、必要なら TCP にも公開されます。初期状態では
+        ソケットが唯一の管理経路で、<code>grpc.tcp_bind</code> は空です。
+      </p>
+      <p class="doc-text">
+        サービスは <code>rolodex_dns.RolodexDnsService</code> の一つだけで、74 のメソッドを持ちます。
+        パスはすべて <code>/rolodex_dns.RolodexDnsService/&lt;メソッド名&gt;</code> です。メッセージの
+        完全な定義は rolodex-dns リポジトリーの <code>proto/rolodex_dns.proto</code> にあります。
+        以下のまとまりは、それらのメソッドが何を扱うのかを示したものです。
+      </p>
+
+      <h3>レコードと解決</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddRecord</code></td><td>ローカルのデータベースに DNS レコードを追加します。</td></tr>
+            <tr><td><code>RemoveRecord</code></td><td>ローカルのデータベースからレコードを取り除きます。</td></tr>
+            <tr><td><code>ListRecords</code></td><td>任意のフィルターでローカルのデータベースを問い合わせます。</td></tr>
+            <tr><td><code>SetForwarders</code></td><td>上位のフォワーダーを構成します。</td></tr>
+            <tr><td><code>SetResolutionMode</code> / <code>GetResolutionMode</code></td><td>解決モードを実行時に変更し、読み取ります。</td></tr>
+            <tr><td><code>GetSearchDomains</code></td><td>あるクライアント IP に対する検索ドメイン。</td></tr>
+            <tr><td><code>FlushCache</code></td><td>DNS とブロックリストのキャッシュを消します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>権威ゾーン</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddAuthoritativeZone</code></td><td>ゾーンを権威ゾーンとして宣言します。</td></tr>
+            <tr><td><code>RemoveAuthoritativeZone</code></td><td>ゾーンを権威ゾーンの一覧から外します。</td></tr>
+            <tr><td><code>ListAuthoritativeZones</code></td><td>権威ゾーンを一覧します。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ネットワークスコープ</h3>
+      <p class="doc-text">
+        スコープは rolodex が「誰が何を解決できるか」を分ける仕組みで、Town OS のネットワークが
+        対応付けられる先でもあります。IP とスコープの結び付きには TTL があり、更新が必要です。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>CreateNetworkScope</code> / <code>DeleteNetworkScope</code> / <code>ListNetworkScopes</code></td><td>スコープを管理します。削除すると、そのレコードと結び付きも一緒に消えます。</td></tr>
+            <tr><td><code>JoinNetwork</code> / <code>LeaveNetwork</code></td><td>クライアント IP をスコープに結び付け、あるいは解除します。</td></tr>
+            <tr><td><code>GetNetworkAssociations</code></td><td>IP とスコープの結び付きを読み取ります。</td></tr>
+            <tr><td><code>AddScopedRecord</code> / <code>RemoveScopedRecord</code> / <code>ListScopedRecords</code></td><td>あるスコープの中だけに存在するレコード。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>スコープの TLD</h3>
+      <p class="doc-text">
+        ネットワークごとに所有され、ネットワーク間で分割されるゾーンです。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddScopeTld</code> / <code>RemoveScopeTld</code> / <code>ListScopeTlds</code></td><td>全体で一意な TLD を、あるスコープの所有として登録します。</td></tr>
+            <tr><td><code>SetScopeTldForwarders</code> / <code>ListScopeTldForwarders</code></td><td>スコープの TLD に対するピアのフォワーダー。</td></tr>
+            <tr><td><code>ListScopeTldListeners</code></td><td>スコープの TLD に紐づく ingress の DNS リスナー。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ブロックリスト</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDnsblConfig</code> / <code>GetDnsblConfig</code></td><td>購読型のドメインブロックリストの構成。</td></tr>
+            <tr><td><code>AddDnsblAllowlistEntry</code></td><td>ある名前<em>とそのサブドメイン</em>を、名前によるブロック判定から除外します。</td></tr>
+            <tr><td><code>RemoveDnsblAllowlistEntry</code> / <code>ListDnsblAllowlistEntries</code></td><td>許可リストを管理します。</td></tr>
+            <tr><td><code>AddLocalBlocklistEntry</code> / <code>RemoveLocalBlocklistEntry</code> / <code>ListLocalBlocklistEntries</code></td><td>この機器自身のブロックリスト。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>暗号化されたトランスポート</h3>
+      <p class="doc-text">
+        どのトランスポートにも、設定と取得の組があります。DoH は HTTP/2 を提供し、
+        <code>enable_h3</code> が有効なときは同じアドレス・ポート・証明書で HTTP/3 も提供します。
+      </p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>SetDotConfig</code> / <code>GetDotConfig</code></td><td>DNS over TLS。</td></tr>
+            <tr><td><code>SetDohConfig</code> / <code>GetDohConfig</code></td><td>DNS over HTTPS。HTTP/3 を含みます。</td></tr>
+            <tr><td><code>SetDoqConfig</code> / <code>GetDoqConfig</code></td><td>DNS over QUIC。</td></tr>
+            <tr><td><code>SetProxyConfig</code> / <code>GetProxyConfig</code></td><td>HTTP プロキシーの構成。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DNSSEC・DANE・ACME</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GenerateDnssecKey</code> / <code>ListDnssecKeys</code> / <code>DeleteDnssecKey</code></td><td>ゾーンごとの DNSSEC の鍵。</td></tr>
+            <tr><td><code>GetDsRecords</code></td><td>ゾーンの DS レコード。</td></tr>
+            <tr><td><code>SignZone</code></td><td>ゾーンをその DNSSEC の鍵で署名します。</td></tr>
+            <tr><td><code>GenerateTlsaRecord</code> / <code>ListTlsaRecords</code></td><td>証明書から生成する TLSA レコード。</td></tr>
+            <tr><td><code>GenerateDaneRootCa</code></td><td>DANE 用のルート CA 証明書を生成します。</td></tr>
+            <tr><td><code>EnsureZoneCa</code></td><td>ゾーンに CA があることを確かめます。</td></tr>
+            <tr><td><code>RequestAcmeCert</code> / <code>GetAcmeStatus</code></td><td>ACME DNS-01 で証明書を要求し、その状態を読み取ります。</td></tr>
+            <tr><td><code>CreateEabCredential</code> / <code>RemoveEabCredential</code></td><td>ゾーンに限定した External Account Binding（kid と HMAC）を発行します。ACME クライアントの newAccount で使います。</td></tr>
+            <tr><td><code>ListAcmeAccounts</code> / <code>ListAcmeCertificates</code></td><td>登録済みの ACME アカウントと発行済みの証明書。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>DHCP</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>AddDhcpPool</code> / <code>RemoveDhcpPool</code> / <code>ListDhcpPools</code></td><td>スコープ内で割り当てるアドレスプール。</td></tr>
+            <tr><td><code>ListDhcpLeases</code> / <code>DeleteDhcpLease</code></td><td>リース。削除は MAC アドレスで行います。</td></tr>
+            <tr><td><code>SetDhcpCertOption</code> / <code>RemoveDhcpCertOption</code> / <code>ListDhcpCertOptions</code></td><td>スコープに対し DHCP でクライアントへ配る証明書。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>診断と調整</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr><th>メソッド</th><th>用途</th></tr></thead>
+          <tbody>
+            <tr><td><code>GetCacheStats</code> / <code>FlushDnsCache</code></td><td>キャッシュの統計と、応答キャッシュの消去。</td></tr>
+            <tr><td><code>GetQueryLatencyStats</code></td><td>上位への問い合わせのレイテンシー。</td></tr>
+            <tr><td><code>SetTtlDriftConfig</code> / <code>GetTtlDriftConfig</code></td><td>TTL ドリフトの構成。</td></tr>
+            <tr><td><code>SetTrackedTlds</code> / <code>ListTrackedTlds</code></td><td>TLD 別メトリクスの背後にある追跡対象 TLD の一覧。保存されたものと実効のもの。</td></tr>
+            <tr><td><code>SetDns64Config</code> / <code>GetDns64Config</code></td><td>DNS64 の構成。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
   <!-- Client Libraries -->
   <section class="section">
     <div class="container">
@@ -1465,7 +2235,6 @@ client := systemcontroller.FromClient(http.DefaultClient, "http://localhost:5309
             <tr><td><code>ListInstalled(ctx, params)</code></td><td>インストール済みパッケージを <code>"repo/name@version"</code> として返します。</td></tr>
             <tr><td><code>GetResponses(ctx, repo, name, version)</code></td><td>保存された設定の回答。</td></tr>
             <tr><td><code>GetInstalledInfo(ctx, repo, name, version)</code></td><td>質問、回答、ノートを含む詳細情報。</td></tr>
-            <tr><td><code>ListTimezones(ctx)</code></td><td>利用できる IANA のタイムゾーン名。</td></tr>
           </tbody>
         </table>
       </div>
@@ -1881,6 +2650,14 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
     background: #6b2737;
     color: #f4a5b8;
   }
+  .auth-grant {
+    background: #3d3a1f;
+    color: #e0d48a;
+  }
+  .auth-localhost {
+    background: #1f3d33;
+    color: #8ad4b8;
+  }
 
   .format-tags {
     display: flex;
@@ -1944,6 +2721,18 @@ TOWN_OS_REPO_PASSWORD=&lt;password&gt;</code></pre>
   }
 
   .prereq-list li {
+    margin-bottom: 0.5rem;
+  }
+
+  .doc-list {
+    list-style: disc;
+    padding-left: 1.5rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    line-height: 1.7;
+  }
+
+  .doc-list li {
     margin-bottom: 0.5rem;
   }
 </style>

@@ -69,6 +69,51 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
         </div>
 
         <div class="card concept-card">
+          <h3>網路</h3>
+          <p>
+            <strong>網路</strong>是一個具名的 WireGuard 疊加網路，並與一個 DNS TLD 配對。套件安裝到某個網路中，
+            對等裝置加入這個網路，而 TLD 決定誰能解析什麼。<code>home</code> 網路始終存在、無法移除，
+            而且只提供 DNS——它沒有通道，並且在它上面的對等裝置註冊會被拒絕，因為每個帳號本來就屬於它，
+            單憑成員身分不應成為進入通道的途徑。其他網路則會取得 WireGuard 介面，以及一個由本機自身識別推導出的子網路，
+            因此同時加入兩台 Town OS 主機的裝置永遠不會遇到衝突。停用網路只會關掉傳輸層：
+            遠端存取中斷，而本地 DNS 與容器照常執行。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>Ingress</h3>
+          <p>
+            一扇共用的前門。單一 Caddy 執行個體為整台主機持有 <code>:443</code> 與 <code>:80</code>，
+            並且完全依據 SNI 和 Host 決定你連到哪個服務——沒有依服務劃分的監聽器，也沒有 <code>bind</code> 指令，
+            所以區域網路用戶端和疊加網路對等裝置命中同一個 socket、拿到同一張憑證、被代理到同一個容器。
+            套件的名稱是一個字串，同時以四種方式被使用：A 記錄、憑證的 SAN、TLSA 的擁有者，以及 ingress 的虛擬主機。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>TLS 與本地 CA</h3>
+          <p>
+            Town OS 執行自己的憑證授權單位，為套件所宣告的名稱簽發憑證，
+            因此不需要公開憑證、也不會有瀏覽器警告，服務就能透過 HTTPS 存取。
+            CA 憑證可從 <code>/tls/ca.crt</code> 下載——只要信任它一次，所有本地名稱就都能正常運作。
+            憑證在背景續期，而不是在開機時續期；變更 TLD 會重新簽發依賴於它的名稱。
+          </p>
+        </div>
+
+        <div class="card concept-card">
+          <h3>物件儲存</h3>
+          <p>
+            Town OS 透過 <strong>gfeh</strong> 提供物件儲存。一個<strong>分割區</strong>是一個 btrfs 子磁碟區，
+            擁有自己的常駐程式和自己的一套使用者，而且每個網路恰好對應一個分割區——
+            因此某個網路中的使用者、權限或已發布連結，在另一個網路中毫無意義。每個分割區提供四種檢視：
+            S3、純 HTTP、類似雲端硬碟的瀏覽介面，以及 IPFS。使用者是以樹狀結構組織的<strong>主體</strong>；
+            存取權限是一項<strong>授權</strong>，並且始終會收窄到所授予主體的權限上限；
+            而<strong>已發布連結</strong>是一次可以事後撤回的公開曝光。任何分割區都不會發布主機連接埠——
+            ingress 透過容器名稱存取它們。
+          </p>
+        </div>
+
+        <div class="card concept-card">
           <h3>儲存（Storage）</h3>
           <p>
             所有資料都存放在 btrfs 子磁碟區上，並依套件彼此隔離。每個磁碟區都有容器內的掛載點、
